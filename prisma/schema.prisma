@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model DailyPlan {
+  id            String    @id @default(cuid())
+  date          DateTime  @unique @db.Date
+  generatedAt   DateTime  @default(now())
+  content       Json
+  edited        Boolean   @default(false)
+  editedContent Json?
+  session       Session?
+
+  @@map("daily_plans")
+}
+
+model Session {
+  id          String        @id @default(cuid())
+  date        DateTime      @db.Date
+  dailyPlanId String        @unique
+  dailyPlan   DailyPlan     @relation(fields: [dailyPlanId], references: [id])
+  startedAt   DateTime?
+  completedAt DateTime?
+  status      SessionStatus @default(PENDING)
+  phases      PhaseRating[]
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("sessions")
+}
+
+model PhaseRating {
+  id           String   @id @default(cuid())
+  sessionId    String
+  session      Session  @relation(fields: [sessionId], references: [id])
+  phase        Phase
+  completed    Boolean  @default(false)
+  ratings      Json
+  timeSpentSec Int?
+  createdAt    DateTime @default(now())
+
+  @@unique([sessionId, phase])
+  @@map("phase_ratings")
+}
+
+enum SessionStatus {
+  PENDING
+  PARTIAL
+  COMPLETE
+  MISSED
+}
+
+enum Phase {
+  DAY_REVIEW
+  READ_ALOUD
+  LANGUAGE
+  WRITING
+  WORK_QUALITY
+  NEXT_DAY_PREP
+}
