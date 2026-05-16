@@ -7,7 +7,9 @@
       "Bash(npm --version)",
       "Bash(mkdir -p /home/shantanu/ap/app/api/plans/today /home/shantanu/ap/app/api/plans/\\\\[date\\\\] /home/shantanu/ap/app/api/generate /home/shantanu/ap/app/api/sessions /home/shantanu/ap/app/api/sessions/\\\\[date\\\\]/phase /home/shantanu/ap/app/api/sessions/\\\\[date\\\\]/complete /home/shantanu/ap/app/api/metrics)",
       "Bash(mkdir -p \"/home/shantanu/ap/app/session/[date]\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "/home/shantanu/ap/app/api/plans",

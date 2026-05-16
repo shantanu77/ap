@@ -1,20 +1,29 @@
 import { format, getWeek, getDay } from "date-fns";
 
 export function toDateString(date: Date): string {
-  return format(date, "yyyy-MM-dd");
+  // Prisma returns DATE columns as UTC midnight — extract the UTC date string
+  return date.toISOString().split("T")[0];
 }
 
 export function todayString(): string {
-  return toDateString(new Date());
+  // Always return date in IST (UTC+5:30)
+  const now = new Date();
+  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+  return ist.toISOString().split("T")[0];
 }
 
 export function parseDate(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  // Use UTC midnight to avoid timezone-shift issues with MySQL DATE columns
+  return new Date(dateStr + "T00:00:00.000Z");
 }
 
 export function formatDisplayDate(dateStr: string): string {
-  return format(parseDate(dateStr), "EEEE, MMMM d, yyyy");
+  // Parse date parts directly to avoid TZ shift in format()
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return `${days[dt.getUTCDay()]}, ${months[m - 1]} ${d}, ${y}`;
 }
 
 // Topic rotation based on ISO week number
