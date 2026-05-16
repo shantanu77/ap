@@ -9,7 +9,8 @@
       "Bash(mkdir -p \"/home/shantanu/ap/app/session/[date]\")",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(chmod +x /home/shantanu/ap/deploy.sh)"
     ],
     "additionalDirectories": [
       "/home/shantanu/ap/app/api/plans",
