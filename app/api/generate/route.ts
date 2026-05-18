@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOrCreatePlan, generatePlansUpTo } from "@/lib/generate";
+import { getOrCreatePlan, generatePlansUpTo, regeneratePlanForDate } from "@/lib/generate";
 import { todayString } from "@/lib/utils";
 
 function isAuthorized(req: Request): boolean {
@@ -19,6 +19,8 @@ export async function POST(req: Request) {
 
   const url = new URL(req.url);
   const until = url.searchParams.get("until");
+  const force = url.searchParams.get("force") === "1";
+  const date = url.searchParams.get("date") ?? todayString();
 
   try {
     if (until) {
@@ -26,8 +28,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ results });
     }
 
-    const plan = await getOrCreatePlan(todayString());
-    return NextResponse.json({ success: true, date: todayString(), planId: plan.id });
+    const plan = force
+      ? await regeneratePlanForDate(date)
+      : await getOrCreatePlan(date);
+
+    return NextResponse.json({ success: true, date, planId: plan.id, regenerated: force });
   } catch (err) {
     console.error("Generation failed:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

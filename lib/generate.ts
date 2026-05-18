@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { prisma } from "./prisma";
-import { getTopicForDate, getLanguageForDate, parseDate, toDateString } from "./utils";
+import { formatDisplayDate, getTopicForDate, getLanguageForDate, parseDate, todayString } from "./utils";
 import type { DailyContent } from "@/types";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -8,14 +8,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 function buildPrompt(dateStr: string): string {
   const topic = getTopicForDate(dateStr);
   const language = getLanguageForDate(dateStr);
-  const date = parseDate(dateStr);
-  const dayName = date.toLocaleDateString("en-IN", { weekday: "long" });
-  const fullDate = date.toLocaleDateString("en-IN", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const fullDate = formatDisplayDate(dateStr);
 
   const languageInstructions =
     language === "review"
@@ -110,18 +103,34 @@ export async function getOrCreatePlan(dateStr: string) {
   });
 }
 
+export async function regeneratePlanForDate(dateStr: string) {
+  const date = parseDate(dateStr);
+  const content = await generateContentForDate(dateStr);
+
+  return prisma.dailyPlan.upsert({
+    where: { date },
+    update: {
+      content: content as object,
+      generatedAt: new Date(),
+    },
+    create: {
+      date,
+      content: content as object,
+    },
+  });
+}
+
 // Generate plans for a range of dates (used for bulk pre-generation)
 export async function generatePlansUpTo(untilDateStr: string) {
-  const today = new Date();
   const until = parseDate(untilDateStr);
   const results: string[] = [];
 
-  const current = new Date(today);
+  const current = parseDate(todayString());
   while (current <= until) {
-    const dateStr = toDateString(current);
+    const dateStr = current.toISOString().split("T")[0];
     try {
       const existing = await prisma.dailyPlan.findUnique({
-        where: { date: current },
+        where: { date: parseDate(dateStr) },
       });
       if (!existing) {
         await getOrCreatePlan(dateStr);
@@ -132,7 +141,7 @@ export async function generatePlansUpTo(untilDateStr: string) {
     } catch (err) {
       results.push(`✗ Failed ${dateStr}: ${err}`);
     }
-    current.setDate(current.getDate() + 1);
+    current.setUTCDate(current.getUTCDate() + 1);
   }
 
   return results;
