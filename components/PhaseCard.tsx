@@ -278,7 +278,11 @@ export default function PhaseCard({
       {/* Rating form */}
       {isActive && showRating && !isDone && (
         <div className="mt-4">
-          <RatingForm phase={phase.id} onSave={handleSave} />
+          <RatingForm
+            phase={phase.id}
+            writingLinesRequired={content.writing.lines_required}
+            onSave={handleSave}
+          />
         </div>
       )}
 

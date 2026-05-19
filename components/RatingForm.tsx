@@ -62,10 +62,11 @@ const YesNo = ({
 
 interface RatingFormProps {
   phase: PhaseId;
+  writingLinesRequired?: number;
   onSave: (ratings: object) => void;
 }
 
-export default function RatingForm({ phase, onSave }: RatingFormProps) {
+export default function RatingForm({ phase, writingLinesRequired = 3, onSave }: RatingFormProps) {
   const [mood, setMood] = useState(3);
   const [engagement, setEngagement] = useState(3);
   const [highlights, setHighlights] = useState("");
@@ -84,6 +85,7 @@ export default function RatingForm({ phase, onSave }: RatingFormProps) {
   const [bagPacked, setBagPacked] = useState<boolean | null>(null);
   const [goalSet, setGoalSet] = useState<boolean | null>(null);
   const [goal, setGoal] = useState("");
+  const writingOptions = Array.from({ length: writingLinesRequired + 1 }, (_, index) => index);
 
   const handleSave = () => {
     let ratings: object = {};
@@ -178,9 +180,11 @@ export default function RatingForm({ phase, onSave }: RatingFormProps) {
       {phase === "WRITING" && (
         <>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600">Lines written (out of {3})</label>
+            <label className="text-sm font-medium text-gray-600">
+              Lines written (out of {writingLinesRequired})
+            </label>
             <div className="flex gap-2">
-              {[0, 1, 2, 3, 4, 5].map((n) => (
+              {writingOptions.map((n) => (
                 <button
                   key={n}
                   onClick={() => setLinesWritten(n)}
