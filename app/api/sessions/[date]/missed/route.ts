@@ -48,14 +48,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
       notify?: boolean;
     };
     const date = parseDate(dateStr);
-    const plan =
-      (await prisma.dailyPlan.findUnique({ where: { date } })) ??
-      (await prisma.dailyPlan.create({
-        data: {
-          date,
-          content: missedPlanContent(dateStr) as object,
-        },
-      }));
+    const plan = await prisma.dailyPlan.upsert({
+      where: { date },
+      create: {
+        date,
+        content: missedPlanContent(dateStr) as object,
+      },
+      update: {},
+    });
 
     const session = await prisma.session.upsert({
       where: { dailyPlanId: plan.id },
@@ -107,6 +107,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
               "",
               `${config.studentName} needs to be told clearly that skipping the scheduled learning session is not acceptable. The missed work should be completed, and another skipped session will be escalated according to the parent configuration.`,
             ].join("\n"),
+            timeoutMs: 12_000,
           });
           emailSent = true;
         } catch (error) {

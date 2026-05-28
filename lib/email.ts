@@ -7,6 +7,7 @@ interface SendEmailInput {
   cc?: string[];
   subject: string;
   text: string;
+  timeoutMs?: number;
 }
 
 function readResponse(socket: tls.TLSSocket): Promise<string> {
@@ -56,13 +57,18 @@ export async function sendGmailSmtpEmail(input: SendEmailInput): Promise<void> {
   const recipients = [...input.to, ...(input.cc ?? [])];
   if (recipients.length === 0) throw new Error("No email recipients configured");
 
+  const timeoutMs = input.timeoutMs ?? 12_000;
   const socket = tls.connect({
     host: "smtp.gmail.com",
     port: 465,
     servername: "smtp.gmail.com",
   });
+  socket.setTimeout(timeoutMs);
 
   try {
+    socket.on("timeout", () => {
+      socket.destroy(new Error(`SMTP connection timed out after ${timeoutMs}ms`));
+    });
     await readResponse(socket);
     await command(socket, "EHLO localhost", [250]);
     await command(socket, "AUTH LOGIN", [334]);
