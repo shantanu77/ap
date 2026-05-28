@@ -1,3 +1,4 @@
+import net from "node:net";
 import tls from "node:tls";
 
 interface SendEmailInput {
@@ -10,7 +11,9 @@ interface SendEmailInput {
   timeoutMs?: number;
 }
 
-function readResponse(socket: tls.TLSSocket): Promise<string> {
+type SmtpSocket = net.Socket | tls.TLSSocket;
+
+function readResponse(socket: SmtpSocket): Promise<string> {
   return new Promise((resolve, reject) => {
     let buffer = "";
     const onData = (chunk: Buffer) => {
@@ -35,7 +38,7 @@ function readResponse(socket: tls.TLSSocket): Promise<string> {
   });
 }
 
-async function command(socket: tls.TLSSocket, value: string, expected: number[]): Promise<string> {
+async function command(socket: SmtpSocket, value: string, expected: number[]): Promise<string> {
   socket.write(`${value}\r\n`);
   const response = await readResponse(socket);
   const code = Number.parseInt(response.slice(0, 3), 10);
@@ -58,10 +61,9 @@ export async function sendGmailSmtpEmail(input: SendEmailInput): Promise<void> {
   if (recipients.length === 0) throw new Error("No email recipients configured");
 
   const timeoutMs = input.timeoutMs ?? 12_000;
-  const socket = tls.connect({
+  let socket: SmtpSocket = net.connect({
     host: "smtp.gmail.com",
-    port: 465,
-    servername: "smtp.gmail.com",
+    port: 587,
   });
   socket.setTimeout(timeoutMs);
 
@@ -70,6 +72,22 @@ export async function sendGmailSmtpEmail(input: SendEmailInput): Promise<void> {
       socket.destroy(new Error(`SMTP connection timed out after ${timeoutMs}ms`));
     });
     await readResponse(socket);
+    await command(socket, "EHLO localhost", [250]);
+    await command(socket, "STARTTLS", [220]);
+
+    socket = tls.connect({
+      socket,
+      servername: "smtp.gmail.com",
+    });
+    socket.setTimeout(timeoutMs);
+    socket.on("timeout", () => {
+      socket.destroy(new Error(`SMTP connection timed out after ${timeoutMs}ms`));
+    });
+    await new Promise<void>((resolve, reject) => {
+      socket.once("secureConnect", resolve);
+      socket.once("error", reject);
+    });
+
     await command(socket, "EHLO localhost", [250]);
     await command(socket, "AUTH LOGIN", [334]);
     await command(socket, Buffer.from(input.from).toString("base64"), [334]);
