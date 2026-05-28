@@ -24,8 +24,9 @@ interface PlanData {
 
 interface SessionData {
   id: string;
-  status: string;
+  status: "PENDING" | "PARTIAL" | "COMPLETE" | "MISSED";
   phases: PhaseRatingRecord[];
+  notes?: string | null;
 }
 
 export default function SessionPage() {
@@ -42,6 +43,8 @@ export default function SessionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [markingMissed, setMarkingMissed] = useState(false);
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
 
   // Load plan and existing session
   useEffect(() => {
@@ -63,6 +66,10 @@ export default function SessionPage() {
           if (sessData) {
             setSession(sessData);
             setSessionStarted(true);
+            if (sessData.status === "MISSED") {
+              setPhaseStatuses(PHASES.map(() => "locked"));
+              return;
+            }
             // Reconstruct phase statuses from existing ratings
             const statuses: PhaseStatus[] = PHASES.map((phase) => {
               const done = sessData.phases.find(
@@ -145,8 +152,38 @@ export default function SessionPage() {
     [dateStr]
   );
 
+  const handleMarkMissed = useCallback(async () => {
+    setMarkingMissed(true);
+    setWarningMessage(null);
+    try {
+      const res = await fetch(`/api/sessions/${dateStr}/missed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: "Class skipped / session not attended.",
+          notify: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to mark missed");
+      setSession(data.session);
+      setSessionStarted(true);
+      setPhaseStatuses(PHASES.map(() => "locked"));
+      setWarningMessage(
+        data.emailSent
+          ? "Skipped class marked. Warning email sent to the configured parent account."
+          : `Skipped class marked. Warning email not sent: ${data.emailError || "email is not configured"}.`
+      );
+    } catch (err) {
+      setWarningMessage(err instanceof Error ? err.message : "Failed to mark skipped class.");
+    } finally {
+      setMarkingMissed(false);
+    }
+  }, [dateStr]);
+
   const completedCount = phaseStatuses.filter((s) => s === "done").length;
   const allDone = completedCount === PHASES.length;
+  const isMissed = session?.status === "MISSED";
   const content = plan?.editedContent ?? plan?.content;
 
   if (loading) {
@@ -215,6 +252,21 @@ export default function SessionPage() {
         </div>
       </div>
 
+      {warningMessage && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800">
+          {warningMessage}
+        </div>
+      )}
+
+      {isMissed && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-center">
+          <p className="font-bold text-red-800 text-lg">Skipped Class Recorded</p>
+          <p className="text-red-600 text-sm mt-1">
+            This day counts as absent in reports and attendance graphs.
+          </p>
+        </div>
+      )}
+
       {/* All-done message */}
       {allDone && (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center">
@@ -236,6 +288,26 @@ export default function SessionPage() {
         </div>
       )}
 
+      {isToday && !allDone && !isMissed && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-red-100">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-gray-800 text-sm">Skipped class?</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Mark today absent and send the configured warning email.
+              </p>
+            </div>
+            <button
+              onClick={handleMarkMissed}
+              disabled={markingMissed}
+              className="shrink-0 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold disabled:opacity-60"
+            >
+              {markingMissed ? "Sending..." : "Mark Skipped"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Phase cards */}
       <div className="space-y-4">
         {PHASES.map((phase, idx) => {
@@ -249,7 +321,7 @@ export default function SessionPage() {
               content={content}
               onActivate={() => handleActivate(idx)}
               onSave={(ratings, time) => handleSave(idx, ratings, time)}
-              isReadOnly={!isToday}
+              isReadOnly={!isToday || isMissed}
             />
           );
         })}

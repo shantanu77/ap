@@ -1,12 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
-import { WritingChart, LanguageChart, DisciplineChart } from "@/components/MetricCharts";
+import { WritingChart, LanguageChart, DisciplineChart, AttendanceChart } from "@/components/MetricCharts";
 
 interface MetricsData {
   daily: Array<{
     date: string;
     status: string;
+    absent: boolean;
+    completedPhaseCount: number;
+    incompleteTaskCount: number;
+    incompleteTasks: string[];
     writingLines: number | null;
+    writingLinesRequired: number | null;
+    writingCompletionRate: number | null;
     writingLegibility: number | null;
     writingEffort: number | null;
     languageConfidence: number | null;
@@ -19,6 +25,9 @@ interface MetricsData {
   streak: number;
   totalSessions: number;
   completedSessions: number;
+  attendedSessions: number;
+  absentSessions: number;
+  incompleteTaskDays: number;
   attendanceRate: number;
 }
 
@@ -69,10 +78,12 @@ export default function DashboardPage() {
   }
 
   const avgWritingLines =
-    metrics.daily.filter((d) => d.writingLines !== null).length > 0
+    metrics.daily.filter((d) => d.writingCompletionRate !== null).length > 0
       ? (
-          metrics.daily.filter((d) => d.writingLines !== null).reduce((s, d) => s + (d.writingLines ?? 0), 0) /
-          metrics.daily.filter((d) => d.writingLines !== null).length
+          metrics.daily
+            .filter((d) => d.writingCompletionRate !== null)
+            .reduce((s, d) => s + (d.writingCompletionRate ?? 0), 0) /
+          metrics.daily.filter((d) => d.writingCompletionRate !== null).length
         ).toFixed(1)
       : "—";
 
@@ -102,20 +113,26 @@ export default function DashboardPage() {
         <StatCard
           label="Attendance"
           value={`${metrics.attendanceRate}%`}
-          sub={`${metrics.completedSessions} / ${metrics.totalSessions} sessions`}
+          sub={`${metrics.attendedSessions} / ${metrics.totalSessions} days`}
           color="bg-emerald-600"
         />
         <StatCard
-          label="Avg Writing Lines"
-          value={avgWritingLines}
-          sub="lines per session"
-          color="bg-green-600"
+          label="Absences"
+          value={metrics.absentSessions}
+          sub="missed tracked days"
+          color="bg-red-600"
         />
         <StatCard
           label="Avg Language Confidence"
           value={avgConfidence}
           sub="out of 5"
           color="bg-orange-500"
+        />
+        <StatCard
+          label="Incomplete Task Days"
+          value={metrics.incompleteTaskDays}
+          sub={`avg writing ${avgWritingLines}%`}
+          color="bg-slate-700"
         />
       </div>
 
@@ -125,13 +142,23 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {metrics.daily.length > 0 && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <h2 className="font-semibold text-gray-700 mb-4">Attendance & Incomplete Work</h2>
+          <AttendanceChart data={metrics.daily} />
+          <p className="text-xs text-gray-400 mt-2 text-center">
+            Missed days and incomplete-task days remain visible in reports.
+          </p>
+        </div>
+      )}
+
       {/* Writing chart */}
-      {metrics.daily.some((d) => d.writingLines !== null) && (
+      {metrics.daily.some((d) => d.writingCompletionRate !== null || d.absent) && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <h2 className="font-semibold text-gray-700 mb-4">✏️ Writing Progress</h2>
           <WritingChart data={metrics.daily} />
           <p className="text-xs text-gray-400 mt-2 text-center">
-            Lines written, legibility, and effort (scale 0–5)
+            Writing completion, legibility, and effort normalized to 0-100.
           </p>
         </div>
       )}
@@ -155,6 +182,31 @@ export default function DashboardPage() {
           <p className="text-xs text-gray-400 mt-2 text-center">
             Discipline focus and homework completeness (scale 1–5)
           </p>
+        </div>
+      )}
+
+      {metrics.daily.some((d) => d.absent || d.incompleteTaskCount > 0) && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <h2 className="font-semibold text-gray-700 mb-4">Recent Report Flags</h2>
+          <div className="space-y-2">
+            {metrics.daily
+              .filter((d) => d.absent || d.incompleteTaskCount > 0)
+              .slice(-7)
+              .reverse()
+              .map((day) => (
+                <div key={day.date} className="rounded-xl border border-gray-100 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-gray-800">{day.date}</p>
+                    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                      day.absent ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {day.absent ? "Absent" : `${day.incompleteTaskCount} incomplete`}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{day.incompleteTasks.join(", ")}</p>
+                </div>
+              ))}
+          </div>
         </div>
       )}
 

@@ -1,65 +1,42 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { toDateString } from "@/lib/utils";
-import { subDays } from "date-fns";
+import { buildDailyInsights, defaultInsightsStart } from "@/lib/sessionInsights";
 
 export async function GET() {
   try {
-    const since90 = subDays(new Date(), 90);
+    const since90 = defaultInsightsStart();
 
     const sessions = await prisma.session.findMany({
       where: { date: { gte: since90 } },
-      include: { phases: true },
+      include: { phases: true, dailyPlan: true },
       orderBy: { date: "asc" },
     });
 
-    const daily = sessions.map((s) => {
-      const phases = s.phases;
-      const writing = phases.find((p) => p.phase === "WRITING");
-      const language = phases.find((p) => p.phase === "LANGUAGE");
-      const workQuality = phases.find((p) => p.phase === "WORK_QUALITY");
-      const readAloud = phases.find((p) => p.phase === "READ_ALOUD");
-
-      const wr = writing?.ratings as Record<string, number> | null;
-      const lr = language?.ratings as Record<string, number> | null;
-      const wqr = workQuality?.ratings as Record<string, unknown> | null;
-      const rr = readAloud?.ratings as Record<string, number | boolean> | null;
-
-      return {
-        date: toDateString(s.date),
-        status: s.status,
-        writingLines: wr?.linesWritten ?? null,
-        writingLegibility: wr?.legibility ?? null,
-        writingEffort: wr?.effort ?? null,
-        languageConfidence: lr?.confidence ?? null,
-        homeworkCompleteness: wqr?.homeworkCompleteness ?? null,
-        discipline: wqr?.discipline ?? null,
-        shortcutUsage: wqr?.shortcutUsage ?? null,
-        readingCompleted: rr?.completed ?? null,
-        readingComprehension: rr?.comprehension ?? null,
-      };
-    });
+    const daily = buildDailyInsights(sessions, since90);
 
     // Streak calculation
     let streak = 0;
-    const sorted = [...sessions].reverse();
-    for (const s of sorted) {
-      if (s.status === "COMPLETE" || s.status === "PARTIAL") streak++;
+    const sorted = [...daily].reverse();
+    for (const day of sorted) {
+      if (day.status === "COMPLETE" || day.status === "PARTIAL") streak++;
       else break;
     }
 
     // Attendance
-    const totalDays = sessions.length;
-    const completedDays = sessions.filter(
-      (s) => s.status === "COMPLETE" || s.status === "PARTIAL"
-    ).length;
+    const totalDays = daily.length;
+    const attendedDays = daily.filter((day) => day.status === "COMPLETE" || day.status === "PARTIAL").length;
+    const absentDays = daily.filter((day) => day.absent).length;
+    const incompleteTaskDays = daily.filter((day) => day.incompleteTaskCount > 0 && !day.absent).length;
 
     return NextResponse.json({
       daily,
       streak,
       totalSessions: totalDays,
-      completedSessions: completedDays,
-      attendanceRate: totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0,
+      completedSessions: attendedDays,
+      attendedSessions: attendedDays,
+      absentSessions: absentDays,
+      incompleteTaskDays,
+      attendanceRate: totalDays > 0 ? Math.round((attendedDays / totalDays) * 100) : 0,
     });
   } catch (err) {
     console.error(err);
