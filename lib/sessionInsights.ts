@@ -104,10 +104,7 @@ export function buildDailyInsights(
     const ratings = Object.fromEntries(phaseRatings) as Record<string, Record<string, unknown>>;
     const requiredLines = writingLinesRequired(session);
     const isAbsent = !isCurrentDay && (!session || session.status === "MISSED");
-    const incompleteTasks =
-      isCurrentDay && (!session || session.status === "MISSED")
-        ? []
-        : buildIncompleteTasks(session, ratings, requiredLines);
+    const incompleteTasks = isCurrentDay ? [] : buildIncompleteTasks(session, ratings, requiredLines);
     const writingLines = asNumber(ratings.WRITING?.linesWritten);
 
     return {
