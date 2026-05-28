@@ -98,17 +98,22 @@ export function buildDailyInsights(
   return Array.from({ length: days + 1 }, (_, index) => {
     const current = addDays(start, index);
     const key = dateKey(current);
+    const isCurrentDay = key === dateKey(windowEnd);
     const session = sessionsByDate.get(key);
     const phaseRatings = new Map(session?.phases.map((phase) => [phase.phase, asRecord(phase.ratings)]) ?? []);
     const ratings = Object.fromEntries(phaseRatings) as Record<string, Record<string, unknown>>;
     const requiredLines = writingLinesRequired(session);
-    const incompleteTasks = buildIncompleteTasks(session, ratings, requiredLines);
+    const isAbsent = !isCurrentDay && (!session || session.status === "MISSED");
+    const incompleteTasks =
+      isCurrentDay && (!session || session.status === "MISSED")
+        ? []
+        : buildIncompleteTasks(session, ratings, requiredLines);
     const writingLines = asNumber(ratings.WRITING?.linesWritten);
 
     return {
       date: key,
-      status: session?.status ?? "ABSENT",
-      absent: !session || session.status === "MISSED",
+      status: isCurrentDay && (!session || session.status === "MISSED") ? "PENDING" : session?.status ?? "ABSENT",
+      absent: isAbsent,
       completedPhaseCount: session?.phases.filter((phase) => phase.completed).length ?? 0,
       incompleteTaskCount: incompleteTasks.length,
       incompleteTasks,

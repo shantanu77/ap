@@ -5,6 +5,7 @@ import { getParentNotificationConfig, hasEmailConfig } from "@/lib/parentConfig"
 import { buildDailyInsights, defaultInsightsStart } from "@/lib/sessionInsights";
 import { parseDate } from "@/lib/utils";
 import type { DailyContent } from "@/types";
+import { format } from "date-fns";
 
 function missedPlanContent(dateStr: string): DailyContent {
   return {
@@ -48,6 +49,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
       notify?: boolean;
     };
     const date = parseDate(dateStr);
+    if (dateStr >= format(new Date(), "yyyy-MM-dd")) {
+      return NextResponse.json(
+        { error: "Current or future sessions cannot be marked missed until the day has passed." },
+        { status: 409 }
+      );
+    }
+
     const plan = await prisma.dailyPlan.upsert({
       where: { date },
       create: {

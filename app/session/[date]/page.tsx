@@ -288,7 +288,7 @@ export default function SessionPage() {
         </div>
       )}
 
-      {isToday && !allDone && !isMissed && (
+      {!isToday && !allDone && !isMissed && (
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-red-100">
           <div className="flex items-center justify-between gap-3">
             <div>
