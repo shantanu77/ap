@@ -47,6 +47,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
     const body = (await req.json().catch(() => ({}))) as {
       reason?: string;
       notify?: boolean;
+      force?: boolean;
     };
     const date = parseDate(dateStr);
     if (dateStr >= format(new Date(), "yyyy-MM-dd")) {
@@ -64,6 +65,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
       },
       update: {},
     });
+
+    const existingSession = await prisma.session.findUnique({
+      where: { dailyPlanId: plan.id },
+      include: { phases: true },
+    });
+    const completedPhaseCount = existingSession?.phases.filter((phase) => phase.completed).length ?? 0;
+    if (!body.force && existingSession && (existingSession.status === "COMPLETE" || completedPhaseCount >= 6)) {
+      return NextResponse.json(
+        { error: "Completed sessions cannot be marked missed without force=true." },
+        { status: 409 }
+      );
+    }
 
     const session = await prisma.session.upsert({
       where: { dailyPlanId: plan.id },
