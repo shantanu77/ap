@@ -4,6 +4,19 @@ import { formatDisplayDate, getTopicForDate, getLanguageForDate, parseDate, toda
 import type { DailyContent } from "@/types";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const SUMMER_READING_WORDS_MIN = 650;
+const SUMMER_READING_WORDS_MAX = 850;
+
+const PUBLIC_DOMAIN_READING_SOURCES = [
+  { title: "The Secret Garden", author: "Frances Hodgson Burnett", focus: "resilience, observation, nature, friendship" },
+  { title: "The Railway Children", author: "E. Nesbit", focus: "family responsibility, courage, practical problem-solving" },
+  { title: "The Wind in the Willows", author: "Kenneth Grahame", focus: "friendship, choices, consequences, adventure" },
+  { title: "Alice's Adventures in Wonderland", author: "Lewis Carroll", focus: "logic, curiosity, language play, absurdity" },
+  { title: "The Jungle Book", author: "Rudyard Kipling", focus: "discipline, belonging, rules, observation of nature" },
+  { title: "The Story of Doctor Dolittle", author: "Hugh Lofting", focus: "empathy, science-minded observation, animals, travel" },
+  { title: "The Book of Dragons", author: "E. Nesbit", focus: "fantasy, cause and effect, clever problem-solving" },
+  { title: "The Burgess Bird Book for Children", author: "Thornton W. Burgess", focus: "natural history, classification, close attention" },
+];
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").trim();
@@ -77,6 +90,11 @@ function dedupeQuestions(questions: string[]): string[] {
   return unique;
 }
 
+function readingSourceForDate(dateStr: string) {
+  const days = Math.floor(parseDate(dateStr).getTime() / 86_400_000);
+  return PUBLIC_DOMAIN_READING_SOURCES[days % PUBLIC_DOMAIN_READING_SOURCES.length];
+}
+
 function buildRecentReadingNotes(
   recentPlans: Array<{ content: unknown; editedContent: unknown | null }>
 ): string {
@@ -102,10 +120,10 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
   const linesRequired =
     Number.isFinite(content.writing?.lines_required) && content.writing.lines_required > 0
       ? Math.min(5, Math.max(3, Math.round(content.writing.lines_required)))
-      : 3;
+      : 5;
 
   const uniqueQuestions = dedupeQuestions(content.reading.comprehension_questions ?? []);
-  while (uniqueQuestions.length < 3) {
+  while (uniqueQuestions.length < 5) {
     uniqueQuestions.push(`What is one important idea from the passage in question ${uniqueQuestions.length + 1}?`);
   }
 
@@ -117,7 +135,16 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
       title: normalizeWhitespace(content.reading.title),
       topic: normalizeWhitespace(content.reading.topic),
       passage: normalizeWhitespace(content.reading.passage),
-      comprehension_questions: uniqueQuestions.slice(0, 3),
+      comprehension_questions: uniqueQuestions.slice(0, 5),
+      source_title: content.reading.source_title
+        ? normalizeWhitespace(content.reading.source_title)
+        : content.reading.source_title,
+      source_author: content.reading.source_author
+        ? normalizeWhitespace(content.reading.source_author)
+        : content.reading.source_author,
+      source_note: content.reading.source_note
+        ? normalizeWhitespace(content.reading.source_note)
+        : content.reading.source_note,
     },
     language: {
       ...content.language,
@@ -146,6 +173,7 @@ async function buildPrompt(dateStr: string): Promise<string> {
   const topic = getTopicForDate(dateStr);
   const language = getLanguageForDate(dateStr);
   const fullDate = formatDisplayDate(dateStr);
+  const readingSource = readingSourceForDate(dateStr);
   const recentPlans = await prisma.dailyPlan.findMany({
     where: {
       date: {
@@ -163,10 +191,10 @@ async function buildPrompt(dateStr: string): Promise<string> {
 
   const languageInstructions =
     language === "review"
-      ? `Language focus: Sunday review day. Give a light revision covering 3 Hindi words and 3 Sanskrit words the student may have seen earlier this week. Keep it conversational and fun, not a test. The lesson_title should say "Weekly Review".`
+      ? `Language focus: Sunday review day. Give a serious revision covering 6 Hindi words, 6 Sanskrit words, and 4 sentence-level recall questions from this week's language work. The lesson_title should say "Weekly Review".`
       : language === "hindi"
-      ? `Language focus: Hindi. Make this feel like a solid CBSE Grade 6 micro-lesson, not nursery-level content. Teach ONE small chunk only: either 4-5 useful school-and-home vocabulary words, OR one simple everyday sentence pattern, OR 2-3 Devanagari letters with real word examples. Every Hindi item must include Devanagari, transliteration, English meaning, and one very short example sentence. Keep it beginner-friendly, but the examples should sound appropriate for a 6th standard student.`
-      : `Language focus: Sanskrit. Today teach ONE small chunk — either 4-5 basic Sanskrit words (common nouns), OR one simple Sanskrit shloka line with meaning, OR 2-3 Devanagari letters used in Sanskrit. Include transliteration. This student is starting from zero Sanskrit, so keep it extremely simple and memorable.`;
+      ? `Language focus: Hindi. Make this a rigorous CBSE Grade 6 summer lesson. Teach 8-10 useful vocabulary words plus one sentence pattern, with Devanagari, transliteration, English meaning, and short example sentences. Include a 6-item oral/written practice task. Keep it beginner-accessible but not nursery-level.`
+      : `Language focus: Sanskrit. Make this a rigorous beginner Sanskrit summer lesson. Teach 8-10 common words OR one short shloka line plus 5 grammar/vocabulary items. Include transliteration, word meanings, and a 6-item oral/written practice task. Keep it clear but substantive.`;
 
   return `You are a content creator for a daily learning session for Aashvath, a Grade 6 CBSE student in India.
 
@@ -177,46 +205,59 @@ STUDENT PROFILE:
 - Loves science, non-fiction, space, technology
 - Learns by watching YouTube videos, not reading books
 - Very poor in Hindi and Sanskrit (starting from near-zero)
-- Session is supervised by his father at 9PM-10PM
+- Summer holidays are active now, so the session can be longer and more rigorous than the school-night plan.
+- Session is supervised by his father; target total duration is about 90 minutes during holidays.
 - School: Heritage Experiential School, CBSE curriculum
 
 TODAY: ${fullDate}
 READING TOPIC THIS WEEK: ${topic}
 ${languageInstructions}
+TODAY'S FREE/PUBLIC-DOMAIN READING ANCHOR:
+- Book: ${readingSource.title}
+- Author: ${readingSource.author}
+- Use this as the day's age-appropriate reading source/theme: ${readingSource.focus}
 
 RECENT READ-ALOUD TITLES TO AVOID REPEATING:
 ${recentReadingNotes}
 
-Generate a daily learning package. Be engaging, surprising, and age-appropriate. The science content should feel like a YouTube thumbnail — use the most amazing, counterintuitive angle possible. The language lesson should be one tiny memorable chunk, never overwhelming.
+Generate a summer-holiday daily learning package. It should be engaging, rigorous, and age-appropriate for a gifted Grade 6 student who avoids reading.
+Reading must be at least one printed page: ${SUMMER_READING_WORDS_MIN}-${SUMMER_READING_WORDS_MAX} words, split into short paragraphs. Use the public-domain reading anchor above as the source/theme, but create a self-contained original passage or adapted public-domain-style chapter page suitable for this learner. Do not quote modern copyrighted books.
+Include enough tasks to fill about 90 minutes: deeper reading, 5 comprehension questions, a more substantial language lesson, 5-line writing, and a concrete follow-up task.
+The science content should feel like a smart YouTube hook, but the work itself should require focus.
 Do not reuse a recent read-aloud title, central fact, or passage angle from the list above.
-The writing exercise must be EXACTLY 3 short lines, each on its own new line. Do not return one long sentence or a paragraph.
+The writing exercise must be EXACTLY 5 short lines, each on its own new line. Do not return one long sentence or a paragraph.
 
 Return ONLY valid JSON with this exact structure (no markdown, no extra text):
 {
   "date": "${dateStr}",
   "science_hook": "One sentence jaw-dropping science fact related to ${topic}. Use numbers, comparisons, or something that sounds impossible but is true.",
   "reading": {
-    "title": "Catchy title for the passage",
+    "title": "Catchy title for today's one-page reading",
     "topic": "${topic}",
-    "passage": "200-300 word engaging passage about ${topic} written for a curious 11-year-old. Short paragraphs. Vivid, specific. Include one surprising statistic or comparison. Avoid jargon or explain it immediately.",
+    "source_title": "${readingSource.title}",
+    "source_author": "${readingSource.author}",
+    "source_note": "Free/public-domain reading anchor used for today's summer reading.",
+    "passage": "${SUMMER_READING_WORDS_MIN}-${SUMMER_READING_WORDS_MAX} word one-page reading for a curious 11-year-old. Short paragraphs. Use the mood/theme of ${readingSource.title} by ${readingSource.author}, connect it naturally to ${topic}, and include concrete details, inference opportunities, and one surprising science/history comparison.",
     "comprehension_questions": [
       "Question 1 (factual recall from the passage)",
       "Question 2 (inference or reason from the passage)",
-      "Question 3 (connect to real life or Aashvath's interests)"
+      "Question 3 (vocabulary or phrase meaning from context)",
+      "Question 4 (evidence-based explanation using two details)",
+      "Question 5 (connect to real life, science, or Aashvath's interests)"
     ]
   },
   "language": {
     "type": "${language}",
     "lesson_title": "Short lesson title",
-    "content": "The actual lesson content. For vocabulary: present each word as: DEVANAGARI (transliteration) = English meaning, example in a sentence. For grammar/patterns: show the pattern with 2-3 examples. For shloka: the text + transliteration + word-by-word meaning + full meaning. Keep it scannable, not wall-of-text.",
-    "practice_task": "One specific, tiny task. E.g. 'Say this sentence 3 times out loud' or 'Copy this word in Devanagari twice' or 'Fill the blank: ___ (water) is needed for life'. Keep it achievable in 2-3 minutes.",
+    "content": "The actual lesson content. For vocabulary: present each word as: DEVANAGARI (transliteration) = English meaning, example in a sentence. For grammar/patterns: show the pattern with 4-5 examples. For shloka: the text + transliteration + word-by-word meaning + full meaning. Make it scannable but substantive.",
+    "practice_task": "A 6-item practice task that takes 10-15 minutes. Include speaking, recognition, and one short written/copy item.",
     "remember_tip": "One clever memory trick, story, or visual association to help remember the lesson. E.g. 'पानी sounds like the English word PUNNY — water can be punny!'"
   },
   "writing": {
     "type": "copy",
-    "prompt": "A 3-line passage for Aashvath to copy neatly. It should be about science or something he finds interesting. Return exactly 3 short sentences, each on a separate line using newline characters.",
-    "lines_required": 3,
-    "success_criteria": ["All 3 lines are attempted", "Letters are legible", "No skipped words"]
+    "prompt": "A 5-line passage for Aashvath to copy neatly. It should connect today's reading to science, responsibility, or observation. Return exactly 5 short sentences, each on a separate line using newline characters.",
+    "lines_required": 5,
+    "success_criteria": ["All 5 lines are attempted", "Letters are legible", "No skipped words", "Margins and spacing are controlled"]
   },
   "ethics_reflection": "One thought (2-3 sentences) about the value of discipline, effort, or honesty. Connect it to Aashvath's world — school, sports, video games, science experiments. Not preachy. More like a coach talking to a player.",
   "next_day_tip": "A specific, actionable reminder for tomorrow. E.g. 'Check if you have your science notebook for tomorrow's class' or 'Review the Hindi words from today one more time before breakfast'. Keep it concrete."
@@ -230,7 +271,7 @@ export async function generateContentForDate(dateStr: string): Promise<DailyCont
     model: "gpt-4o",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.8,
-    max_tokens: 2000,
+    max_tokens: 4000,
     response_format: { type: "json_object" },
   });
 

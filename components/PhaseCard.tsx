@@ -70,6 +70,12 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
           <span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">
             {content.reading.topic}
           </span>
+          {content.reading.source_title && (
+            <p className="text-xs text-gray-500">
+              Source anchor: {content.reading.source_title}
+              {content.reading.source_author ? ` by ${content.reading.source_author}` : ""}
+            </p>
+          )}
           <div className="bg-white rounded-lg border border-blue-100 p-4">
             <p className="text-gray-700 leading-relaxed whitespace-pre-line text-sm">
               {content.reading.passage}
@@ -281,6 +287,7 @@ export default function PhaseCard({
           <RatingForm
             phase={phase.id}
             writingLinesRequired={content.writing.lines_required}
+            readingQuestionCount={content.reading.comprehension_questions.length}
             onSave={handleSave}
           />
         </div>

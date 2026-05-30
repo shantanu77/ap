@@ -3,6 +3,9 @@ export interface ReadingContent {
   topic: string;
   passage: string;
   comprehension_questions: string[];
+  source_title?: string;
+  source_author?: string;
+  source_note?: string;
 }
 
 export interface LanguageContent {
@@ -39,7 +42,7 @@ export interface DayReviewRating {
 
 export interface ReadAloudRating {
   completed: boolean;
-  comprehension: 0 | 1 | 2 | 3;
+  comprehension: number;
   interest: 1 | 2 | 3 | 4 | 5;
 }
 
@@ -77,10 +80,10 @@ export type PhaseRatingData =
 
 export const PHASES = [
   { id: "DAY_REVIEW", label: "Day Review", duration: 10, color: "amber" },
-  { id: "READ_ALOUD", label: "Read Aloud", duration: 10, color: "blue" },
-  { id: "LANGUAGE", label: "Hindi / Sanskrit", duration: 15, color: "orange" },
-  { id: "WRITING", label: "Writing Exercise", duration: 15, color: "green" },
-  { id: "WORK_QUALITY", label: "Work Quality Check", duration: 5, color: "rose" },
+  { id: "READ_ALOUD", label: "Read Aloud", duration: 30, color: "blue" },
+  { id: "LANGUAGE", label: "Hindi / Sanskrit", duration: 25, color: "orange" },
+  { id: "WRITING", label: "Writing Exercise", duration: 20, color: "green" },
+  { id: "WORK_QUALITY", label: "Work Quality Check", duration: 10, color: "rose" },
   { id: "NEXT_DAY_PREP", label: "Next Day Prep", duration: 5, color: "purple" },
 ] as const;
 

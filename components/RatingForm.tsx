@@ -63,10 +63,16 @@ const YesNo = ({
 interface RatingFormProps {
   phase: PhaseId;
   writingLinesRequired?: number;
+  readingQuestionCount?: number;
   onSave: (ratings: object) => void;
 }
 
-export default function RatingForm({ phase, writingLinesRequired = 3, onSave }: RatingFormProps) {
+export default function RatingForm({
+  phase,
+  writingLinesRequired = 5,
+  readingQuestionCount = 5,
+  onSave,
+}: RatingFormProps) {
   const [mood, setMood] = useState(3);
   const [engagement, setEngagement] = useState(3);
   const [highlights, setHighlights] = useState("");
@@ -86,6 +92,7 @@ export default function RatingForm({ phase, writingLinesRequired = 3, onSave }: 
   const [goalSet, setGoalSet] = useState<boolean | null>(null);
   const [goal, setGoal] = useState("");
   const writingOptions = Array.from({ length: writingLinesRequired + 1 }, (_, index) => index);
+  const comprehensionOptions = Array.from({ length: readingQuestionCount + 1 }, (_, index) => index);
 
   const handleSave = () => {
     let ratings: object = {};
@@ -141,7 +148,7 @@ export default function RatingForm({ phase, writingLinesRequired = 3, onSave }: 
               Comprehension (questions answered correctly)
             </label>
             <div className="flex gap-2">
-              {[0, 1, 2, 3].map((n) => (
+              {comprehensionOptions.map((n) => (
                 <button
                   key={n}
                   onClick={() => setComprehension(n)}
