@@ -27,6 +27,7 @@ export async function GET() {
     const attendedDays = daily.filter((day) => day.status === "COMPLETE" || day.status === "PARTIAL").length;
     const absentDays = daily.filter((day) => day.absent).length;
     const incompleteTaskDays = daily.filter((day) => day.incompleteTaskCount > 0 && !day.absent).length;
+    const lateCompletedSessions = daily.filter((day) => day.lateCompleted).length;
 
     return NextResponse.json({
       daily,
@@ -36,6 +37,7 @@ export async function GET() {
       attendedSessions: attendedDays,
       absentSessions: absentDays,
       incompleteTaskDays,
+      lateCompletedSessions,
       attendanceRate: totalDays > 0 ? Math.round((attendedDays / totalDays) * 100) : 0,
     });
   } catch (err) {

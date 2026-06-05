@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, format, max, min, startOfDay, subDays } from "date-fns";
 import type { DailyPlan, PhaseRating, Session, SessionStatus } from "@prisma/client";
 import type { DailyContent } from "@/types";
+import { PHASES } from "@/types";
 
 export interface DailyInsight {
   date: string;
@@ -20,6 +21,7 @@ export interface DailyInsight {
   shortcutUsage: string | null;
   readingCompleted: boolean | null;
   readingComprehension: number | null;
+  lateCompleted: boolean;
 }
 
 export interface SessionWithRatings extends Session {
@@ -51,7 +53,7 @@ function writingLinesRequired(session: SessionWithRatings | undefined): number |
   return typeof required === "number" && Number.isFinite(required) ? required : null;
 }
 
-function buildIncompleteTasks(
+export function buildIncompleteTasks(
   session: SessionWithRatings | undefined,
   ratings: Record<string, Record<string, unknown>>,
   requiredWritingLines: number | null
@@ -80,6 +82,40 @@ function buildIncompleteTasks(
   if (asBoolean(ratings.NEXT_DAY_PREP?.goalSet) === false) tasks.push("Tomorrow goal not set");
 
   return tasks;
+}
+
+export interface PendingWorkItem {
+  date: string;
+  status: SessionStatus;
+  completedPhaseCount: number;
+  missingPhaseLabels: string[];
+  incompleteTasks: string[];
+}
+
+export function buildPendingWork(sessions: SessionWithRatings[], today: Date = new Date()): PendingWorkItem[] {
+  const todayKey = dateKey(today);
+
+  return sessions
+    .filter((session) => dateKey(session.date) < todayKey)
+    .map((session) => {
+      const phaseRatings = new Map(session.phases.map((phase) => [phase.phase, asRecord(phase.ratings)]));
+      const ratings = Object.fromEntries(phaseRatings) as Record<string, Record<string, unknown>>;
+      const requiredLines = writingLinesRequired(session);
+      const completedPhaseCount = session.phases.filter((phase) => phase.completed).length;
+      const missingPhaseLabels = PHASES.filter(
+        (phase) => !session.phases.some((rating) => rating.phase === phase.id && rating.completed)
+      ).map((phase) => phase.label);
+
+      return {
+        date: dateKey(session.date),
+        status: session.status,
+        completedPhaseCount,
+        missingPhaseLabels,
+        incompleteTasks: buildIncompleteTasks(session, ratings, requiredLines),
+      };
+    })
+    .filter((item) => item.status !== "COMPLETE" && item.incompleteTasks.length > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export function buildDailyInsights(
@@ -129,6 +165,7 @@ export function buildDailyInsights(
           : null,
       readingCompleted: asBoolean(ratings.READ_ALOUD?.completed),
       readingComprehension: asNumber(ratings.READ_ALOUD?.comprehension),
+      lateCompleted: Boolean(session?.lateCompletedAt),
     };
   });
 }

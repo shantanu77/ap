@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseDate } from "@/lib/utils";
+import { parseDate, todayString } from "@/lib/utils";
 import type { Phase } from "@prisma/client";
 
 export async function POST(req: Request, { params }: { params: Promise<{ date: string }> }) {
@@ -29,9 +29,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
       where: { sessionId: session.id, completed: true },
     });
     if (allPhases.length >= 6) {
+      const completedLate = date.getTime() < parseDate(todayString()).getTime();
       await prisma.session.update({
         where: { id: session.id },
-        data: { status: "COMPLETE", completedAt: new Date() },
+        data: {
+          status: "COMPLETE",
+          completedAt: new Date(),
+          lateCompletedAt: completedLate ? new Date() : null,
+        },
+      });
+    } else if (session.status !== "PARTIAL") {
+      await prisma.session.update({
+        where: { id: session.id },
+        data: { status: "PARTIAL", completedAt: null },
       });
     }
 

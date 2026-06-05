@@ -27,6 +27,15 @@ interface SessionData {
   status: "PENDING" | "PARTIAL" | "COMPLETE" | "MISSED";
   phases: PhaseRatingRecord[];
   notes?: string | null;
+  lateCompletedAt?: string | null;
+}
+
+interface PendingWorkItem {
+  date: string;
+  status: "PENDING" | "PARTIAL" | "COMPLETE" | "MISSED";
+  completedPhaseCount: number;
+  missingPhaseLabels: string[];
+  incompleteTasks: string[];
 }
 
 export default function SessionPage() {
@@ -45,6 +54,7 @@ export default function SessionPage() {
   const [sessionStarted, setSessionStarted] = useState(false);
   const [markingMissed, setMarkingMissed] = useState(false);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
+  const [pendingWork, setPendingWork] = useState<PendingWorkItem[]>([]);
 
   // Load plan and existing session
   useEffect(() => {
@@ -66,7 +76,7 @@ export default function SessionPage() {
           if (sessData) {
             setSession(sessData);
             setSessionStarted(true);
-            if (sessData.status === "MISSED") {
+            if (sessData.status === "MISSED" && isToday) {
               setPhaseStatuses(PHASES.map(() => "locked"));
               return;
             }
@@ -93,6 +103,15 @@ export default function SessionPage() {
     };
     load();
   }, [dateStr, isToday]);
+
+  useEffect(() => {
+    if (!isToday) return;
+
+    fetch("/api/sessions/pending")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items: PendingWorkItem[]) => setPendingWork(items))
+      .catch(() => setPendingWork([]));
+  }, [isToday]);
 
   const startSession = useCallback(async () => {
     if (sessionStarted) return;
@@ -123,7 +142,7 @@ export default function SessionPage() {
     async (idx: number, ratings: object, timeSpentSec: number) => {
       const phase = PHASES[idx];
       try {
-        await fetch(`/api/sessions/${dateStr}/phase`, {
+        const res = await fetch(`/api/sessions/${dateStr}/phase`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -133,6 +152,7 @@ export default function SessionPage() {
             timeSpentSec,
           }),
         });
+        if (!res.ok) throw new Error("Failed to save phase");
       } catch {
         // non-fatal
       }
@@ -183,8 +203,11 @@ export default function SessionPage() {
 
   const completedCount = phaseStatuses.filter((s) => s === "done").length;
   const allDone = completedCount === PHASES.length;
+  const isPastCatchUp = !isToday && !allDone && session?.status !== "COMPLETE";
+  const isEditable = isToday || isPastCatchUp;
   const isMissed = session?.status === "MISSED";
   const content = plan?.editedContent ?? plan?.content;
+  const primaryPendingWork = pendingWork[0];
 
   if (loading) {
     return (
@@ -216,10 +239,39 @@ export default function SessionPage() {
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-2xl font-bold text-slate-800">
-          {isToday ? "Tonight's Session 🌙" : "Session Review"}
+          {isToday ? "Tonight's Session 🌙" : isPastCatchUp ? "Catch-up Session" : "Session Review"}
         </h1>
         <p className="text-gray-500 text-sm">{formatDisplayDate(dateStr)}</p>
       </div>
+
+      {isToday && primaryPendingWork && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="text-red-800 font-extrabold text-base">Pending work needs attention first</p>
+              <p className="text-red-700 text-sm mt-1">
+                {formatDisplayDate(primaryPendingWork.date)} has{" "}
+                <strong>{primaryPendingWork.incompleteTasks.length}</strong> unfinished item
+                {primaryPendingWork.incompleteTasks.length === 1 ? "" : "s"}.
+              </p>
+              <p className="text-xs text-red-600 mt-1">
+                {primaryPendingWork.incompleteTasks.slice(0, 3).join(", ")}
+              </p>
+            </div>
+            <Link
+              href={`/session/${primaryPendingWork.date}`}
+              className="shrink-0 text-center px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700"
+            >
+              Finish Pending Work
+            </Link>
+          </div>
+          {pendingWork.length > 1 && (
+            <p className="text-xs text-red-500 mt-3">
+              {pendingWork.length - 1} more older day{pendingWork.length === 2 ? "" : "s"} also need review.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
@@ -258,11 +310,20 @@ export default function SessionPage() {
         </div>
       )}
 
-      {isMissed && (
+      {isMissed && !isPastCatchUp && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-center">
           <p className="font-bold text-red-800 text-lg">Skipped Class Recorded</p>
           <p className="text-red-600 text-sm mt-1">
             This day counts as absent in reports and attendance graphs.
+          </p>
+        </div>
+      )}
+
+      {isPastCatchUp && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+          <p className="font-bold text-amber-900 text-sm">Catch-up mode</p>
+          <p className="text-amber-800 text-sm mt-1">
+            Complete the unfinished phases from this old day. It will be recorded as completed late.
           </p>
         </div>
       )}
@@ -321,7 +382,7 @@ export default function SessionPage() {
               content={content}
               onActivate={() => handleActivate(idx)}
               onSave={(ratings, time) => handleSave(idx, ratings, time)}
-              isReadOnly={!isToday || isMissed}
+              isReadOnly={!isEditable}
             />
           );
         })}

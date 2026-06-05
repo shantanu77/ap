@@ -26,6 +26,7 @@ model Session {
   dailyPlan   DailyPlan     @relation(fields: [dailyPlanId], references: [id])
   startedAt   DateTime?
   completedAt DateTime?
+  lateCompletedAt DateTime?
   status      SessionStatus @default(PENDING)
   phases      PhaseRating[]
   notes       String?       @db.Text

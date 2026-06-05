@@ -28,6 +28,7 @@ interface MetricsData {
   attendedSessions: number;
   absentSessions: number;
   incompleteTaskDays: number;
+  lateCompletedSessions: number;
   attendanceRate: number;
 }
 
@@ -133,6 +134,12 @@ export default function DashboardPage() {
           value={metrics.incompleteTaskDays}
           sub={`avg writing ${avgWritingLines}%`}
           color="bg-slate-700"
+        />
+        <StatCard
+          label="Completed Late"
+          value={metrics.lateCompletedSessions}
+          sub="caught up after planned day"
+          color="bg-amber-600"
         />
       </div>
 
