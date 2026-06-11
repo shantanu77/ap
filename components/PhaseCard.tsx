@@ -287,7 +287,7 @@ export default function PhaseCard({
           <RatingForm
             phase={phase.id}
             writingLinesRequired={content.writing.lines_required}
-            readingQuestionCount={content.reading.comprehension_questions.length}
+            reading={content.reading}
             onSave={handleSave}
           />
         </div>

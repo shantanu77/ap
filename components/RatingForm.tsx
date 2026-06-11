@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { PhaseId } from "@/types";
+import type { PhaseId, ReadingContent, ReadAloudAnswerRating } from "@/types";
 
 const StarRating = ({
   label,
@@ -63,22 +63,27 @@ const YesNo = ({
 interface RatingFormProps {
   phase: PhaseId;
   writingLinesRequired?: number;
-  readingQuestionCount?: number;
+  reading?: ReadingContent;
   onSave: (ratings: object) => void;
 }
 
 export default function RatingForm({
   phase,
   writingLinesRequired = 5,
-  readingQuestionCount = 5,
+  reading,
   onSave,
 }: RatingFormProps) {
   const [mood, setMood] = useState(3);
   const [engagement, setEngagement] = useState(3);
   const [highlights, setHighlights] = useState("");
-  const [readCompleted, setReadCompleted] = useState<boolean | null>(null);
-  const [comprehension, setComprehension] = useState(0);
   const [interest, setInterest] = useState(3);
+  const [readAloudAnswers, setReadAloudAnswers] = useState<
+    Array<ReadAloudAnswerRating | null>
+  >(() => reading?.comprehension_questions.map(() => null) ?? []);
+  const [recordingIndex, setRecordingIndex] = useState<number | null>(null);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [readAloudError, setReadAloudError] = useState<string | null>(null);
+  const [verifyingIndex, setVerifyingIndex] = useState<number | null>(null);
   const [langCompleted, setLangCompleted] = useState<boolean | null>(null);
   const [confidence, setConfidence] = useState(3);
   const [langNotes, setLangNotes] = useState("");
@@ -92,7 +97,86 @@ export default function RatingForm({
   const [goalSet, setGoalSet] = useState<boolean | null>(null);
   const [goal, setGoal] = useState("");
   const writingOptions = Array.from({ length: writingLinesRequired + 1 }, (_, index) => index);
-  const comprehensionOptions = Array.from({ length: readingQuestionCount + 1 }, (_, index) => index);
+  const readAloudQuestions = reading?.comprehension_questions ?? [];
+  const verifiedAnswerCount = readAloudAnswers.filter(Boolean).length;
+  const correctAnswerCount = readAloudAnswers.filter((answer) => answer?.correct).length;
+
+  const startRecording = async (questionIndex: number) => {
+    if (!reading) return;
+
+    setReadAloudError(null);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Audio recording is not supported in this browser.");
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunks.push(event.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        setMediaRecorder(null);
+        setRecordingIndex(null);
+        await verifyRecording(questionIndex, new Blob(chunks, { type: recorder.mimeType }));
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setRecordingIndex(questionIndex);
+    } catch (err) {
+      setReadAloudError(err instanceof Error ? err.message : "Could not start recording.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+    }
+  };
+
+  const verifyRecording = async (questionIndex: number, audioBlob: Blob) => {
+    if (!reading) return;
+
+    setVerifyingIndex(questionIndex);
+    setReadAloudError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, `read-aloud-${questionIndex + 1}.webm`);
+      formData.append("passage", reading.passage);
+      formData.append("question", readAloudQuestions[questionIndex]);
+
+      const res = await fetch("/api/read-aloud/verify", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not verify the answer.");
+
+      const answer: ReadAloudAnswerRating = {
+        question: readAloudQuestions[questionIndex],
+        transcript: String(data.transcript ?? ""),
+        correct: Boolean(data.correct),
+        score: data.correct ? 1 : 0,
+        rating: Math.min(5, Math.max(1, Math.round(Number(data.rating) || 1))) as 1 | 2 | 3 | 4 | 5,
+        feedback: String(data.feedback ?? ""),
+      };
+
+      setReadAloudAnswers((prev) => {
+        const next = [...prev];
+        next[questionIndex] = answer;
+        return next;
+      });
+    } catch (err) {
+      setReadAloudError(err instanceof Error ? err.message : "Could not verify the answer.");
+    } finally {
+      setVerifyingIndex(null);
+    }
+  };
 
   const handleSave = () => {
     let ratings: object = {};
@@ -101,7 +185,18 @@ export default function RatingForm({
         ratings = { mood, engagement, highlights };
         break;
       case "READ_ALOUD":
-        ratings = { completed: readCompleted ?? false, comprehension, interest };
+        if (!reading || verifiedAnswerCount !== readAloudQuestions.length) {
+          setReadAloudError("Ashvath must record and verify every answer before continuing.");
+          return;
+        }
+        ratings = {
+          completed: true,
+          comprehension: correctAnswerCount,
+          interest,
+          answers: readAloudAnswers.filter(Boolean),
+          verificationSummary: `${correctAnswerCount} of ${readAloudQuestions.length} answers verified correct`,
+          verifiedAt: new Date().toISOString(),
+        };
         break;
       case "LANGUAGE":
         ratings = { completed: langCompleted ?? false, confidence, notes: langNotes };
@@ -142,26 +237,76 @@ export default function RatingForm({
 
       {phase === "READ_ALOUD" && (
         <>
-          <YesNo label="Completed the reading?" value={readCompleted} onChange={setReadCompleted} />
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600">
-              Comprehension (questions answered correctly)
-            </label>
-            <div className="flex gap-2">
-              {comprehensionOptions.map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setComprehension(n)}
-                  className={`w-10 h-10 rounded-full text-sm font-bold border-2 transition-all ${
-                    comprehension === n
-                      ? "bg-blue-500 border-blue-500 text-white"
-                      : "border-gray-300 text-gray-500 hover:border-blue-300"
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium text-gray-600">
+                Ashvath&apos;s recorded answers
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                No guest work. Each answer must be recorded by Ashvath, transcribed, and verified.
+              </p>
             </div>
+            {readAloudQuestions.map((question, index) => {
+              const answer = readAloudAnswers[index];
+              const isRecording = recordingIndex === index;
+              const isVerifying = verifyingIndex === index;
+
+              return (
+                <div key={question} className="rounded-xl border border-blue-100 bg-white p-3 space-y-2">
+                  <p className="text-sm font-semibold text-gray-700">
+                    {index + 1}. {question}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isRecording ? (
+                      <button
+                        type="button"
+                        onClick={stopRecording}
+                        className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-semibold"
+                      >
+                        Stop recording
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startRecording(index)}
+                        disabled={recordingIndex !== null || isVerifying}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"
+                      >
+                        {answer ? "Record again" : "Record answer"}
+                      </button>
+                    )}
+                    {isVerifying && <span className="text-xs text-blue-600">Transcribing...</span>}
+                    {answer && (
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                          answer.correct
+                            ? "bg-green-100 text-green-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {answer.correct ? "Correct" : "Needs review"} · {answer.rating}/5
+                      </span>
+                    )}
+                  </div>
+                  {answer && (
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <p>
+                        <span className="font-semibold">Transcript:</span> {answer.transcript}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Feedback:</span> {answer.feedback}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <p className="text-sm font-semibold text-blue-700">
+              Verified score: {correctAnswerCount} / {readAloudQuestions.length}
+            </p>
+            {readAloudError && (
+              <p className="text-sm font-semibold text-red-600">{readAloudError}</p>
+            )}
           </div>
           <StarRating label="Interest / engagement" value={interest} onChange={setInterest} />
         </>

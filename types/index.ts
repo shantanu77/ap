@@ -44,6 +44,18 @@ export interface ReadAloudRating {
   completed: boolean;
   comprehension: number;
   interest: 1 | 2 | 3 | 4 | 5;
+  answers?: ReadAloudAnswerRating[];
+  verificationSummary?: string;
+  verifiedAt?: string;
+}
+
+export interface ReadAloudAnswerRating {
+  question: string;
+  transcript: string;
+  correct: boolean;
+  score: 0 | 1;
+  rating: 1 | 2 | 3 | 4 | 5;
+  feedback: string;
 }
 
 export interface LanguageRating {
