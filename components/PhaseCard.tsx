@@ -81,6 +81,9 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
               {content.reading.passage}
             </p>
           </div>
+          <p className="text-xs font-semibold text-blue-700">
+            Read the passage normally. Voice recording is only for answering the questions below.
+          </p>
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-500">COMPREHENSION QUESTIONS</p>
             {content.reading.comprehension_questions.map((q, i) => (
@@ -277,7 +280,11 @@ export default function PhaseCard({
       {/* Timer — shown when active and not yet done */}
       {isActive && !showRating && (
         <div className="mt-5 p-4 bg-white rounded-xl border">
-          <Timer durationMin={phase.duration} onComplete={handleTimerDone} autoStart />
+          <Timer
+            durationMin={phase.duration}
+            onComplete={handleTimerDone}
+            autoStart={phase.id !== "READ_ALOUD"}
+          />
         </div>
       )}
 
