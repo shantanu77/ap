@@ -240,16 +240,6 @@ export default function RatingForm({
         score: data.correct ? 1 : 0,
         rating: Math.min(5, Math.max(1, Math.round(Number(data.rating) || 1))) as 1 | 2 | 3 | 4 | 5,
         feedback: String(data.feedback ?? ""),
-        contentFeedback: String(data.contentFeedback ?? ""),
-        styleRating: Math.min(5, Math.max(1, Math.round(Number(data.styleRating) || 1))) as 1 | 2 | 3 | 4 | 5,
-        styleFeedback: String(data.styleFeedback ?? ""),
-        fillerWords: Array.isArray(data.fillerWords)
-          ? data.fillerWords.map((word: unknown) => String(word)).filter(Boolean)
-          : [],
-        betterAnswer: String(data.betterAnswer ?? ""),
-        speakingTips: Array.isArray(data.speakingTips)
-          ? data.speakingTips.map((tip: unknown) => String(tip)).filter(Boolean)
-          : [],
       };
 
       setReadAloudAnswers((prev) => {
@@ -456,37 +446,6 @@ export default function RatingForm({
                       <p>
                         <span className="font-semibold">Feedback:</span> {answer.feedback}
                       </p>
-                      {answer.contentFeedback && (
-                        <p>
-                          <span className="font-semibold">Content:</span> {answer.contentFeedback}
-                        </p>
-                      )}
-                      {answer.styleFeedback && (
-                        <p>
-                          <span className="font-semibold">Speaking style:</span>{" "}
-                          {answer.styleFeedback}{" "}
-                          {answer.styleRating ? `(${answer.styleRating}/5)` : ""}
-                        </p>
-                      )}
-                      {answer.fillerWords && answer.fillerWords.length > 0 && (
-                        <p>
-                          <span className="font-semibold">Filler words noticed:</span>{" "}
-                          {answer.fillerWords.join(", ")}
-                        </p>
-                      )}
-                      {answer.betterAnswer && (
-                        <p>
-                          <span className="font-semibold">Stronger answer:</span>{" "}
-                          {answer.betterAnswer}
-                        </p>
-                      )}
-                      {answer.speakingTips && answer.speakingTips.length > 0 && (
-                        <ul className="list-disc pl-5 space-y-1">
-                          {answer.speakingTips.map((tip) => (
-                            <li key={tip}>{tip}</li>
-                          ))}
-                        </ul>
-                      )}
                     </div>
                   )}
                 </div>
