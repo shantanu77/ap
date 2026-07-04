@@ -38,6 +38,7 @@ export interface DayReviewRating {
   mood: 1 | 2 | 3 | 4 | 5;
   engagement: 1 | 2 | 3 | 4 | 5;
   highlights: string;
+  daySummary?: DaySummaryRating;
 }
 
 export interface ReadAloudRating {
@@ -56,6 +57,23 @@ export interface ReadAloudAnswerRating {
   score: 0 | 1;
   rating: 1 | 2 | 3 | 4 | 5;
   feedback: string;
+  contentFeedback?: string;
+  styleRating?: 1 | 2 | 3 | 4 | 5;
+  styleFeedback?: string;
+  fillerWords?: string[];
+  betterAnswer?: string;
+  speakingTips?: string[];
+}
+
+export interface DaySummaryRating {
+  transcript: string;
+  summary: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  feedback: string;
+  betterSummary: string;
+  speakingTips: string[];
+  fillerWords: string[];
+  reviewedAt: string;
 }
 
 export interface LanguageRating {

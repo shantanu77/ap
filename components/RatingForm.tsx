@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { PhaseId, ReadingContent, ReadAloudAnswerRating } from "@/types";
+import type { DaySummaryRating, PhaseId, ReadingContent, ReadAloudAnswerRating } from "@/types";
 
 const StarRating = ({
   label,
@@ -76,6 +76,11 @@ export default function RatingForm({
   const [mood, setMood] = useState(3);
   const [engagement, setEngagement] = useState(3);
   const [highlights, setHighlights] = useState("");
+  const [daySummary, setDaySummary] = useState<DaySummaryRating | null>(null);
+  const [dayRecording, setDayRecording] = useState(false);
+  const [dayRecorder, setDayRecorder] = useState<MediaRecorder | null>(null);
+  const [daySummaryError, setDaySummaryError] = useState<string | null>(null);
+  const [reviewingDaySummary, setReviewingDaySummary] = useState(false);
   const [interest, setInterest] = useState(3);
   const [readAloudAnswers, setReadAloudAnswers] = useState<
     Array<ReadAloudAnswerRating | null>
@@ -100,6 +105,77 @@ export default function RatingForm({
   const readAloudQuestions = reading?.comprehension_questions ?? [];
   const verifiedAnswerCount = readAloudAnswers.filter(Boolean).length;
   const correctAnswerCount = readAloudAnswers.filter((answer) => answer?.correct).length;
+
+  const startDaySummaryRecording = async () => {
+    setDaySummaryError(null);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Audio recording is not supported in this browser.");
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunks.push(event.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        setDayRecorder(null);
+        setDayRecording(false);
+        await reviewDaySummary(new Blob(chunks, { type: recorder.mimeType }));
+      };
+
+      recorder.start();
+      setDayRecorder(recorder);
+      setDayRecording(true);
+    } catch (err) {
+      setDaySummaryError(err instanceof Error ? err.message : "Could not start recording.");
+    }
+  };
+
+  const stopDaySummaryRecording = () => {
+    if (dayRecorder && dayRecorder.state !== "inactive") {
+      dayRecorder.stop();
+    }
+  };
+
+  const reviewDaySummary = async (audioBlob: Blob) => {
+    setReviewingDaySummary(true);
+    setDaySummaryError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "day-summary.webm");
+
+      const res = await fetch("/api/day-review/summary", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not review the day summary.");
+
+      setDaySummary({
+        transcript: String(data.transcript ?? ""),
+        summary: String(data.summary ?? ""),
+        rating: Math.min(5, Math.max(1, Math.round(Number(data.rating) || 1))) as 1 | 2 | 3 | 4 | 5,
+        feedback: String(data.feedback ?? ""),
+        betterSummary: String(data.betterSummary ?? ""),
+        speakingTips: Array.isArray(data.speakingTips)
+          ? data.speakingTips.map((tip: unknown) => String(tip)).filter(Boolean)
+          : [],
+        fillerWords: Array.isArray(data.fillerWords)
+          ? data.fillerWords.map((word: unknown) => String(word)).filter(Boolean)
+          : [],
+        reviewedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      setDaySummaryError(err instanceof Error ? err.message : "Could not review the day summary.");
+    } finally {
+      setReviewingDaySummary(false);
+    }
+  };
 
   const startRecording = async (questionIndex: number) => {
     if (!reading) return;
@@ -164,6 +240,16 @@ export default function RatingForm({
         score: data.correct ? 1 : 0,
         rating: Math.min(5, Math.max(1, Math.round(Number(data.rating) || 1))) as 1 | 2 | 3 | 4 | 5,
         feedback: String(data.feedback ?? ""),
+        contentFeedback: String(data.contentFeedback ?? ""),
+        styleRating: Math.min(5, Math.max(1, Math.round(Number(data.styleRating) || 1))) as 1 | 2 | 3 | 4 | 5,
+        styleFeedback: String(data.styleFeedback ?? ""),
+        fillerWords: Array.isArray(data.fillerWords)
+          ? data.fillerWords.map((word: unknown) => String(word)).filter(Boolean)
+          : [],
+        betterAnswer: String(data.betterAnswer ?? ""),
+        speakingTips: Array.isArray(data.speakingTips)
+          ? data.speakingTips.map((tip: unknown) => String(tip)).filter(Boolean)
+          : [],
       };
 
       setReadAloudAnswers((prev) => {
@@ -182,7 +268,11 @@ export default function RatingForm({
     let ratings: object = {};
     switch (phase) {
       case "DAY_REVIEW":
-        ratings = { mood, engagement, highlights };
+        if (!daySummary) {
+          setDaySummaryError("Ashvath must record and review his day summary before continuing.");
+          return;
+        }
+        ratings = { mood, engagement, highlights, daySummary };
         break;
       case "READ_ALOUD":
         if (!reading || verifiedAnswerCount !== readAloudQuestions.length) {
@@ -222,8 +312,78 @@ export default function RatingForm({
         <>
           <StarRating label="Mood today" value={mood} onChange={setMood} />
           <StarRating label="Engagement level" value={engagement} onChange={setEngagement} />
+          <div className="rounded-xl border border-amber-100 bg-white p-3 space-y-3">
+            <div>
+              <label className="text-sm font-medium text-gray-600">
+                Ashvath&apos;s spoken day summary
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                Record what happened today, how it felt, and one thing to improve tomorrow.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {dayRecording ? (
+                <button
+                  type="button"
+                  onClick={stopDaySummaryRecording}
+                  className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-semibold"
+                >
+                  Stop recording
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startDaySummaryRecording}
+                  disabled={reviewingDaySummary || recordingIndex !== null}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-semibold disabled:opacity-50"
+                >
+                  {daySummary ? "Record again" : "Record summary"}
+                </button>
+              )}
+              {reviewingDaySummary && (
+                <span className="text-xs text-amber-700">Reviewing speech...</span>
+              )}
+              {daySummary && (
+                <span className="text-xs px-2 py-1 rounded-full font-semibold bg-amber-100 text-amber-700">
+                  Summary rating · {daySummary.rating}/5
+                </span>
+              )}
+            </div>
+            {daySummary && (
+              <div className="text-xs text-gray-600 space-y-2">
+                <p>
+                  <span className="font-semibold">Transcript:</span> {daySummary.transcript}
+                </p>
+                <p>
+                  <span className="font-semibold">Summary:</span> {daySummary.summary}
+                </p>
+                <p>
+                  <span className="font-semibold">Coaching:</span> {daySummary.feedback}
+                </p>
+                <p>
+                  <span className="font-semibold">Say it better:</span> {daySummary.betterSummary}
+                </p>
+                {daySummary.fillerWords.length > 0 && (
+                  <p>
+                    <span className="font-semibold">Filler words noticed:</span>{" "}
+                    {daySummary.fillerWords.join(", ")}
+                  </p>
+                )}
+                {daySummary.speakingTips.length > 0 && (
+                  <ul className="list-disc pl-5 space-y-1">
+                    {daySummary.speakingTips.map((tip) => (
+                      <li key={tip}>{tip}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            {daySummaryError && (
+              <p className="text-sm font-semibold text-red-600">{daySummaryError}</p>
+            )}
+          </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600">Highlights / notes</label>
+            <label className="text-sm font-medium text-gray-600">Parent notes</label>
             <textarea
               className="w-full border rounded-lg p-2 text-sm text-gray-700 resize-none"
               rows={2}
@@ -296,6 +456,37 @@ export default function RatingForm({
                       <p>
                         <span className="font-semibold">Feedback:</span> {answer.feedback}
                       </p>
+                      {answer.contentFeedback && (
+                        <p>
+                          <span className="font-semibold">Content:</span> {answer.contentFeedback}
+                        </p>
+                      )}
+                      {answer.styleFeedback && (
+                        <p>
+                          <span className="font-semibold">Speaking style:</span>{" "}
+                          {answer.styleFeedback}{" "}
+                          {answer.styleRating ? `(${answer.styleRating}/5)` : ""}
+                        </p>
+                      )}
+                      {answer.fillerWords && answer.fillerWords.length > 0 && (
+                        <p>
+                          <span className="font-semibold">Filler words noticed:</span>{" "}
+                          {answer.fillerWords.join(", ")}
+                        </p>
+                      )}
+                      {answer.betterAnswer && (
+                        <p>
+                          <span className="font-semibold">Stronger answer:</span>{" "}
+                          {answer.betterAnswer}
+                        </p>
+                      )}
+                      {answer.speakingTips && answer.speakingTips.length > 0 && (
+                        <ul className="list-disc pl-5 space-y-1">
+                          {answer.speakingTips.map((tip) => (
+                            <li key={tip}>{tip}</li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   )}
                 </div>
