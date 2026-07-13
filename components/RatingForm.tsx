@@ -101,6 +101,8 @@ export default function RatingForm({
   const [bagPacked, setBagPacked] = useState<boolean | null>(null);
   const [goalSet, setGoalSet] = useState<boolean | null>(null);
   const [goal, setGoal] = useState("");
+  const [focusClass, setFocusClass] = useState("");
+  const [homeRoutineReady, setHomeRoutineReady] = useState<boolean | null>(null);
   const writingOptions = Array.from({ length: writingLinesRequired + 1 }, (_, index) => index);
   const readAloudQuestions = reading?.comprehension_questions ?? [];
   const verifiedAnswerCount = readAloudAnswers.filter(Boolean).length;
@@ -288,7 +290,13 @@ export default function RatingForm({
         ratings = { homeworkCompleteness, discipline, shortcutUsage };
         break;
       case "NEXT_DAY_PREP":
-        ratings = { bagPacked: bagPacked ?? false, goalSet: goalSet ?? false, goal };
+        ratings = {
+          bagPacked: bagPacked ?? false,
+          goalSet: goalSet ?? false,
+          goal,
+          focusClass,
+          homeRoutineReady: homeRoutineReady ?? false,
+        };
         break;
     }
     onSave(ratings);
@@ -544,6 +552,15 @@ export default function RatingForm({
       {phase === "NEXT_DAY_PREP" && (
         <>
           <YesNo label="School bag packed?" value={bagPacked} onChange={setBagPacked} />
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">Focus class for tomorrow</label>
+            <input
+              className="w-full border rounded-lg p-2 text-sm text-gray-700"
+              value={focusClass}
+              onChange={(e) => setFocusClass(e.target.value)}
+              placeholder="e.g. Maths — catch the instruction before starting"
+            />
+          </div>
           <YesNo label="Mini-goal set for tomorrow?" value={goalSet} onChange={setGoalSet} />
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-600">Tomorrow&apos;s goal</label>
@@ -551,9 +568,14 @@ export default function RatingForm({
               className="w-full border rounded-lg p-2 text-sm text-gray-700"
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
-              placeholder="e.g. Pay attention in maths class"
+              placeholder="e.g. When distracted, look back and write the next key point"
             />
           </div>
+          <YesNo
+            label="Home landing routine ready (bag → snack → diary → homework before screens)?"
+            value={homeRoutineReady}
+            onChange={setHomeRoutineReady}
+          />
         </>
       )}
 

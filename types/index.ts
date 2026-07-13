@@ -6,6 +6,7 @@ export interface ReadingContent {
   source_title?: string;
   source_author?: string;
   source_note?: string;
+  focus_work_ethic_coaching?: string;
 }
 
 export interface LanguageContent {
@@ -14,6 +15,8 @@ export interface LanguageContent {
   content: string;
   practice_task: string;
   remember_tip: string;
+  humour_hook?: string | null;
+  word_formation_deep_dive?: string | null;
   devanagari_words?: { word: string; meaning: string; transliteration: string }[];
 }
 
@@ -92,6 +95,8 @@ export interface NextDayPrepRating {
   bagPacked: boolean;
   goalSet: boolean;
   goal: string;
+  focusClass?: string;
+  homeRoutineReady?: boolean;
 }
 
 export type PhaseRatingData =

@@ -7,6 +7,16 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const SUMMER_READING_WORDS_MIN = 650;
 const SUMMER_READING_WORDS_MAX = 850;
 
+const FOCUS_COACHING_THEMES = [
+  "finishing homework fully and checking it before packing",
+  "focusing in class: notice distraction, return attention to the teacher, and capture the next useful point",
+  "the after-school landing routine: put the bag at the study spot, check the diary, eat, reset, then begin before screens",
+  "work ethic: start without bargaining, do the hard part first, and prefer complete work over clever shortcuts",
+  "listening when instructions are given and asking one clear question when something is unclear",
+  "using short focus sprints, completing one task at a time, and taking a planned break instead of drifting",
+  "being dependable: remember materials, meet small promises, and repair unfinished work without excuses",
+];
+
 const PUBLIC_DOMAIN_READING_SOURCES = [
   { title: "The Secret Garden", author: "Frances Hodgson Burnett", focus: "resilience, observation, nature, friendship" },
   { title: "The Railway Children", author: "E. Nesbit", focus: "family responsibility, courage, practical problem-solving" },
@@ -95,6 +105,11 @@ function readingSourceForDate(dateStr: string) {
   return PUBLIC_DOMAIN_READING_SOURCES[days % PUBLIC_DOMAIN_READING_SOURCES.length];
 }
 
+function focusCoachingThemeForDate(dateStr: string): string {
+  const days = Math.floor(parseDate(dateStr).getTime() / 86_400_000);
+  return FOCUS_COACHING_THEMES[days % FOCUS_COACHING_THEMES.length];
+}
+
 function buildRecentReadingNotes(
   recentPlans: Array<{ content: unknown; editedContent: unknown | null }>
 ): string {
@@ -145,6 +160,9 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
       source_note: content.reading.source_note
         ? normalizeWhitespace(content.reading.source_note)
         : content.reading.source_note,
+      focus_work_ethic_coaching: content.reading.focus_work_ethic_coaching
+        ? normalizeWhitespace(content.reading.focus_work_ethic_coaching)
+        : content.reading.focus_work_ethic_coaching,
     },
     language: {
       ...content.language,
@@ -152,6 +170,12 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
       content: content.language.content.trim(),
       practice_task: normalizeWhitespace(content.language.practice_task),
       remember_tip: normalizeWhitespace(content.language.remember_tip),
+      humour_hook: content.language.humour_hook
+        ? normalizeWhitespace(content.language.humour_hook)
+        : content.language.humour_hook,
+      word_formation_deep_dive: content.language.word_formation_deep_dive
+        ? content.language.word_formation_deep_dive.trim()
+        : content.language.word_formation_deep_dive,
     },
     writing: {
       ...content.writing,
@@ -174,6 +198,9 @@ async function buildPrompt(dateStr: string): Promise<string> {
   const language = getLanguageForDate(dateStr);
   const fullDate = formatDisplayDate(dateStr);
   const readingSource = readingSourceForDate(dateStr);
+  const focusCoachingTheme = focusCoachingThemeForDate(dateStr);
+  const dayOfWeek = parseDate(dateStr).getUTCDay();
+  const isWeeklyWordFormationDeepDive = language === "hindi" && dayOfWeek === 3;
   const recentPlans = await prisma.dailyPlan.findMany({
     where: {
       date: {
@@ -193,7 +220,11 @@ async function buildPrompt(dateStr: string): Promise<string> {
     language === "review"
       ? `Language focus: Sunday review day. Give a serious revision covering 6 Hindi words, 6 Sanskrit words, and 4 sentence-level recall questions from this week's language work. The lesson_title should say "Weekly Review".`
       : language === "hindi"
-      ? `Language focus: Hindi. Make this a rigorous CBSE Grade 6 summer lesson. Teach 8-10 useful vocabulary words plus one sentence pattern, with Devanagari, transliteration, English meaning, and short example sentences. Include a 6-item oral/written practice task. Keep it beginner-accessible but not nursery-level.`
+      ? `Language focus: Hindi. Make this an expanded, rigorous CBSE Grade 6 summer lesson. Teach 10-12 useful vocabulary words plus two sentence patterns, with Devanagari, transliteration, English meaning, and short example sentences. Include an 8-item oral/written practice task. Keep it beginner-accessible but not nursery-level. Use clever, witty humour that an 11-year-old who enjoys memes will actually understand; never use baby talk.${
+          isWeeklyWordFormationDeepDive
+            ? " This is the weekly Wednesday WORD FORMATION DEEP DIVE: take one useful Hindi word apart carefully (root/base, prefix or suffix where genuinely applicable, related word family, sound/spelling change, meaning logic, and 3 examples). Accuracy matters: do not invent a root or false etymology."
+            : " Set word_formation_deep_dive to null today; the full deep dive happens once each week on Wednesday."
+        }`
       : `Language focus: Sanskrit. Make this a rigorous beginner Sanskrit summer lesson. Teach 8-10 common words OR one short shloka line plus 5 grammar/vocabulary items. Include transliteration, word meanings, and a 6-item oral/written practice task. Keep it clear but substantive.`;
 
   return `You are a content creator for a daily learning session for Aashvath, a Grade 6 CBSE student in India.
@@ -222,6 +253,7 @@ ${recentReadingNotes}
 
 Generate a summer-holiday daily learning package. It should be engaging, rigorous, and age-appropriate for a gifted Grade 6 student who avoids reading.
 Reading must be at least one printed page: ${SUMMER_READING_WORDS_MIN}-${SUMMER_READING_WORDS_MAX} words, split into short paragraphs. Use the public-domain reading anchor above as the source/theme, but create a self-contained original passage or adapted public-domain-style chapter page suitable for this learner. Do not quote modern copyrighted books.
+After the main passage, include a separate 130-180 word read-aloud coaching paragraph about ${focusCoachingTheme}. It must show Aashvath a realistic school/home moment, explain why the habit matters, and give a tiny action sequence he can use immediately. Sound like a smart coach, not a lecture; avoid shame, labels, threats, and vague advice such as merely saying "focus more". Vary the scenario and wording from day to day.
 Include enough tasks to fill about 90 minutes: deeper reading, 5 comprehension questions, a more substantial language lesson, 5-line writing, and a concrete follow-up task.
 The science content should feel like a smart YouTube hook, but the work itself should require focus.
 Do not reuse a recent read-aloud title, central fact, or passage angle from the list above.
@@ -238,6 +270,7 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     "source_author": "${readingSource.author}",
     "source_note": "Free/public-domain reading anchor used for today's summer reading.",
     "passage": "${SUMMER_READING_WORDS_MIN}-${SUMMER_READING_WORDS_MAX} word one-page reading for a curious 11-year-old. Short paragraphs. Use the mood/theme of ${readingSource.title} by ${readingSource.author}, connect it naturally to ${topic}, and include concrete details, inference opportunities, and one surprising science/history comparison.",
+    "focus_work_ethic_coaching": "A separate 130-180 word read-aloud coaching paragraph focused on ${focusCoachingTheme}. Use a realistic scenario, explain the value, and end with a memorable 3-step action Aashvath can try tomorrow.",
     "comprehension_questions": [
       "Question 1 (factual recall from the passage)",
       "Question 2 (inference or reason from the passage)",
@@ -250,8 +283,10 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     "type": "${language}",
     "lesson_title": "Short lesson title",
     "content": "The actual lesson content. For vocabulary: present each word as: DEVANAGARI (transliteration) = English meaning, example in a sentence. For grammar/patterns: show the pattern with 4-5 examples. For shloka: the text + transliteration + word-by-word meaning + full meaning. Make it scannable but substantive.",
-    "practice_task": "A 6-item practice task that takes 10-15 minutes. Include speaking, recognition, and one short written/copy item.",
-    "remember_tip": "One clever memory trick, story, or visual association to help remember the lesson. E.g. 'पानी sounds like the English word PUNNY — water can be punny!'"
+    "practice_task": "For Hindi, an 8-item practice task; otherwise 6 items. It should take 10-15 minutes and include speaking, recognition, and one short written/copy item.",
+    "remember_tip": "One clever memory trick, story, or visual association to help remember the lesson.",
+    "humour_hook": "For Hindi, one witty meme-style joke/caption using today's words correctly, followed by a one-sentence explanation of the language joke. For Sanskrit/review, use null unless genuinely useful.",
+    "word_formation_deep_dive": ${isWeeklyWordFormationDeepDive ? '"A structured, accurate deep dive with headings: BUILD IT, WORD FAMILY, MEANING LOGIC, TRY IT. Explain one Hindi word formation in detail and give 3 examples."' : "null"}
   },
   "writing": {
     "type": "copy",

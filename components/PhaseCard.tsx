@@ -81,6 +81,16 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
               {content.reading.passage}
             </p>
           </div>
+          {content.reading.focus_work_ethic_coaching && (
+            <div className="bg-indigo-50 rounded-lg border border-indigo-200 p-4">
+              <p className="text-xs font-bold tracking-wide text-indigo-700 mb-2">
+                🎯 FOCUS LAB · READ THIS ALOUD TOO
+              </p>
+              <p className="text-gray-700 leading-relaxed text-sm">
+                {content.reading.focus_work_ethic_coaching}
+              </p>
+            </div>
+          )}
           <p className="text-xs font-semibold text-blue-700">
             Read the passage normally. Voice recording is only for answering the questions below.
           </p>
@@ -130,6 +140,22 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
             <p className="text-xs font-semibold text-green-700 mb-1">💡 Memory Tip</p>
             <p className="text-gray-700 text-sm italic">{content.language.remember_tip}</p>
           </div>
+          {content.language.humour_hook && (
+            <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
+              <p className="text-xs font-semibold text-violet-700 mb-1">😄 Meme Break</p>
+              <p className="text-gray-700 text-sm">{content.language.humour_hook}</p>
+            </div>
+          )}
+          {content.language.word_formation_deep_dive && (
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4">
+              <p className="text-xs font-bold tracking-wide text-amber-800 mb-2">
+                🔎 WEEKLY WORD FORMATION DEEP DIVE
+              </p>
+              <p className="text-gray-700 whitespace-pre-line text-sm leading-relaxed">
+                {content.language.word_formation_deep_dive}
+              </p>
+            </div>
+          )}
         </div>
       );
 
@@ -190,8 +216,10 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
           <div className="space-y-1 text-sm text-gray-600">
             {[
               "Pack school bag with tomorrow's books",
-              "Check timetable for any PE / art materials",
-              "Set one small goal for tomorrow",
+              "Check timetable, diary, homework, and any PE / art materials",
+              "Choose one class for the focus goal: eyes on speaker, write one key point, return after distractions",
+              "Plan the home landing: bag at study spot → water/snack → diary check before screens",
+              "List homework, start the hardest or most urgent task, then check and pack completed work",
               "Sleep by 10:30 PM",
             ].map((item, i) => (
               <div key={i} className="flex gap-2">
