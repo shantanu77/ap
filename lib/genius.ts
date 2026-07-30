@@ -41,7 +41,8 @@ Use only these blocks:
 VISUAL RULES:
 - Include one diagram unless a simulation already explains the central idea.
 - The diagram must explain the exact topic in this node, not decorate it.
-- Use rusting, particle-states, atom, or dissolving only when that exact scientific model fits.
+- Use rusting, particle-states, or atom only when that exact scientific model fits.
+- Use dissolving only for a solute separating and spreading through a solvent; soap surrounding grease is a particle-scene.
 - Otherwise choose: process for a sequence; before-after for a transformation; particle-scene for particle behavior;
   scale for an ordered range; or concept-map for relationships.
 - For every context diagram, labels must contain 3-6 short labels specific to this explanation.

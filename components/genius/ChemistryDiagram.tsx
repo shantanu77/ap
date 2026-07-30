@@ -259,8 +259,12 @@ export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
       {block.diagram === "atom" && <AtomDiagram />}
       {block.diagram === "particle-states" && <ParticleStatesDiagram />}
       {block.diagram === "rusting" && <RustDiagram />}
-      {block.diagram === "dissolving" && <DissolvingDiagram />}
-      {block.diagram === "reaction" && <ReactionDiagram />}
+      {block.diagram === "dissolving" && (
+        labels.length >= 2 ? <ParticleScene labels={labels} /> : <DissolvingDiagram />
+      )}
+      {block.diagram === "reaction" && (
+        labels.length >= 2 ? <ProcessDiagram labels={labels} /> : <ReactionDiagram />
+      )}
       {block.diagram === "concept-map" && <ConceptMap labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
       {block.diagram === "process" && <ProcessDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
       {block.diagram === "before-after" && <BeforeAfterDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
