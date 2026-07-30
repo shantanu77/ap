@@ -8,11 +8,11 @@ datasource db {
 }
 
 model DailyPlan {
-  id            String    @id @default(cuid())
-  date          DateTime  @unique @db.Date
-  generatedAt   DateTime  @default(now())
+  id            String   @id @default(cuid())
+  date          DateTime @unique @db.Date
+  generatedAt   DateTime @default(now())
   content       Json
-  edited        Boolean   @default(false)
+  edited        Boolean  @default(false)
   editedContent Json?
   session       Session?
 
@@ -20,18 +20,18 @@ model DailyPlan {
 }
 
 model Session {
-  id          String        @id @default(cuid())
-  date        DateTime      @db.Date
-  dailyPlanId String        @unique
-  dailyPlan   DailyPlan     @relation(fields: [dailyPlanId], references: [id])
-  startedAt   DateTime?
-  completedAt DateTime?
+  id              String        @id @default(cuid())
+  date            DateTime      @db.Date
+  dailyPlanId     String        @unique
+  dailyPlan       DailyPlan     @relation(fields: [dailyPlanId], references: [id])
+  startedAt       DateTime?
+  completedAt     DateTime?
   lateCompletedAt DateTime?
-  status      SessionStatus @default(PENDING)
-  phases      PhaseRating[]
-  notes       String?       @db.Text
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  status          SessionStatus @default(PENDING)
+  phases          PhaseRating[]
+  notes           String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@map("sessions")
 }
@@ -64,4 +64,23 @@ enum Phase {
   WRITING
   WORK_QUALITY
   NEXT_DAY_PREP
+}
+
+model GeniusExploration {
+  id             String    @id @default(cuid())
+  subject        String    @default("chemistry")
+  canonicalTopic String
+  displayTitle   String
+  defaultLevel   Int
+  content        Json
+  savedSnapshot  Json?
+  savedAt        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastOpenedAt   DateTime  @default(now())
+  deletedAt      DateTime?
+
+  @@index([savedAt])
+  @@index([lastOpenedAt])
+  @@map("genius_explorations")
 }
