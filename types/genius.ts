@@ -10,7 +10,17 @@ export type GeniusBlock =
   | { type: "analogy"; title: string; text: string; limit?: string }
   | {
       type: "diagram";
-      diagram: "rusting" | "particle-states" | "atom" | "dissolving" | "reaction";
+      diagram:
+        | "rusting"
+        | "particle-states"
+        | "atom"
+        | "dissolving"
+        | "reaction"
+        | "concept-map"
+        | "process"
+        | "before-after"
+        | "particle-scene"
+        | "scale";
       title: string;
       caption: string;
       labels?: string[];

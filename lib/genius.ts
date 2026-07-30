@@ -33,11 +33,19 @@ Use only these blocks:
 - {"type":"comparison","title":"...","columns":[{"emoji":"...","heading":"...","text":"..."}]}
 - {"type":"vocabulary","terms":[{"term":"...","definition":"...","example":"..."}]}
 - {"type":"analogy","title":"...","text":"...","limit":"where the analogy stops"}
-- {"type":"diagram","diagram":"rusting|particle-states|atom|dissolving|reaction","title":"...","caption":"...","labels":[]}
+- {"type":"diagram","diagram":"rusting|particle-states|atom|dissolving|reaction|concept-map|process|before-after|particle-scene|scale","title":"...","caption":"...","labels":["3-6 short, topic-specific labels"]}
 - {"type":"simulation","simulation":"rust-conditions.v1|particle-states.v1|dissolving.v1|atom-builder.v1|ph-indicator.v1|mass-balance.v1","title":"...","prompt":"..."}
 - {"type":"quick_check","question":"...","options":["..."],"correctIndex":0,"explanation":"..."}
 - {"type":"remember","points":["..."]}
 - {"type":"safety_note","text":"..."}
+VISUAL RULES:
+- Include one diagram unless a simulation already explains the central idea.
+- The diagram must explain the exact topic in this node, not decorate it.
+- Use rusting, particle-states, atom, or dissolving only when that exact scientific model fits.
+- Otherwise choose: process for a sequence; before-after for a transformation; particle-scene for particle behavior;
+  scale for an ordered range; or concept-map for relationships.
+- For every context diagram, labels must contain 3-6 short labels specific to this explanation.
+- Do not reuse generic labels such as "Observe, Model, Predict" unless the node is specifically about scientific method.
 Only choose a simulation when it directly fits. Never invent a simulation ID.
 Return:
 {"title":"...","estimated_read_minutes":3,"blocks":[...],"explore_choices":[

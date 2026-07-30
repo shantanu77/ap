@@ -257,7 +257,13 @@ function genericNode(topic: string, level: StudyLevel): GeniusNode {
         heading: "Start with the evidence 👀",
         text: `Chemists explore ${topic.toLowerCase()} by making careful observations, comparing materials, and building particle models that explain the patterns they find.`,
       },
-      { type: "diagram", diagram: "reaction", title: "Observation → particle model", caption: "A scientific model helps connect visible evidence to invisible particles." },
+      {
+        type: "diagram",
+        diagram: "concept-map",
+        title: `A map of ${topic}`,
+        caption: `The visual connects ${topic.toLowerCase()} to the evidence, particles, and explanation used by chemists.`,
+        labels: [topic, "Visible clues", "Particles involved", "Cause of the change", "Real-life example"],
+      },
       {
         type: "steps",
         title: "Think like a chemist 🧠",
@@ -379,6 +385,13 @@ function expansionBlocks(intent: string, topic: string, level: StudyLevel): Geni
   return [
     { type: "hero", emoji: "🔍", hook: `Let’s zoom in on ${topic} and connect the visible clues to particles.` },
     { type: "paragraph", heading: "The deeper idea", text: `${intent} Chemists answer this by comparing careful observations with models of particles, energy, and how substances interact.` },
+    {
+      type: "diagram",
+      diagram: "process",
+      title: `How this idea unfolds`,
+      caption: `A context map for ${intent.toLowerCase()}. Each step connects the observation to its particle explanation.`,
+      labels: [`Question: ${intent}`, "Identify the visible change", "Track the particles", "Explain the result"],
+    },
     { type: "steps", title: "Follow the reasoning", items: [
       { emoji: "1️⃣", title: "Spot the change", text: "Identify exactly what was observed." },
       { emoji: "2️⃣", title: "Track the particles", text: "Ask whether particles moved, separated, or rearranged." },

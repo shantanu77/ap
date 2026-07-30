@@ -124,7 +124,132 @@ function ReactionDiagram() {
   );
 }
 
+function ConceptMap({ labels }: { labels: string[] }) {
+  const [center = "Chemistry idea", ...branches] = labels;
+  const visibleBranches = branches.slice(0, 5);
+  return (
+    <div className="relative min-h-72 grid place-items-center py-3" role="img" aria-label={`Concept map: ${labels.join(", ")}`}>
+      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 600 300" preserveAspectRatio="none" aria-hidden>
+        {visibleBranches.map((_, index) => {
+          const angle = (Math.PI * 2 * index) / Math.max(1, visibleBranches.length) - Math.PI / 2;
+          const x = 300 + Math.cos(angle) * 215;
+          const y = 150 + Math.sin(angle) * 105;
+          return <line key={index} x1="300" y1="150" x2={x} y2={y} stroke="#a78bfa" strokeWidth="3" strokeDasharray="7 6" />;
+        })}
+      </svg>
+      <div className="relative z-10 rounded-3xl bg-violet-700 text-white p-5 max-w-52 text-center shadow-xl border-4 border-white">
+        <span className="text-2xl">⚗️</span>
+        <p className="font-black leading-tight mt-1">{center}</p>
+      </div>
+      {visibleBranches.map((label, index) => {
+        const angle = (Math.PI * 2 * index) / Math.max(1, visibleBranches.length) - Math.PI / 2;
+        const left = 50 + Math.cos(angle) * 38;
+        const top = 50 + Math.sin(angle) * 37;
+        return (
+          <div
+            key={`${label}-${index}`}
+            className="absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white border-2 border-violet-200 px-3 py-2 text-center text-xs sm:text-sm font-bold text-violet-950 shadow-sm max-w-40"
+            style={{ left: `${left}%`, top: `${top}%` }}
+          >
+            {["👀", "⚛️", "🔍", "🌍", "💡"][index]} {label}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProcessDiagram({ labels }: { labels: string[] }) {
+  return (
+    <div className="grid sm:grid-flow-col sm:auto-cols-fr items-stretch gap-2" role="img" aria-label={`Process: ${labels.join(" then ")}`}>
+      {labels.slice(0, 6).map((label, index) => (
+        <div key={`${label}-${index}`} className="contents">
+          <div className="rounded-2xl bg-white border-2 border-cyan-100 p-4 text-center shadow-sm">
+            <span className="inline-grid place-items-center w-8 h-8 rounded-full bg-cyan-500 text-white text-xs font-black">{index + 1}</span>
+            <p className="mt-2 text-xs sm:text-sm font-black text-slate-800 leading-tight">{label}</p>
+          </div>
+          {index < Math.min(labels.length, 6) - 1 && <span className="self-center text-center text-violet-500 font-black rotate-90 sm:rotate-0">→</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BeforeAfterDiagram({ labels }: { labels: string[] }) {
+  const midpoint = Math.max(1, Math.ceil(labels.length / 2));
+  const sides = [
+    { title: "Before", emoji: "⏮️", labels: labels.slice(0, midpoint), color: "from-sky-50 to-blue-100 border-blue-200" },
+    { title: "After", emoji: "⏭️", labels: labels.slice(midpoint), color: "from-amber-50 to-orange-100 border-orange-200" },
+  ];
+  return (
+    <div className="grid sm:grid-cols-[1fr_auto_1fr] gap-3 items-stretch" role="img" aria-label={`Before and after: ${labels.join(", ")}`}>
+      {sides.map((side, index) => (
+        <div key={side.title} className="contents">
+          <div className={`rounded-2xl bg-gradient-to-br ${side.color} border-2 p-5`}>
+            <p className="text-3xl">{side.emoji}</p>
+            <p className="font-black text-slate-900 mt-2">{side.title}</p>
+            <ul className="mt-2 space-y-1">
+              {(side.labels.length ? side.labels : ["Observe the change"]).map((label) => <li key={label} className="text-sm text-slate-700">• {label}</li>)}
+            </ul>
+          </div>
+          {index === 0 && <span className="self-center text-center text-2xl text-violet-500 font-black rotate-90 sm:rotate-0">→</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ParticleScene({ labels }: { labels: string[] }) {
+  const legend = labels.slice(0, 4);
+  const colors = ["bg-fuchsia-500", "bg-cyan-500", "bg-amber-400", "bg-emerald-500"];
+  return (
+    <div role="img" aria-label={`Particle scene showing ${legend.join(", ")}`}>
+      <div className="relative h-52 rounded-3xl bg-slate-900 overflow-hidden border-4 border-white shadow-inner">
+        {Array.from({ length: 32 }).map((_, index) => {
+          const type = index % Math.max(1, legend.length);
+          return (
+            <span
+              key={index}
+              className={`absolute rounded-full ${colors[type]} border-2 border-white/50`}
+              style={{
+                width: `${12 + (type % 2) * 4}px`,
+                height: `${12 + (type % 2) * 4}px`,
+                left: `${5 + (index * 31) % 88}%`,
+                top: `${8 + (index * 47) % 80}%`,
+              }}
+            />
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-2 mt-3 justify-center">
+        {legend.map((label, index) => (
+          <span key={`${label}-${index}`} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-3 py-1 text-xs font-bold text-slate-700">
+            <i className={`w-2.5 h-2.5 rounded-full ${colors[index]}`} /> {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScaleDiagram({ labels }: { labels: string[] }) {
+  return (
+    <div role="img" aria-label={`Scale from ${labels.join(" to ")}`} className="py-5">
+      <div className="h-5 rounded-full bg-gradient-to-r from-rose-500 via-amber-300 via-emerald-400 to-violet-600 shadow-inner" />
+      <div className="grid mt-3" style={{ gridTemplateColumns: `repeat(${Math.max(1, labels.length)}, minmax(0, 1fr))` }}>
+        {labels.slice(0, 7).map((label, index) => (
+          <div key={`${label}-${index}`} className="text-center px-1">
+            <span className="block w-0.5 h-3 bg-slate-400 mx-auto -mt-3 mb-2" />
+            <span className="text-[10px] sm:text-xs font-bold text-slate-700 leading-tight">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
+  const labels = block.labels?.filter(Boolean).slice(0, 7) ?? [];
   return (
     <figure className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-4 sm:p-6 overflow-hidden">
       <div className="flex items-center gap-2 mb-4">
@@ -136,6 +261,11 @@ export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
       {block.diagram === "rusting" && <RustDiagram />}
       {block.diagram === "dissolving" && <DissolvingDiagram />}
       {block.diagram === "reaction" && <ReactionDiagram />}
+      {block.diagram === "concept-map" && <ConceptMap labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
+      {block.diagram === "process" && <ProcessDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
+      {block.diagram === "before-after" && <BeforeAfterDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
+      {block.diagram === "particle-scene" && <ParticleScene labels={labels.length >= 2 ? labels : [block.title, "Surrounding particles"]} />}
+      {block.diagram === "scale" && <ScaleDiagram labels={labels.length >= 2 ? labels : ["Low", block.title, "High"]} />}
       <figcaption className="mt-4 text-xs text-slate-500 text-center">
         {block.caption} <span className="font-bold">Model • not to scale</span>
       </figcaption>
