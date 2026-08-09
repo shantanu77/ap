@@ -1,0 +1,1 @@
+export const GENIUS_QUESTION_MAX_LENGTH = 2000;

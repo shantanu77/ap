@@ -5,6 +5,7 @@ import type {
   GeniusNode,
   StudyLevel,
 } from "@/types/genius";
+import { GENIUS_QUESTION_MAX_LENGTH } from "@/lib/geniusLimits";
 
 const APPROVED_SIMULATIONS = new Set([
   "rust-conditions.v1",
@@ -41,6 +42,14 @@ export function cleanTopic(value: unknown): string {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
+}
+
+export function cleanQuestion(value: unknown): string {
+  return String(value ?? "")
+    .replace(/[<>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, GENIUS_QUESTION_MAX_LENGTH);
 }
 
 export function canonicalizeTopic(topic: string): string {

@@ -6,7 +6,7 @@ import {
   toExplorationDTO,
   updateExplorationContent,
 } from "@/lib/genius";
-import { cleanTopic, toStudyLevel } from "@/lib/geniusContent";
+import { cleanQuestion, cleanTopic, toStudyLevel } from "@/lib/geniusContent";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -32,7 +32,7 @@ export async function POST(request: Request, context: Context) {
       return NextResponse.json({ error: "The starting idea could not be found." }, { status: 400 });
     }
 
-    const question = cleanTopic(body.question);
+    const question = cleanQuestion(body.question);
     const label = question || cleanTopic(body.label) || "Explore further";
     const intent = question
       ? `Answer this Chemistry question in context: ${question}`

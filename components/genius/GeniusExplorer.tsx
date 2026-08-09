@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LessonRenderer from "@/components/genius/LessonRenderer";
+import { GENIUS_QUESTION_MAX_LENGTH } from "@/lib/geniusLimits";
 import type { GeniusContent, GeniusExplorationDTO, GeniusNode, StudyLevel } from "@/types/genius";
 
 interface SavedExploration {
@@ -184,9 +185,12 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
                     </button>
                   ))}
                 </div>
-                <form onSubmit={ask} className="mt-4 flex flex-col sm:flex-row gap-2">
+                <form onSubmit={ask} className="mt-4 flex flex-col sm:flex-row sm:items-end gap-2">
                   <label htmlFor="genius-question" className="sr-only">Ask about this topic</label>
-                  <input id="genius-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="❓ Ask your own question about this…" maxLength={120} className="min-w-0 flex-1 rounded-xl bg-white text-slate-950 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-cyan-400" />
+                  <div className="min-w-0 flex-1">
+                    <textarea id="genius-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="❓ Ask your own question about this…" maxLength={GENIUS_QUESTION_MAX_LENGTH} rows={3} className="block w-full resize-y rounded-xl bg-white text-slate-950 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-cyan-400" />
+                    <p className="mt-1 px-1 text-right text-[11px] text-slate-400">{question.length.toLocaleString()} / {GENIUS_QUESTION_MAX_LENGTH.toLocaleString()}</p>
+                  </div>
                   <button disabled={Boolean(action) || question.trim().length < 3} className="rounded-xl bg-cyan-400 text-slate-950 px-5 py-3 text-sm font-black disabled:bg-slate-500 disabled:text-slate-300">Ask it ✨</button>
                 </form>
               </section>
