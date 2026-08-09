@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ChemistryDiagram from "@/components/genius/ChemistryDiagram";
 import ChemistrySimulation from "@/components/genius/ChemistrySimulation";
 import type { GeniusBlock, GeniusNode } from "@/types/genius";
@@ -38,34 +38,103 @@ function QuickCheck({ block }: { block: Extract<GeniusBlock, { type: "quick_chec
   );
 }
 
+type NarrationStatus = "idle" | "speaking" | "paused";
+
+function narrationForNode(node: GeniusNode): string {
+  const details: string[] = [];
+  const recap: string[] = [];
+
+  node.blocks.forEach((block) => {
+    if (block.type === "hero") details.push(`Here is the big idea. ${block.hook}`);
+    if (block.type === "paragraph") details.push(`${block.heading ? `${block.heading}. ` : ""}${block.text}`);
+    if (block.type === "key_fact") details.push(`An important fact. ${block.title}. ${block.text}`);
+    if (block.type === "steps") {
+      details.push(`${block.title}. ${block.items.map((item, index) => `Step ${index + 1}. ${item.title}. ${item.text}`).join(" ")}`);
+    }
+    if (block.type === "comparison") {
+      details.push(`${block.title}. Let us compare them. ${block.columns.map((column) => `${column.heading}. ${column.text}`).join(" ")}`);
+    }
+    if (block.type === "vocabulary") {
+      details.push(`Useful words. ${block.terms.map((term) => `${term.term} means ${term.definition}${term.example ? ` For example, ${term.example}` : ""}`).join(" ")}`);
+    }
+    if (block.type === "analogy") {
+      details.push(`Here is a helpful analogy. ${block.title}. ${block.text}${block.limit ? ` Remember where the analogy stops. ${block.limit}` : ""}`);
+    }
+    if (block.type === "diagram") {
+      details.push(`Picture this. ${block.title}. ${block.caption}${block.labels?.length ? ` Look for ${block.labels.join(", ")}.` : ""}`);
+    }
+    if (block.type === "simulation") details.push(`Try the interactive model called ${block.title}. ${block.prompt}`);
+    if (block.type === "quick_check") details.push(`Now pause for a quick check. ${block.question}`);
+    if (block.type === "remember") recap.push(...block.points);
+    if (block.type === "safety_note") details.push(`Safety note. ${block.text}`);
+  });
+
+  const summary = recap.length > 0 ? `To summarize, remember these ideas. ${recap.join(" ")}` : "";
+  return [`Let us explore ${node.title}.`, ...details, summary].filter(Boolean).join(" ");
+}
+
 function ReadAloudButton({ node }: { node: GeniusNode }) {
-  const [speaking, setSpeaking] = useState(false);
-  const read = () => {
-    if (!("speechSynthesis" in window)) return;
-    if (speaking) {
-      window.speechSynthesis.cancel();
-      setSpeaking(false);
+  const [status, setStatus] = useState<NarrationStatus>("idle");
+  const [supported, setSupported] = useState(true);
+  const narration = useMemo(() => narrationForNode(node), [node]);
+
+  useEffect(() => {
+    setSupported("speechSynthesis" in window && "SpeechSynthesisUtterance" in window);
+    return () => window.speechSynthesis?.cancel();
+  }, [node.id]);
+
+  const start = () => {
+    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+      setSupported(false);
       return;
     }
-    const text = node.blocks.flatMap((block) => {
-      if (block.type === "hero") return [block.hook];
-      if (block.type === "paragraph") return [block.heading ?? "", block.text];
-      if (block.type === "key_fact") return [block.title, block.text];
-      if (block.type === "remember") return block.points;
-      if (block.type === "vocabulary") return block.terms.flatMap((term) => [term.term, term.definition]);
-      return [];
-    }).join(". ");
-    const utterance = new SpeechSynthesisUtterance(`${node.title}. ${text}`);
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(narration);
     utterance.rate = 0.92;
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
+    utterance.pitch = 1;
+    utterance.onend = () => setStatus("idle");
+    utterance.onerror = () => setStatus("idle");
     window.speechSynthesis.speak(utterance);
-    setSpeaking(true);
+    setStatus("speaking");
   };
+
+  const pause = () => {
+    window.speechSynthesis.pause();
+    setStatus("paused");
+  };
+
+  const resume = () => {
+    window.speechSynthesis.resume();
+    setStatus("speaking");
+  };
+
+  const stop = () => {
+    window.speechSynthesis.cancel();
+    setStatus("idle");
+  };
+
+  if (!supported) {
+    return <p className="text-xs text-slate-500" role="status">Audio reading is not supported in this browser.</p>;
+  }
+
+  if (status === "idle") {
+    return (
+      <button onClick={start} type="button" className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-800 hover:bg-violet-50" aria-label={`Read ${node.title} aloud`}>
+        🔊 Listen to explanation
+      </button>
+    );
+  }
+
   return (
-    <button onClick={read} className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-800 hover:bg-violet-50">
-      {speaking ? "⏹ Stop" : "🔊 Read aloud"}
-    </button>
+    <div className="flex items-center gap-2" role="group" aria-label="Audio explanation controls">
+      <span className="text-xs font-bold text-violet-700" aria-live="polite">{status === "paused" ? "Paused" : "Reading…"}</span>
+      <button onClick={status === "paused" ? resume : pause} type="button" className="rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-800 hover:bg-violet-50">
+        {status === "paused" ? "▶ Resume" : "⏸ Pause"}
+      </button>
+      <button onClick={stop} type="button" className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+        ⏹ Stop
+      </button>
+    </div>
   );
 }
 
