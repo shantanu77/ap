@@ -267,6 +267,12 @@ function genericNode(topic: string, level: StudyLevel): GeniusNode {
         text: `Chemists explore ${topic.toLowerCase()} by making careful observations, comparing materials, and building particle models that explain the patterns they find.`,
       },
       {
+        type: "analogy",
+        title: "The invisible detective story 🕵️",
+        text: `Imagine entering a room after a dramatic event: a chair is overturned, a window is open, and papers are everywhere. You did not see what happened, but the clues let you reconstruct it. In ${topic.toLowerCase()}, observations are the clues and a particle model is the explanation that must account for every clue.`,
+        limit: "Particles do not leave clues intentionally, and a scientific model must make testable predictions—not merely tell a convincing story.",
+      },
+      {
         type: "diagram",
         diagram: "concept-map",
         title: `A map of ${topic}`,
@@ -282,7 +288,8 @@ function genericNode(topic: string, level: StudyLevel): GeniusNode {
           { emoji: "⚛️", title: "Model", text: "Imagine a particle explanation that fits the evidence." },
         ],
       },
-      { type: "remember", points: ["Good chemistry explanations connect evidence and particles.", "Models are tested and improved when new evidence appears."] },
+      { type: "key_fact", emoji: "🚀", title: "Stretch idea: a model must predict", text: "A powerful explanation does not only fit evidence we already have. It predicts what should happen in a new situation, which lets scientists test whether the model survives." },
+      { type: "remember", points: ["Good chemistry explanations connect evidence and particles.", "Think like a detective: every visible clue needs a cause.", "A strong model predicts new evidence and changes when a prediction fails."] },
     ],
     [
       choice("how-it-works", "🔍", "How does it work?", `Explain the mechanism behind ${topic}.`),
@@ -395,6 +402,12 @@ function expansionBlocks(intent: string, topic: string, level: StudyLevel): Geni
     { type: "hero", emoji: "🔍", hook: `Let’s zoom in on ${topic} and connect the visible clues to particles.` },
     { type: "paragraph", heading: "The deeper idea", text: `${intent} Chemists answer this by comparing careful observations with models of particles, energy, and how substances interact.` },
     {
+      type: "analogy",
+      title: "Freeze the dramatic moment 🎬",
+      text: `Imagine a film paused at the most surprising moment in ${topic}: the visible result is frozen on screen, but millions of invisible particle events led to it. Rewind the scene by asking what moved, collided, separated, or rearranged at each step.`,
+      limit: "Real particles do not follow a script, and the mental movie is useful only when each scene agrees with measured evidence.",
+    },
+    {
       type: "diagram",
       diagram: "process",
       title: `How this idea unfolds`,
@@ -406,8 +419,8 @@ function expansionBlocks(intent: string, topic: string, level: StudyLevel): Geni
       { emoji: "2️⃣", title: "Track the particles", text: "Ask whether particles moved, separated, or rearranged." },
       { emoji: "3️⃣", title: "Test the model", text: "Check whether the explanation predicts another observation." },
     ] },
-    { type: "key_fact", emoji: "🌟", title: `Grade ${level} insight`, text: "A strong scientific explanation does more than name a fact—it explains why the evidence should look that way." },
-    { type: "remember", points: ["Use evidence first, then a particle model.", "A model is useful when it explains and predicts observations."] },
+    { type: "key_fact", emoji: "🌟", title: `Beyond Grade ${level}: test a prediction`, text: "A strong scientific explanation does more than name a fact—it predicts how the evidence would change if one condition changed." },
+    { type: "remember", points: ["Use evidence first, then a particle model.", "Rewind the dramatic visible moment into smaller particle events.", "A model becomes powerful when it explains and predicts observations."] },
   ];
 }
 

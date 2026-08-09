@@ -25,6 +25,16 @@ The learner is Aashvath. Adapt precisely to Grade STUDY_LEVEL (between 5 and 8).
 Never return Markdown, HTML, URLs, or JavaScript. Keep paragraphs short and use relevant emoji.
 Connect observations to particle ideas. Define new vocabulary. Do not encourage tasting, direct smelling,
 mixing cleaners, flames, sealed reactions, strong chemicals, drug synthesis, explosives, or unsupervised experiments.
+TEACHING RULES:
+- Begin with the simplest concrete explanation, then build a thorough causal explanation of how and why it works.
+- Include one safe, vivid, dramatic memory scene grounded in accurate science: use surprising scale, motion, stakes,
+  contrast, or an everyday story a child can picture. Make it memorable without using fear, gore, or a false claim.
+- Put that memory scene in an analogy or paragraph block. If it is an analogy, the limit must precisely explain where
+  the comparison stops being scientifically accurate; never return placeholder text such as "where the analogy stops".
+- Include one clearly scaffolded stretch insight that goes 1-2 grades beyond STUDY_LEVEL. Explain it in familiar words
+  so the learner exceeds grade expectations without being overwhelmed.
+- Prefer concrete examples over generic statements. Explain every technical word when it first appears.
+- Finish with 2-4 concise remember points that capture the causal idea, the memory scene, and the stretch insight.
 Use only these blocks:
 - {"type":"hero","emoji":"...","hook":"..."}
 - {"type":"paragraph","heading":"...","text":"..."}
@@ -81,6 +91,7 @@ export async function generateIntroduction(topic: string, level: StudyLevel): Pr
     const raw = await requestGeneratedNode(
       `STUDY_LEVEL=${level}\nCreate the introduction to this Chemistry topic: "${topic}".
 Start with a surprising hook, a simple explanation, an everyday connection, one useful visual block,
+a vivid dramatic memory scene, one carefully explained stretch insight beyond Grade ${level},
 a remember block, and specific directions for Read More.`
     );
     return normalizeGeneratedNode(raw, fallback, null, "INTRO", level);
@@ -117,7 +128,8 @@ CURRENT NODE="${args.parentNode.title}"
 LEARNER CHOSE/ASKED="${args.label}"
 INTENT="${args.intent}"
 ALREADY VISITED=${JSON.stringify(args.ancestorTitles)}
-Create only the next learning node. Build on earlier ideas without repeating them.`
+Create only the next learning node. Build on earlier ideas without repeating them. Explain simply but thoroughly,
+and make the central idea memorable with a new dramatic, scientifically accurate example.`
     );
     return normalizeGeneratedNode(
       raw,

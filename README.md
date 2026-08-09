@@ -69,7 +69,9 @@ Instead of returning a single wall of AI-generated text, Genius Corner builds th
 - Quick checks and “remember” summaries
 - Suggested directions for deeper exploration
 
-Every concept also has a **Listen to explanation** control. It uses the browser's built-in voice to narrate the big idea, detailed explanation, steps, comparisons, vocabulary, visual context, safety guidance, and final recap. The learner can pause, resume, or stop without sending lesson text to an additional speech service.
+Every concept also has a **Listen to explanation** control. It uses the browser's built-in voice to narrate the big idea, detailed explanation, steps, comparisons, vocabulary, visual context, safety guidance, and final recap. The learner can pause, resume, or stop without sending lesson text to an additional speech service. Saving an exploration preserves its learning snapshot and places a concise, listenable summary of the saved ideas at the top whenever the topic is reopened.
+
+Generated lessons deliberately move from a simple concrete foothold to a thorough causal explanation. Each node asks for a vivid, scientifically accurate memory scene and a carefully scaffolded stretch insight beyond the selected grade, helping the learner remember the concept while progressing beyond minimum curriculum expectations.
 
 After reading a node, the learner can choose a suggested path or use **Ask it** to enter a detailed, multi-line question. Questions may contain up to 2,000 characters, making it possible to explain the learner's full reasoning rather than reducing curiosity to a short search phrase.
 

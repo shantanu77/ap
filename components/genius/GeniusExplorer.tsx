@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LessonRenderer from "@/components/genius/LessonRenderer";
+import SavedLearningSummary from "@/components/genius/SavedLearningSummary";
 import { GENIUS_QUESTION_MAX_LENGTH } from "@/lib/geniusLimits";
 import type { GeniusContent, GeniusExplorationDTO, GeniusNode, StudyLevel } from "@/types/genius";
 
@@ -116,6 +117,11 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
 
   if (!exploration) return null;
   const nodes = exploration.content.nodes;
+  const savedContent = saved
+    ? exploration.content
+    : "savedSnapshot" in exploration
+      ? exploration.savedSnapshot
+      : null;
 
   return (
     <div className="pb-16">
@@ -143,6 +149,8 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
           </div>
         </div>
       </header>
+
+      {savedContent && <SavedLearningSummary nodes={savedContent.nodes} />}
 
       <nav aria-label="Exploration trail" className="rounded-2xl bg-white border border-slate-100 p-3 mb-8 overflow-x-auto">
         <div className="flex items-center gap-2 min-w-max">
