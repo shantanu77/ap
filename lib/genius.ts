@@ -27,7 +27,9 @@ function contentRules(subject: GeniusSubject): string {
     ? "Connect observations to forces, energy, motion, waves, fields, or matter as appropriate. Use measurable cause and effect and define quantities and units."
     : subject === "biology"
       ? "Connect visible traits and processes to cells, organs, body systems, ecosystems, inheritance, or evolution as appropriate. Explain structure and function without giving medical diagnosis or treatment."
-      : "Connect observations to particles, substances, energy, and reactions as appropriate.";
+      : subject === "math"
+        ? "Teach NCERT-aligned mathematics for the selected grade. Explain why each method works, not only the rule. Use exact mathematical notation in plain text, verify every calculation, and distinguish the reasoning step from the arithmetic step."
+        : "Connect observations to particles, substances, energy, and reactions as appropriate.";
   return `Return one child-friendly ${subjectName} learning node as strict JSON.
 The learner is Aashvath. Adapt precisely to Grade STUDY_LEVEL (between 5 and 8).
 Never return Markdown, HTML, URLs, or JavaScript. Keep paragraphs short and use relevant emoji.
@@ -53,11 +55,13 @@ Use only these blocks:
 - {"type":"comparison","title":"...","columns":[{"emoji":"...","heading":"...","text":"..."}]}
 - {"type":"vocabulary","terms":[{"term":"...","definition":"...","example":"..."}]}
 - {"type":"analogy","title":"...","text":"...","limit":"where the analogy stops"}
-- {"type":"diagram","diagram":"rusting|particle-states|atom|dissolving|reaction|concept-map|process|before-after|particle-scene|scale","title":"...","caption":"...","labels":["3-6 short, topic-specific labels"]}
+- {"type":"diagram","diagram":"rusting|particle-states|atom|dissolving|reaction|concept-map|process|before-after|particle-scene|scale|coordinate-grid","title":"...","caption":"...","labels":["3-6 short, topic-specific labels"]}
 - {"type":"simulation","simulation":"rust-conditions.v1|particle-states.v1|dissolving.v1|atom-builder.v1|ph-indicator.v1|mass-balance.v1|force-motion.v1|cell-explorer.v1|food-chain.v1","title":"...","prompt":"..."}
 - {"type":"quick_check","question":"...","options":["..."],"correctIndex":0,"explanation":"..."}
 - {"type":"remember","points":["..."]}
 - {"type":"safety_note","text":"..."}
+- {"type":"math_worked_example","title":"...","problem":"...","steps":[{"label":"Step 1","working":"...","explanation":"why this step is valid"}],"answer":"..."}
+- {"type":"math_practice","title":"...","problem":"...","steps":[{"prompt":"one intermediate question","acceptedAnswers":["exact answer","equivalent answer"],"hint":"specific hint","explanation":"why"}],"finalAnswer":"..."}
 VISUAL RULES:
 - Every safe learning node must include an interactive visual: choose an approved simulation whenever one directly fits;
   otherwise include a diagram, whose labels become interactive exploration controls in the interface.
@@ -72,6 +76,13 @@ VISUAL RULES:
 - For every context diagram, labels must contain 3-6 short labels specific to this explanation.
 - Do not reuse generic labels such as "Observe, Model, Predict" unless the node is specifically about scientific method.
 Only choose a simulation when it directly fits. Never invent a simulation ID.
+MATH RULES:
+- For Math nodes, always include exactly one math_worked_example and one math_practice block.
+- Break the worked example into small, ordered steps and explain why each operation is chosen.
+- The practice problem must use different numbers but the same method. Each practice step must have all reasonable equivalent accepted answers.
+- Include a diagram for number lines, fractions, geometry, data, graphs, or place value when it improves understanding.
+- For coordinate graphs use coordinate-grid and put plotted points in labels as exact strings like "(2, 3)". For a number line use scale with ordered labels.
+- Check all arithmetic internally before returning JSON. Never reveal the practice final answer before its steps are attempted.
 Return:
 {"title":"...","estimated_read_minutes":3,"blocks":[...],"explore_choices":[
 {"id":"short-kebab-id","emoji":"...","label":"specific next question","intent":"precise generation intent"}
@@ -193,7 +204,7 @@ export type GeniusExplorationRecord = {
 export function toExplorationDTO(record: GeniusExplorationRecord): GeniusExplorationDTO {
   return {
     id: record.id,
-    subject: record.subject === "physics" || record.subject === "biology" ? record.subject : "chemistry",
+    subject: record.subject === "physics" || record.subject === "biology" || record.subject === "math" ? record.subject : "chemistry",
     canonicalTopic: record.canonicalTopic,
     displayTitle: record.displayTitle,
     defaultLevel: (record.defaultLevel >= 5 && record.defaultLevel <= 8

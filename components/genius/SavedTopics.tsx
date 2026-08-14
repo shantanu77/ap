@@ -50,7 +50,7 @@ export default function SavedTopics() {
         <div className="rounded-3xl bg-white border border-violet-100 p-10 text-center">
           <p className="text-5xl">🔖</p>
           <h2 className="font-black text-xl text-slate-900 mt-4">Your discovery shelf is waiting</h2>
-          <p className="text-sm text-slate-500 mt-2">Explore a Chemistry, Physics, or Biology topic, follow a few ideas, then save the whole journey here.</p>
+          <p className="text-sm text-slate-500 mt-2">Explore Chemistry, Physics, Biology, or Math, follow a few ideas, then save the whole journey here.</p>
           <Link href="/genius-corner" className="inline-block mt-5 rounded-xl bg-violet-600 text-white px-5 py-3 font-black">Start exploring 🚀</Link>
         </div>
       )}

@@ -33,6 +33,8 @@ const BLOCK_TYPES = new Set([
   "quick_check",
   "remember",
   "safety_note",
+  "math_worked_example",
+  "math_practice",
 ]);
 
 export function toStudyLevel(value: unknown): StudyLevel {
@@ -66,14 +68,14 @@ export function canonicalizeTopic(topic: string): string {
 }
 
 export function toGeniusSubject(value: unknown): GeniusSubject {
-  return value === "physics" || value === "biology" ? value : "chemistry";
+  return value === "physics" || value === "biology" || value === "math" ? value : "chemistry";
 }
 
 export function displayTitleForTopic(topic: string, subject: GeniusSubject = "chemistry"): string {
   const trimmed = topic.replace(/[?.!]+$/, "").trim();
   const title = trimmed.replace(/\b\w/g, (character) => character.toUpperCase());
-  const fallback = subject === "physics" ? "Physics Mystery" : subject === "biology" ? "Biology Mystery" : "Chemistry Mystery";
-  const emoji = subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : "⚗️";
+  const fallback = subject === "physics" ? "Physics Mystery" : subject === "biology" ? "Biology Mystery" : subject === "math" ? "Math Mystery" : "Chemistry Mystery";
+  const emoji = subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : subject === "math" ? "➗" : "⚗️";
   return `${title || fallback} ${emoji}`;
 }
 
@@ -285,8 +287,10 @@ function genericNode(topic: string, level: StudyLevel, subject: GeniusSubject = 
     ? "forces, energy, motion, matter, and measurable cause and effect"
     : subject === "biology"
       ? "living structures, their functions, systems, adaptation, and evidence"
-      : "materials, particles, reactions, and evidence";
-  const emoji = subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : "⚗️";
+      : subject === "math"
+        ? "patterns, quantities, representations, and step-by-step reasoning"
+        : "materials, particles, reactions, and evidence";
+  const emoji = subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : subject === "math" ? "➗" : "⚗️";
   return nodeBase(
     title,
     level,
@@ -322,6 +326,26 @@ function genericNode(topic: string, level: StudyLevel, subject: GeniusSubject = 
           { emoji: "⚛️", title: "Model", text: "Imagine a particle explanation that fits the evidence." },
         ],
       },
+      ...(subject === "math" ? [
+        {
+          type: "math_worked_example" as const,
+          title: "Worked example",
+          problem: `Use a clear step-by-step method to solve one Grade ${level} example about ${topic}.`,
+          steps: [
+            { label: "Step 1", working: "Write down what is known and what must be found.", explanation: "Separating the given information from the goal prevents choosing an operation too early." },
+            { label: "Step 2", working: "Choose the matching operation or representation.", explanation: "The operation must match the relationship described in the problem." },
+            { label: "Step 3", working: "Calculate carefully and check using the reverse operation.", explanation: "A reverse check catches many arithmetic mistakes." },
+          ],
+          answer: "Use the generated lesson above to substitute the topic's values.",
+        },
+        {
+          type: "math_practice" as const,
+          title: "Try the method",
+          problem: `Explain the first valid step for a similar ${topic} problem.`,
+          steps: [{ prompt: "What should you identify before calculating?", acceptedAnswers: ["what is known and what must be found", "known values and the unknown"], hint: "Separate the information given from the question being asked.", explanation: "This identifies the mathematical goal before selecting an operation." }],
+          finalAnswer: "Identify the known values and the unknown.",
+        },
+      ] : []),
       { type: "key_fact", emoji: "🚀", title: "Stretch idea: a model must predict", text: "A powerful explanation does not only fit evidence we already have. It predicts what should happen in a new situation, which lets scientists test whether the model survives." },
       { type: "remember", points: [`Good ${subjectName.toLowerCase()} explanations connect evidence to a mechanism.`, "Think like a detective: every visible clue needs a cause.", "A strong model predicts new evidence and changes when a prediction fails."] },
     ],
@@ -434,9 +458,9 @@ function expansionBlocks(intent: string, topic: string, level: StudyLevel, subje
     ];
   }
   const subjectName = subject[0].toUpperCase() + subject.slice(1);
-  const mechanism = subject === "physics" ? "forces, energy, motion, and measurable changes" : subject === "biology" ? "structures, functions, systems, and living processes" : "particles, energy, and how substances interact";
+  const mechanism = subject === "physics" ? "forces, energy, motion, and measurable changes" : subject === "biology" ? "structures, functions, systems, and living processes" : subject === "math" ? "patterns, quantities, diagrams, and valid calculation steps" : "particles, energy, and how substances interact";
   return [
-    { type: "hero", emoji: subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : "🔍", hook: `Let’s zoom in on ${topic} and connect the visible clues to the mechanism behind them.` },
+    { type: "hero", emoji: subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : subject === "math" ? "➗" : "🔍", hook: `Let’s zoom in on ${topic} and connect the visible clues to the mechanism behind them.` },
     { type: "paragraph", heading: "The deeper idea", text: `${intent} ${subjectName} answers this by comparing careful observations with models of ${mechanism}.` },
     {
       type: "analogy",

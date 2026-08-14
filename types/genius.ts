@@ -1,5 +1,5 @@
 export type StudyLevel = 5 | 6 | 7 | 8;
-export type GeniusSubject = "chemistry" | "physics" | "biology";
+export type GeniusSubject = "chemistry" | "physics" | "biology" | "math";
 
 export type GeniusBlock =
   | { type: "hero"; emoji: string; hook: string }
@@ -21,7 +21,8 @@ export type GeniusBlock =
         | "process"
         | "before-after"
         | "particle-scene"
-        | "scale";
+        | "scale"
+        | "coordinate-grid";
       title: string;
       caption: string;
       labels?: string[];
@@ -43,7 +44,21 @@ export type GeniusBlock =
     }
   | { type: "quick_check"; question: string; options: string[]; correctIndex: number; explanation: string }
   | { type: "remember"; points: string[] }
-  | { type: "safety_note"; text: string };
+  | { type: "safety_note"; text: string }
+  | {
+      type: "math_worked_example";
+      title: string;
+      problem: string;
+      steps: Array<{ label: string; working: string; explanation: string }>;
+      answer: string;
+    }
+  | {
+      type: "math_practice";
+      title: string;
+      problem: string;
+      steps: Array<{ prompt: string; acceptedAnswers: string[]; hint: string; explanation: string }>;
+      finalAnswer: string;
+    };
 
 export interface ExploreChoice {
   id: string;

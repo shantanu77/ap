@@ -251,6 +251,23 @@ function ScaleDiagram({ labels }: { labels: string[] }) {
   );
 }
 
+function CoordinateGrid({ labels }: { labels: string[] }) {
+  const points = labels.flatMap((label) => {
+    const match = label.match(/\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)/);
+    return match ? [{ label, x: Number(match[1]), y: Number(match[2]) }] : [];
+  });
+  const toX = (value: number) => 160 + Math.max(-5, Math.min(5, value)) * 26;
+  const toY = (value: number) => 150 - Math.max(-5, Math.min(5, value)) * 24;
+  return (
+    <svg viewBox="0 0 320 300" className="w-full max-w-xl mx-auto bg-white rounded-2xl" role="img" aria-label={`Coordinate grid with ${labels.join(", ")}`}>
+      {Array.from({ length: 11 }).map((_, index) => <g key={index}><line x1={30 + index * 26} y1="30" x2={30 + index * 26} y2="270" stroke="#e2e8f0" /><line x1="30" y1={30 + index * 24} x2="290" y2={30 + index * 24} stroke="#e2e8f0" /></g>)}
+      <line x1="30" y1="150" x2="294" y2="150" stroke="#475569" strokeWidth="2" /><line x1="160" y1="274" x2="160" y2="26" stroke="#475569" strokeWidth="2" />
+      <text x="296" y="145" className="fill-slate-700 text-[11px]">x</text><text x="166" y="25" className="fill-slate-700 text-[11px]">y</text>
+      {points.map((point, index) => <g key={`${point.label}-${index}`}><circle cx={toX(point.x)} cy={toY(point.y)} r="6" fill="#7c3aed" /><text x={toX(point.x) + 8} y={toY(point.y) - 8} className="fill-violet-800 text-[10px] font-bold">{point.label}</text></g>)}
+    </svg>
+  );
+}
+
 export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
   const labels = block.labels?.filter(Boolean).slice(0, 7) ?? [];
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
@@ -274,6 +291,7 @@ export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
       {block.diagram === "before-after" && <BeforeAfterDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
       {block.diagram === "particle-scene" && <ParticleScene labels={labels.length >= 2 ? labels : [block.title, "Surrounding particles"]} />}
       {block.diagram === "scale" && <ScaleDiagram labels={labels.length >= 2 ? labels : ["Low", block.title, "High"]} />}
+      {block.diagram === "coordinate-grid" && <CoordinateGrid labels={labels} />}
       {labels.length > 0 && (
         <div className="mt-4 rounded-2xl border border-violet-100 bg-white/80 p-3">
           <p className="text-[11px] font-black uppercase tracking-widest text-violet-700">Tap to explore the illustration</p>

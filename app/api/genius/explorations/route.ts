@@ -13,8 +13,9 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { topic?: unknown; level?: unknown; subject?: unknown };
     const topic = cleanTopic(body.topic);
-    const level = toStudyLevel(body.level);
+    const requestedLevel = toStudyLevel(body.level);
     const subject = toGeniusSubject(body.subject);
+    const level = subject === "math" && requestedLevel === 5 ? 6 : requestedLevel;
     if (topic.length < 3) {
       return NextResponse.json({ error: `Tell me a ${subject} topic to explore.` }, { status: 400 });
     }

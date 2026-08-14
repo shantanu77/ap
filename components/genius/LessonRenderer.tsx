@@ -7,6 +7,48 @@ import SpeechPlayer from "@/components/genius/SpeechPlayer";
 import { narrationForNode } from "@/lib/geniusNarration";
 import type { GeniusBlock, GeniusNode } from "@/types/genius";
 
+function WorkedExample({ block }: { block: Extract<GeniusBlock, { type: "math_worked_example" }> }) {
+  const [revealed, setRevealed] = useState(0);
+  const steps = Array.isArray(block.steps) ? block.steps : [];
+  return (
+    <section className="rounded-3xl bg-blue-50 border-2 border-blue-200 p-5 sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-blue-700">Watch the method 👀</p>
+      <h3 className="text-xl font-black text-slate-950 mt-1">{block.title}</h3>
+      <p className="rounded-xl bg-white p-4 mt-3 font-bold text-slate-800">{block.problem}</p>
+      <div className="space-y-3 mt-4">
+        {steps.slice(0, revealed).map((step, index) => <div key={index} className="rounded-xl bg-white border border-blue-100 p-4"><p className="font-black text-blue-900">{step.label}</p><p className="font-mono text-slate-900 mt-1">{step.working}</p><p className="text-sm text-slate-600 mt-2"><strong>Why?</strong> {step.explanation}</p></div>)}
+      </div>
+      {revealed < steps.length ? <button onClick={() => setRevealed((value) => value + 1)} className="mt-4 rounded-xl bg-blue-600 text-white px-4 py-2 font-black">Reveal next step →</button> : <p className="mt-4 rounded-xl bg-emerald-100 text-emerald-900 p-3 font-black">Answer: {block.answer} ✓</p>}
+    </section>
+  );
+}
+
+function MathPractice({ block }: { block: Extract<GeniusBlock, { type: "math_practice" }> }) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [answer, setAnswer] = useState("");
+  const [message, setMessage] = useState("");
+  const steps = Array.isArray(block.steps) ? block.steps : [];
+  const step = steps[stepIndex];
+  const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
+  const check = () => {
+    if (!step) return;
+    const acceptedAnswers = Array.isArray(step.acceptedAnswers) ? step.acceptedAnswers : [];
+    const correct = acceptedAnswers.some((accepted) => normalize(String(accepted)) === normalize(answer));
+    if (!correct) { setMessage(`Not yet. Hint: ${step.hint}`); return; }
+    setMessage(`Correct — ${step.explanation}`);
+    window.setTimeout(() => { setStepIndex((value) => value + 1); setAnswer(""); setMessage(""); }, 900);
+  };
+  const complete = stepIndex >= steps.length;
+  return (
+    <section className="rounded-3xl bg-emerald-950 text-white p-5 sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Solve it step by step ✏️</p>
+      <h3 className="text-xl font-black mt-1">{block.title}</h3>
+      <p className="rounded-xl bg-white/10 p-4 mt-3 font-bold">{block.problem}</p>
+      {complete ? <div className="mt-4 rounded-xl bg-emerald-400 text-emerald-950 p-4"><p className="font-black">Solved! 🌟</p><p className="text-sm mt-1">Final answer: {block.finalAnswer}</p></div> : step && <div className="mt-4"><p className="text-sm font-bold">Step {stepIndex + 1} of {steps.length}: {step.prompt}</p><div className="flex flex-col sm:flex-row gap-2 mt-2"><input value={answer} onChange={(event) => setAnswer(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") check(); }} className="flex-1 rounded-xl bg-white text-slate-950 px-4 py-3" placeholder="Enter this step's answer" /><button onClick={check} disabled={!answer.trim()} className="rounded-xl bg-cyan-400 text-slate-950 px-5 py-3 font-black disabled:opacity-50">Check step</button></div>{message && <p className="mt-3 rounded-xl bg-white/10 p-3 text-sm" aria-live="polite">{message}</p>}</div>}
+    </section>
+  );
+}
+
 function QuickCheck({ block }: { block: Extract<GeniusBlock, { type: "quick_check" }> }) {
   const [answer, setAnswer] = useState<number | null>(null);
   const correct = answer === block.correctIndex;
@@ -129,6 +171,8 @@ function BlockRenderer({ block }: { block: GeniusBlock }) {
   }
   if (block.type === "diagram") return <ChemistryDiagram block={block} />;
   if (block.type === "simulation") return <ChemistrySimulation block={block} />;
+  if (block.type === "math_worked_example") return <WorkedExample block={block} />;
+  if (block.type === "math_practice") return <MathPractice block={block} />;
   if (block.type === "quick_check") return <QuickCheck block={block} />;
   if (block.type === "remember") {
     return (

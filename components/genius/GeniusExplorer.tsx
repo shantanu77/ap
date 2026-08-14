@@ -123,7 +123,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
     : "savedSnapshot" in exploration
       ? exploration.savedSnapshot
       : null;
-  const subjectEmoji = exploration.subject === "physics" ? "🚀" : exploration.subject === "biology" ? "🧬" : "⚗️";
+  const subjectEmoji = exploration.subject === "physics" ? "🚀" : exploration.subject === "biology" ? "🧬" : exploration.subject === "math" ? "➗" : "⚗️";
 
   return (
     <div className="pb-16">
@@ -139,7 +139,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
                 <label className="rounded-xl bg-white border border-slate-200 px-2 py-1.5 text-xs text-slate-500">
                   Grade{" "}
                   <select value={level} onChange={(event) => setLevel(Number(event.target.value) as StudyLevel)} className="font-black text-slate-900 bg-transparent">
-                    {[5, 6, 7, 8].map((item) => <option key={item}>{item}</option>)}
+                    {(exploration.subject === "math" ? [6, 7, 8] : [5, 6, 7, 8]).map((item) => <option key={item}>{item}</option>)}
                   </select>
                 </label>
                 <button onClick={saveTopic} disabled={Boolean(action)} className="rounded-xl bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white px-3 py-2 text-xs font-black">

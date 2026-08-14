@@ -30,6 +30,34 @@ const SUBJECTS: Record<GeniusSubject, { name: string; emoji: string; badge: stri
     { emoji: "🦋", title: "Adaptation", topic: "How do adaptations help organisms survive?", color: "from-cyan-400 to-emerald-600" },
     { emoji: "🧬", title: "Genes & inheritance", topic: "How do genes pass traits from parents to offspring?", color: "from-pink-500 to-violet-700" },
   ] },
+  math: { name: "Math", emoji: "➗", badge: "Math Problem-Solving Studio", description: "See the idea visually, follow every calculation, and solve a similar NCERT-aligned problem step by step.", placeholder: "Try: How do I find the LCM?", collections: [] },
+};
+
+const MATH_COLLECTIONS: Record<6 | 7 | 8, typeof SUBJECTS.math.collections> = {
+  6: [
+    { emoji: "🔢", title: "Number Play", topic: "Factors, multiples, prime numbers, HCF and LCM", color: "from-blue-500 to-indigo-700" },
+    { emoji: "➗", title: "Long Division", topic: "Long division with whole numbers and checking by multiplication", color: "from-violet-500 to-purple-700" },
+    { emoji: "🍕", title: "Fractions", topic: "Fractions on a number line and operations with fractions", color: "from-orange-400 to-rose-600" },
+    { emoji: "📐", title: "Lines & Angles", topic: "Lines, rays, angles, and measuring angles", color: "from-cyan-400 to-blue-600" },
+    { emoji: "📊", title: "Data Handling", topic: "Reading and creating tables, pictographs, and bar graphs", color: "from-emerald-400 to-teal-700" },
+    { emoji: "⬛", title: "Perimeter & Area", topic: "Perimeter and area of rectangles and composite shapes", color: "from-amber-400 to-orange-600" },
+  ],
+  7: [
+    { emoji: "➖", title: "Integers", topic: "Operations with positive and negative integers", color: "from-blue-500 to-indigo-700" },
+    { emoji: "🔣", title: "Rational Numbers", topic: "Comparing and calculating with rational numbers", color: "from-violet-500 to-purple-700" },
+    { emoji: "✖️", title: "Algebraic Expressions", topic: "Forming and simplifying expressions using variables", color: "from-fuchsia-500 to-rose-700" },
+    { emoji: "📐", title: "Triangles & Angles", topic: "Angle relationships and properties of triangles", color: "from-cyan-400 to-blue-700" },
+    { emoji: "💯", title: "Comparing Quantities", topic: "Percentages, profit, loss, discount, and simple interest", color: "from-emerald-400 to-green-700" },
+    { emoji: "📊", title: "Data & Probability", topic: "Mean, median, mode, bar graphs, and simple probability", color: "from-amber-400 to-orange-700" },
+  ],
+  8: [
+    { emoji: "⚖️", title: "Linear Equations", topic: "Solving linear equations in one variable step by step", color: "from-blue-500 to-indigo-700" },
+    { emoji: "🧩", title: "Factorisation", topic: "Factorising algebraic expressions and checking by expansion", color: "from-violet-500 to-purple-700" },
+    { emoji: "²", title: "Squares & Roots", topic: "Squares, square roots, cubes, and cube roots", color: "from-fuchsia-500 to-rose-700" },
+    { emoji: "📈", title: "Graphs", topic: "Plotting points and interpreting linear graphs", color: "from-cyan-400 to-blue-700" },
+    { emoji: "📦", title: "Mensuration", topic: "Area, surface area, and volume of common shapes", color: "from-emerald-400 to-green-700" },
+    { emoji: "🔁", title: "Direct & Inverse Proportion", topic: "Solving direct and inverse proportion problems", color: "from-amber-400 to-orange-700" },
+  ],
 };
 
 export default function GeniusHome() {
@@ -71,6 +99,7 @@ export default function GeniusHome() {
     }
   };
   const selected = SUBJECTS[subject];
+  const selectedCollections = subject === "math" ? MATH_COLLECTIONS[(level === 7 || level === 8 ? level : 6)] : selected.collections;
 
   return (
     <div className="space-y-10 pb-10">
@@ -82,9 +111,9 @@ export default function GeniusHome() {
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight mt-4">What are you curious about today? 🧠✨</h1>
           <p className="text-slate-300 mt-3 max-w-xl">{selected.description}</p>
 
-          <div className="grid grid-cols-3 gap-2 mt-6 max-w-xl">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-6 max-w-xl">
             {(Object.keys(SUBJECTS) as GeniusSubject[]).map((item) => (
-              <button key={item} type="button" onClick={() => { setSubject(item); setTopic(""); }} className={`rounded-xl px-3 py-3 text-sm font-black transition ${subject === item ? "bg-cyan-400 text-slate-950" : "bg-white/10 hover:bg-white/20"}`}>
+              <button key={item} type="button" onClick={() => { setSubject(item); if (item === "math" && level === 5) setLevel(6); setTopic(""); }} className={`rounded-xl px-3 py-3 text-sm font-black transition ${subject === item ? "bg-cyan-400 text-slate-950" : "bg-white/10 hover:bg-white/20"}`}>
                 {SUBJECTS[item].emoji} {SUBJECTS[item].name}
               </button>
             ))}
@@ -101,7 +130,7 @@ export default function GeniusHome() {
 
           <div className="flex flex-wrap items-center gap-2 mt-5">
             <span className="text-xs text-slate-400 mr-1">Study level</span>
-            {([5, 6, 7, 8] as StudyLevel[]).map((item) => (
+            {((subject === "math" ? [6, 7, 8] : [5, 6, 7, 8]) as StudyLevel[]).map((item) => (
               <button key={item} type="button" onClick={() => setLevel(item)} className={`w-10 h-10 rounded-xl text-sm font-black transition ${level === item ? "bg-cyan-400 text-slate-950 scale-105" : "bg-white/10 hover:bg-white/20"}`} aria-pressed={level === item}>
                 {item}
               </button>
@@ -117,7 +146,7 @@ export default function GeniusHome() {
           <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 font-bold">6 worlds to explore</span>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {selected.collections.map((collection) => (
+          {selectedCollections.map((collection) => (
             <button
               key={collection.title}
               onClick={() => { setTopic(collection.topic); window.scrollTo({ top: 0, behavior: "smooth" }); }}

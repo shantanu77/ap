@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       nodeCount: content.nodes.length,
       savedAt: record.savedAt.toISOString(),
       lastOpenedAt: record.lastOpenedAt.toISOString(),
-      emoji: hero?.type === "hero" ? hero.emoji : record.subject === "physics" ? "🚀" : record.subject === "biology" ? "🧬" : "⚗️",
+      emoji: hero?.type === "hero" ? hero.emoji : record.subject === "physics" ? "🚀" : record.subject === "biology" ? "🧬" : record.subject === "math" ? "➗" : "⚗️",
       hasSimulation: content.nodes.some((node) => node.blocks.some((block) => block.type === "simulation")),
     }];
   });
