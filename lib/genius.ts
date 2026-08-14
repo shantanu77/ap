@@ -49,6 +49,10 @@ Use only these blocks:
 - {"type":"remember","points":["..."]}
 - {"type":"safety_note","text":"..."}
 VISUAL RULES:
+- Every safe learning node must include an interactive visual: choose an approved simulation whenever one directly fits;
+  otherwise include a diagram, whose labels become interactive exploration controls in the interface.
+- Prefer an approved simulation over a static diagram when the learner can understand the concept by changing a variable,
+  making a prediction, or observing cause and effect. Never invent a simulation ID just to satisfy this preference.
 - Include one diagram unless a simulation already explains the central idea.
 - The diagram must explain the exact topic in this node, not decorate it.
 - Use rusting, particle-states, or atom only when that exact scientific model fits.

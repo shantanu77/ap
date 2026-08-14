@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { WritingMistake, WritingRating } from "@/types";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 interface VisionResult {
@@ -18,6 +18,7 @@ interface VisionResult {
   spellingMistakes?: unknown;
   grammarMistakes?: unknown;
   structureFeedback?: unknown;
+  legibilityFeedback?: unknown;
   strengths?: unknown;
   summary?: unknown;
 }
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Please upload a JPEG, PNG, or WebP photo." }, { status: 415 });
     }
     if (photo.size === 0 || photo.size > MAX_IMAGE_BYTES) {
-      return NextResponse.json({ error: "The photo must be smaller than 10 MB." }, { status: 413 });
+      return NextResponse.json({ error: "The prepared photo must be smaller than 2 MB." }, { status: 413 });
     }
 
     const base64 = Buffer.from(await photo.arrayBuffer()).toString("base64");
@@ -84,9 +85,11 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "system",
-          content: `You are a careful, encouraging handwriting assessor for a Grade 6 CBSE student with dysgraphia. Inspect only what is visibly written in the uploaded page. Compare it with the supplied copy-writing prompt. Do not invent unreadable words. Evaluate spelling and grammar/sentence structure separately and explain every visible mistake in child-friendly language. A copied source sentence that is grammatically correct must not be penalized. Do not demand or recommend a rewrite.
+          content: `You are a meticulous, encouraging handwriting assessor for a Grade 6 CBSE student with dysgraphia. Inspect only what is visibly written in the uploaded page. The image has been converted to high-contrast grayscale to make handwriting easier to inspect. Compare it line by line with the supplied copy-writing prompt. Use [unclear] rather than inventing an unreadable word.
 
-Return JSON only with: transcript:string (use [unclear] where necessary), linesWritten:integer, legibility:integer 1-5, effort:integer 1-5, contentAccuracyScore:integer 0-40, spellingScore:integer 0-25, grammarStructureScore:integer 0-20, legibilityScore:integer 0-15, spellingMistakes:array of {written,correction,explanation}, grammarMistakes:array of {written,correction,explanation}, structureFeedback:string[], strengths:string[], summary:string. Scores total 100 before any separate time deduction. Be evidence-based and supportive.`
+Evaluation priorities are spelling, grammar and sentence structure, and legibility. Find every visible mistake, including omitted or substituted words, capitalization, punctuation, agreement, word order, incomplete sentences, and spelling. Do not count the same issue twice. For EACH mistake, quote the exact written fragment, give the exact correction, then explain the applicable rule, why the original is wrong in this sentence, and why the correction works. Never give vague feedback such as "improve grammar". Separate true language mistakes from handwriting that is merely hard to read. A source sentence that was copied correctly must not be penalized. Do not demand or recommend a rewrite.
+
+Return JSON only with: transcript:string preserving line breaks (use [unclear] where necessary), linesWritten:integer, legibility:integer 1-5, effort:integer 1-5, contentAccuracyScore:integer 0-20, spellingScore:integer 0-25, grammarStructureScore:integer 0-30, legibilityScore:integer 0-25, spellingMistakes:array of {written,correction,explanation}, grammarMistakes:array of {written,correction,explanation}, structureFeedback:string[], legibilityFeedback:string[], strengths:string[], summary:string. Legibility feedback must cite specific observed letter formation, spacing, alignment, size consistency, or ambiguous words and explain its reading impact. Scores total 100 before any separate time deduction. Be evidence-based, thorough, and supportive.`
         },
         {
           role: "user",
@@ -100,10 +103,10 @@ Return JSON only with: transcript:string (use [unclear] where necessary), linesW
 
     const result = parseVisionResult(response.choices[0].message.content);
     const baseScore =
-      clamp(result.contentAccuracyScore, 0, 40) +
+      clamp(result.contentAccuracyScore, 0, 20) +
       clamp(result.spellingScore, 0, 25) +
-      clamp(result.grammarStructureScore, 0, 20) +
-      clamp(result.legibilityScore, 0, 15);
+      clamp(result.grammarStructureScore, 0, 30) +
+      clamp(result.legibilityScore, 0, 25);
     const overtimeSec = Math.max(0, timeSpentSec - timeLimitSec);
     const timeDeduction = Math.min(20, Math.ceil(overtimeSec / 60));
     const rating: WritingRating = {
@@ -121,6 +124,7 @@ Return JSON only with: transcript:string (use [unclear] where necessary), linesW
       spellingMistakes: mistakes(result.spellingMistakes),
       grammarMistakes: mistakes(result.grammarMistakes),
       structureFeedback: strings(result.structureFeedback),
+      legibilityFeedback: strings(result.legibilityFeedback),
       strengths: strings(result.strengths),
       assessedAt: new Date().toISOString(),
     };

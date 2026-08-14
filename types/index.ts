@@ -94,6 +94,7 @@ export interface WritingRating {
   spellingMistakes: WritingMistake[];
   grammarMistakes: WritingMistake[];
   structureFeedback: string[];
+  legibilityFeedback: string[];
   strengths: string[];
   assessedAt: string;
 }

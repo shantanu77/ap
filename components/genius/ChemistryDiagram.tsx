@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { ExtractedGeniusBlock } from "@/components/genius/types";
 
 type DiagramBlock = ExtractedGeniusBlock<"diagram">;
@@ -250,6 +253,7 @@ function ScaleDiagram({ labels }: { labels: string[] }) {
 
 export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
   const labels = block.labels?.filter(Boolean).slice(0, 7) ?? [];
+  const [activeLabel, setActiveLabel] = useState<string | null>(null);
   return (
     <figure className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-4 sm:p-6 overflow-hidden">
       <div className="flex items-center gap-2 mb-4">
@@ -270,6 +274,28 @@ export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
       {block.diagram === "before-after" && <BeforeAfterDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
       {block.diagram === "particle-scene" && <ParticleScene labels={labels.length >= 2 ? labels : [block.title, "Surrounding particles"]} />}
       {block.diagram === "scale" && <ScaleDiagram labels={labels.length >= 2 ? labels : ["Low", block.title, "High"]} />}
+      {labels.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-violet-100 bg-white/80 p-3">
+          <p className="text-[11px] font-black uppercase tracking-widest text-violet-700">Tap to explore the illustration</p>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {labels.map((label) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setActiveLabel(label)}
+                className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${activeLabel === label ? "bg-violet-600 text-white shadow" : "bg-violet-100 text-violet-800 hover:bg-violet-200"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {activeLabel && (
+            <p className="mt-3 rounded-xl bg-cyan-50 p-3 text-sm text-cyan-950" aria-live="polite">
+              <strong>Now focus on “{activeLabel}”.</strong> Find where it appears in the model, then connect it to the caption: {block.caption}
+            </p>
+          )}
+        </div>
+      )}
       <figcaption className="mt-4 text-xs text-slate-500 text-center">
         {block.caption} <span className="font-bold">Model • not to scale</span>
       </figcaption>

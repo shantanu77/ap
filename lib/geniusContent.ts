@@ -86,6 +86,9 @@ function nodeBase(
   blocks: GeniusBlock[],
   exploreChoices: ExploreChoice[]
 ): GeniusNode {
+  const safeBlocks = blocks.some((block) => block.type === "safety_note")
+    ? blocks
+    : ensureVisualBlock(blocks, title);
   return {
     id: crypto.randomUUID(),
     parentNodeId,
@@ -93,11 +96,25 @@ function nodeBase(
     promptLabel,
     title,
     studyLevel: level,
-    estimatedReadMinutes: Math.max(2, Math.min(6, Math.ceil(blocks.length / 2))),
-    blocks,
+    estimatedReadMinutes: Math.max(2, Math.min(6, Math.ceil(safeBlocks.length / 2))),
+    blocks: safeBlocks,
     exploreChoices,
     createdAt: new Date().toISOString(),
   };
+}
+
+function ensureVisualBlock(blocks: GeniusBlock[], title: string): GeniusBlock[] {
+  if (blocks.some((block) => block.type === "diagram" || block.type === "simulation")) return blocks;
+  const cleanTitle = title.replace(/[^\p{L}\p{N}\s-]/gu, "").trim() || "Chemistry concept";
+  const visual: GeniusBlock = {
+    type: "diagram",
+    diagram: "concept-map",
+    title: `Explore ${cleanTitle}`,
+    caption: "Tap each label to focus on one part of the explanation.",
+    labels: [cleanTitle, "What we observe", "Particle explanation", "Cause and effect", "Real-life connection"],
+  };
+  const insertAt = Math.min(2, blocks.length);
+  return [...blocks.slice(0, insertAt), visual, ...blocks.slice(insertAt)];
 }
 
 function rustNode(level: StudyLevel): GeniusNode {
@@ -461,12 +478,13 @@ export function normalizeGeneratedNode(
   if (!raw || typeof raw !== "object") return fallback;
   const object = raw as Record<string, unknown>;
   const rawBlocks = Array.isArray(object.blocks) ? object.blocks : [];
-  const blocks = rawBlocks
+  const parsedBlocks = rawBlocks
     .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
     .filter((item) => BLOCK_TYPES.has(String(item.type)))
     .filter((item) => item.type !== "simulation" || APPROVED_SIMULATIONS.has(String(item.simulation)))
     .slice(0, 10) as unknown as GeniusBlock[];
-  if (blocks.length < 2) return fallback;
+  if (parsedBlocks.length < 2) return fallback;
+  const blocks = ensureVisualBlock(parsedBlocks, stringValue(object.title, fallback.title));
 
   const rawChoices = Array.isArray(object.explore_choices)
     ? object.explore_choices
