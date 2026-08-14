@@ -5,7 +5,7 @@ import Link from "next/link";
 import LessonRenderer from "@/components/genius/LessonRenderer";
 import SavedLearningSummary from "@/components/genius/SavedLearningSummary";
 import { GENIUS_QUESTION_MAX_LENGTH } from "@/lib/geniusLimits";
-import type { GeniusContent, GeniusExplorationDTO, GeniusNode, StudyLevel } from "@/types/genius";
+import type { GeniusContent, GeniusExplorationDTO, GeniusNode, GeniusSubject, StudyLevel } from "@/types/genius";
 
 interface SavedExploration {
   id: string;
@@ -13,6 +13,7 @@ interface SavedExploration {
   defaultLevel: StudyLevel;
   content: GeniusContent;
   savedAt: string;
+  subject: GeniusSubject;
 }
 
 export default function GeniusExplorer({ id, saved = false }: { id: string; saved?: boolean }) {
@@ -122,6 +123,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
     : "savedSnapshot" in exploration
       ? exploration.savedSnapshot
       : null;
+  const subjectEmoji = exploration.subject === "physics" ? "🚀" : exploration.subject === "biology" ? "🧬" : "⚗️";
 
   return (
     <div className="pb-16">
@@ -159,7 +161,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
             <div key={node.id} className="flex items-center gap-2">
               {index > 0 && <span className="text-violet-300">→</span>}
               <a href={`#node-${node.id}`} className="rounded-full bg-violet-50 text-violet-800 px-3 py-1.5 text-xs font-bold hover:bg-violet-100 max-w-52 truncate">
-                {index === 0 ? "⚗️ Start" : node.promptLabel || node.title}
+                {index === 0 ? `${subjectEmoji} Start` : node.promptLabel || node.title}
               </a>
             </div>
           ))}

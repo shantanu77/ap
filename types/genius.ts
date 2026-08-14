@@ -1,4 +1,5 @@
 export type StudyLevel = 5 | 6 | 7 | 8;
+export type GeniusSubject = "chemistry" | "physics" | "biology";
 
 export type GeniusBlock =
   | { type: "hero"; emoji: string; hook: string }
@@ -33,7 +34,10 @@ export type GeniusBlock =
         | "dissolving.v1"
         | "atom-builder.v1"
         | "ph-indicator.v1"
-        | "mass-balance.v1";
+        | "mass-balance.v1"
+        | "force-motion.v1"
+        | "cell-explorer.v1"
+        | "food-chain.v1";
       title: string;
       prompt: string;
     }
@@ -69,7 +73,7 @@ export interface GeniusContent {
 
 export interface GeniusExplorationDTO {
   id: string;
-  subject: "chemistry";
+  subject: GeniusSubject;
   canonicalTopic: string;
   displayTitle: string;
   defaultLevel: StudyLevel;
@@ -83,7 +87,7 @@ export interface GeniusExplorationDTO {
 
 export interface SavedTopicSummary {
   id: string;
-  subject: "chemistry";
+  subject: GeniusSubject;
   canonicalTopic: string;
   displayTitle: string;
   defaultLevel: StudyLevel;

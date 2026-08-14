@@ -203,6 +203,58 @@ function MassBalanceSimulation() {
   );
 }
 
+function ForceMotionSimulation() {
+  const [force, setForce] = useState(30);
+  const [mass, setMass] = useState(5);
+  const acceleration = force / mass;
+  return (
+    <LabShell modelNote="This model uses acceleration = force ÷ mass and leaves out friction and air resistance.">
+      <div className="grid sm:grid-cols-2 gap-5 items-center">
+        <div className="space-y-4 text-sm font-bold">
+          <label>Push force: {force} N<input type="range" min="0" max="100" value={force} onChange={(event) => setForce(Number(event.target.value))} className="block w-full mt-2 accent-cyan-400" /></label>
+          <label>Cart mass: {mass} kg<input type="range" min="1" max="20" value={mass} onChange={(event) => setMass(Number(event.target.value))} className="block w-full mt-2 accent-amber-400" /></label>
+        </div>
+        <div className="rounded-2xl bg-indigo-950 p-5 overflow-hidden">
+          <div className="h-24 border-b-4 border-slate-500 relative"><span className="absolute bottom-1 text-5xl transition-all duration-500" style={{ left: `${Math.min(78, acceleration * 5)}%` }}>🛒</span></div>
+          <p className="text-center mt-4 text-xl font-black">Acceleration: {acceleration.toFixed(1)} m/s²</p>
+        </div>
+      </div>
+    </LabShell>
+  );
+}
+
+function CellExplorerSimulation() {
+  const organelles = [
+    { name: "Nucleus", emoji: "🟣", job: "Stores DNA and coordinates many cell activities." },
+    { name: "Cell membrane", emoji: "🫧", job: "Controls what enters and leaves the cell." },
+    { name: "Mitochondria", emoji: "⚡", job: "Release usable energy from food molecules." },
+    { name: "Ribosomes", emoji: "🔹", job: "Build proteins from amino acids." },
+  ];
+  const [selected, setSelected] = useState(0);
+  return (
+    <LabShell modelNote="A cell contains many more structures, and this enlarged illustration is not to scale.">
+      <div className="grid sm:grid-cols-[1fr_1.2fr] gap-4">
+        <div className="grid gap-2">{organelles.map((item, index) => <button key={item.name} onClick={() => setSelected(index)} className={`rounded-xl p-3 text-left font-bold ${selected === index ? "bg-cyan-400 text-slate-950" : "bg-slate-800"}`}>{item.emoji} {item.name}</button>)}</div>
+        <div className="rounded-[45%] border-8 border-emerald-400 bg-emerald-950 min-h-56 grid place-items-center p-8 text-center"><div><p className="text-6xl">{organelles[selected].emoji}</p><p className="text-xl font-black mt-3">{organelles[selected].name}</p><p className="text-sm text-emerald-100 mt-2">{organelles[selected].job}</p></div></div>
+      </div>
+    </LabShell>
+  );
+}
+
+function FoodChainSimulation() {
+  const [producerEnergy, setProducerEnergy] = useState(1000);
+  const herbivore = Math.round(producerEnergy * 0.1);
+  const predator = Math.round(herbivore * 0.1);
+  return (
+    <LabShell modelNote="The 10% transfer is a useful approximation; real ecosystems vary and have complex food webs.">
+      <label className="text-sm font-bold">Energy captured by plants: {producerEnergy} units<input type="range" min="100" max="2000" step="100" value={producerEnergy} onChange={(event) => setProducerEnergy(Number(event.target.value))} className="block w-full mt-2 accent-green-400" /></label>
+      <div className="grid grid-cols-3 gap-2 mt-5 text-center items-end">
+        {[{ e: "🌿", n: "Plants", v: producerEnergy }, { e: "🐇", n: "Herbivore", v: herbivore }, { e: "🦅", n: "Predator", v: predator }].map((item) => <div key={item.n} className="rounded-xl bg-slate-800 p-3"><p className="text-4xl">{item.e}</p><p className="font-black">{item.n}</p><p className="text-cyan-300 text-sm">{item.v} units</p></div>)}
+      </div>
+    </LabShell>
+  );
+}
+
 export default function ChemistrySimulation({ block }: { block: SimulationBlock }) {
   return (
     <section aria-label={block.title} className="space-y-3">
@@ -217,6 +269,9 @@ export default function ChemistrySimulation({ block }: { block: SimulationBlock 
       {block.simulation === "dissolving.v1" && <DissolvingSimulation />}
       {block.simulation === "ph-indicator.v1" && <PhSimulation />}
       {block.simulation === "mass-balance.v1" && <MassBalanceSimulation />}
+      {block.simulation === "force-motion.v1" && <ForceMotionSimulation />}
+      {block.simulation === "cell-explorer.v1" && <CellExplorerSimulation />}
+      {block.simulation === "food-chain.v1" && <FoodChainSimulation />}
     </section>
   );
 }

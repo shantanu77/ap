@@ -50,7 +50,7 @@ export default function SavedTopics() {
         <div className="rounded-3xl bg-white border border-violet-100 p-10 text-center">
           <p className="text-5xl">🔖</p>
           <h2 className="font-black text-xl text-slate-900 mt-4">Your discovery shelf is waiting</h2>
-          <p className="text-sm text-slate-500 mt-2">Explore a Chemistry topic, follow a few ideas, then save the whole journey here.</p>
+          <p className="text-sm text-slate-500 mt-2">Explore a Chemistry, Physics, or Biology topic, follow a few ideas, then save the whole journey here.</p>
           <Link href="/genius-corner" className="inline-block mt-5 rounded-xl bg-violet-600 text-white px-5 py-3 font-black">Start exploring 🚀</Link>
         </div>
       )}
@@ -68,6 +68,7 @@ export default function SavedTopics() {
                 </div>
               </div>
               <h2 className="font-black text-lg text-slate-950 mt-4 group-hover:text-violet-700">{topic.displayTitle}</h2>
+              <p className="text-[10px] uppercase tracking-wider font-black text-violet-600 mt-1">{topic.subject}</p>
               <p className="text-xs text-slate-400 mt-2">{topic.nodeCount} learning {topic.nodeCount === 1 ? "card" : "cards"} • saved {new Date(topic.savedAt).toLocaleDateString()}</p>
             </Link>
             <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-between">

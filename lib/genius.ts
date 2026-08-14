@@ -12,6 +12,7 @@ import type {
   GeniusContent,
   GeniusExplorationDTO,
   GeniusNode,
+  GeniusSubject,
   StudyLevel,
 } from "@/types/genius";
 
@@ -20,11 +21,20 @@ function openAIClient(): OpenAI | null {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
-const CONTENT_RULES = `Return one child-friendly Chemistry learning node as strict JSON.
+function contentRules(subject: GeniusSubject): string {
+  const subjectName = subject[0].toUpperCase() + subject.slice(1);
+  const modelGuidance = subject === "physics"
+    ? "Connect observations to forces, energy, motion, waves, fields, or matter as appropriate. Use measurable cause and effect and define quantities and units."
+    : subject === "biology"
+      ? "Connect visible traits and processes to cells, organs, body systems, ecosystems, inheritance, or evolution as appropriate. Explain structure and function without giving medical diagnosis or treatment."
+      : "Connect observations to particles, substances, energy, and reactions as appropriate.";
+  return `Return one child-friendly ${subjectName} learning node as strict JSON.
 The learner is Aashvath. Adapt precisely to Grade STUDY_LEVEL (between 5 and 8).
 Never return Markdown, HTML, URLs, or JavaScript. Keep paragraphs short and use relevant emoji.
-Connect observations to particle ideas. Define new vocabulary. Do not encourage tasting, direct smelling,
+${modelGuidance} Define new vocabulary. Do not encourage tasting, direct smelling,
 mixing cleaners, flames, sealed reactions, strong chemicals, drug synthesis, explosives, or unsupervised experiments.
+For Physics, avoid mains electricity, dangerous projectiles, lasers, heights, fire, or high-pressure builds.
+For Biology, avoid self-experimentation, culturing microbes, handling bodily fluids, dissection, wild-organism contact, or medical advice.
 TEACHING RULES:
 - Begin with the simplest concrete explanation, then build a thorough causal explanation of how and why it works.
 - Include one safe, vivid, dramatic memory scene grounded in accurate science: use surprising scale, motion, stakes,
@@ -44,7 +54,7 @@ Use only these blocks:
 - {"type":"vocabulary","terms":[{"term":"...","definition":"...","example":"..."}]}
 - {"type":"analogy","title":"...","text":"...","limit":"where the analogy stops"}
 - {"type":"diagram","diagram":"rusting|particle-states|atom|dissolving|reaction|concept-map|process|before-after|particle-scene|scale","title":"...","caption":"...","labels":["3-6 short, topic-specific labels"]}
-- {"type":"simulation","simulation":"rust-conditions.v1|particle-states.v1|dissolving.v1|atom-builder.v1|ph-indicator.v1|mass-balance.v1","title":"...","prompt":"..."}
+- {"type":"simulation","simulation":"rust-conditions.v1|particle-states.v1|dissolving.v1|atom-builder.v1|ph-indicator.v1|mass-balance.v1|force-motion.v1|cell-explorer.v1|food-chain.v1","title":"...","prompt":"..."}
 - {"type":"quick_check","question":"...","options":["..."],"correctIndex":0,"explanation":"..."}
 - {"type":"remember","points":["..."]}
 - {"type":"safety_note","text":"..."}
@@ -67,15 +77,16 @@ Return:
 {"id":"short-kebab-id","emoji":"...","label":"specific next question","intent":"precise generation intent"}
 ]}
 Include 4-7 blocks and 2-4 specific explore choices.`;
+}
 
-async function requestGeneratedNode(prompt: string): Promise<unknown> {
+async function requestGeneratedNode(prompt: string, subject: GeniusSubject): Promise<unknown> {
   const client = openAIClient();
   if (!client) return null;
 
   const response = await client.chat.completions.create({
     model: process.env.GENIUS_MODEL || "gpt-4o",
     messages: [
-      { role: "system", content: CONTENT_RULES },
+      { role: "system", content: contentRules(subject) },
       { role: "user", content: prompt },
     ],
     temperature: 0.65,
@@ -87,16 +98,16 @@ async function requestGeneratedNode(prompt: string): Promise<unknown> {
   return value ? JSON.parse(value) : null;
 }
 
-export async function generateIntroduction(topic: string, level: StudyLevel): Promise<GeniusNode> {
-  const fallback = createFallbackIntroduction(topic, level);
-  if (isUnsafeChemistryRequest(topic)) return fallback;
+export async function generateIntroduction(topic: string, level: StudyLevel, subject: GeniusSubject = "chemistry"): Promise<GeniusNode> {
+  const fallback = createFallbackIntroduction(topic, level, subject);
+  if (subject === "chemistry" && isUnsafeChemistryRequest(topic)) return fallback;
 
   try {
     const raw = await requestGeneratedNode(
-      `STUDY_LEVEL=${level}\nCreate the introduction to this Chemistry topic: "${topic}".
+      `STUDY_LEVEL=${level}\nSUBJECT=${subject}\nCreate the introduction to this ${subject} topic: "${topic}".
 Start with a surprising hook, a simple explanation, an everyday connection, one useful visual block,
 a vivid dramatic memory scene, one carefully explained stretch insight beyond Grade ${level},
-a remember block, and specific directions for Read More.`
+a remember block, and specific directions for Read More. Prefer an interactive simulation when an approved simulation directly fits.`, subject
     );
     return normalizeGeneratedNode(raw, fallback, null, "INTRO", level);
   } catch (error) {
@@ -113,6 +124,7 @@ export async function generateExpansion(args: {
   intent: string;
   nodeType?: GeniusNode["nodeType"];
   ancestorTitles: string[];
+  subject: GeniusSubject;
 }): Promise<GeniusNode> {
   const fallback = createFallbackExpansion({
     topic: args.topic,
@@ -121,20 +133,22 @@ export async function generateExpansion(args: {
     label: args.label,
     intent: args.intent,
     nodeType: args.nodeType,
+    subject: args.subject,
   });
-  if (isUnsafeChemistryRequest(`${args.label} ${args.intent}`)) return fallback;
+  if (args.subject === "chemistry" && isUnsafeChemistryRequest(`${args.label} ${args.intent}`)) return fallback;
 
   try {
     const raw = await requestGeneratedNode(
       `STUDY_LEVEL=${args.level}
-CHEMISTRY TOPIC="${args.topic}"
+SUBJECT=${args.subject}
+TOPIC="${args.topic}"
 CURRENT NODE="${args.parentNode.title}"
 LEARNER CHOSE/ASKED="${args.label}"
 INTENT="${args.intent}"
 ALREADY VISITED=${JSON.stringify(args.ancestorTitles)}
 Create only the next learning node. Build on earlier ideas without repeating them. Explain simply but thoroughly,
 and make the central idea memorable with a new dramatic, scientifically accurate example.`
-    );
+    , args.subject);
     return normalizeGeneratedNode(
       raw,
       fallback,
@@ -179,7 +193,7 @@ export type GeniusExplorationRecord = {
 export function toExplorationDTO(record: GeniusExplorationRecord): GeniusExplorationDTO {
   return {
     id: record.id,
-    subject: "chemistry",
+    subject: record.subject === "physics" || record.subject === "biology" ? record.subject : "chemistry",
     canonicalTopic: record.canonicalTopic,
     displayTitle: record.displayTitle,
     defaultLevel: (record.defaultLevel >= 5 && record.defaultLevel <= 8

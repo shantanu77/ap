@@ -6,7 +6,7 @@ import {
   toExplorationDTO,
   updateExplorationContent,
 } from "@/lib/genius";
-import { cleanQuestion, cleanTopic, toStudyLevel } from "@/lib/geniusContent";
+import { cleanQuestion, cleanTopic, toGeniusSubject, toStudyLevel } from "@/lib/geniusContent";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -33,9 +33,10 @@ export async function POST(request: Request, context: Context) {
     }
 
     const question = cleanQuestion(body.question);
+    const subject = toGeniusSubject(exploration.subject);
     const label = question || cleanTopic(body.label) || "Explore further";
     const intent = question
-      ? `Answer this Chemistry question in context: ${question}`
+      ? `Answer this ${subject} question in context: ${question}`
       : cleanTopic(body.intent) || `Explain ${label}`;
     const level = toStudyLevel(body.level ?? exploration.defaultLevel);
 
@@ -47,6 +48,7 @@ export async function POST(request: Request, context: Context) {
       intent,
       nodeType: question ? "QUESTION" : "READ_MORE",
       ancestorTitles: content.nodes.map((node) => node.title).slice(-8),
+      subject,
     });
     const updatedContent = {
       ...content,

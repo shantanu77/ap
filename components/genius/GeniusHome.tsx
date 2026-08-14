@@ -3,21 +3,40 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { SavedTopicSummary, StudyLevel } from "@/types/genius";
+import type { GeniusSubject, SavedTopicSummary, StudyLevel } from "@/types/genius";
 
-const collections = [
-  { emoji: "🧊💧💨", title: "Matter around us", topic: "Why do solids, liquids, and gases behave differently?", color: "from-sky-400 to-blue-600" },
-  { emoji: "⚛️", title: "Atoms & elements", topic: "What is an atom?", color: "from-violet-500 to-fuchsia-600" },
-  { emoji: "🧂💧", title: "Mixtures & solutions", topic: "Why does salt disappear in water?", color: "from-cyan-400 to-teal-600" },
-  { emoji: "🔥", title: "Chemical changes", topic: "Why does iron rust?", color: "from-orange-400 to-rose-600" },
-  { emoji: "🍋🧼", title: "Acids & bases", topic: "What does pH measure?", color: "from-lime-400 to-emerald-600" },
-  { emoji: "🏠", title: "Everyday chemistry", topic: "How does soap clean?", color: "from-amber-400 to-orange-600" },
-];
+const SUBJECTS: Record<GeniusSubject, { name: string; emoji: string; badge: string; description: string; placeholder: string; collections: Array<{ emoji: string; title: string; topic: string; color: string }> }> = {
+  chemistry: { name: "Chemistry", emoji: "⚗️", badge: "Chemistry Lab of Ideas", description: "See particles, materials, and reactions through interactive models.", placeholder: "Try: Why does iron rust?", collections: [
+    { emoji: "🧊💧💨", title: "Matter around us", topic: "Why do solids, liquids, and gases behave differently?", color: "from-sky-400 to-blue-600" },
+    { emoji: "⚛️", title: "Atoms & elements", topic: "What is an atom?", color: "from-violet-500 to-fuchsia-600" },
+    { emoji: "🧂💧", title: "Mixtures & solutions", topic: "Why does salt disappear in water?", color: "from-cyan-400 to-teal-600" },
+    { emoji: "🔥", title: "Chemical changes", topic: "Why does iron rust?", color: "from-orange-400 to-rose-600" },
+    { emoji: "🍋🧼", title: "Acids & bases", topic: "What does pH measure?", color: "from-lime-400 to-emerald-600" },
+    { emoji: "🏠", title: "Everyday chemistry", topic: "How does soap clean?", color: "from-amber-400 to-orange-600" },
+  ] },
+  physics: { name: "Physics", emoji: "🚀", badge: "Physics Lab of Ideas", description: "Explore forces, motion, light, sound, electricity, and space by changing variables.", placeholder: "Try: Why do astronauts float?", collections: [
+    { emoji: "🏎️", title: "Motion & forces", topic: "How do forces change motion?", color: "from-blue-500 to-indigo-700" },
+    { emoji: "🌍", title: "Gravity", topic: "Why do astronauts float in orbit?", color: "from-indigo-500 to-violet-700" },
+    { emoji: "💡", title: "Light & optics", topic: "How do mirrors and lenses bend light?", color: "from-amber-400 to-orange-600" },
+    { emoji: "🎵", title: "Sound & waves", topic: "How does sound travel through air?", color: "from-cyan-400 to-blue-600" },
+    { emoji: "⚡", title: "Electricity", topic: "How does a simple electric circuit work?", color: "from-yellow-400 to-amber-600" },
+    { emoji: "🌌", title: "Space", topic: "How are stars born and why do they shine?", color: "from-fuchsia-500 to-slate-900" },
+  ] },
+  biology: { name: "Biology", emoji: "🧬", badge: "Biology Lab of Ideas", description: "Explore cells, bodies, plants, ecosystems, and inheritance through living systems.", placeholder: "Try: How does the heart pump blood?", collections: [
+    { emoji: "🔬", title: "Cells", topic: "How does a cell stay alive?", color: "from-emerald-400 to-teal-700" },
+    { emoji: "❤️", title: "Human body", topic: "How does the heart pump blood around the body?", color: "from-rose-400 to-red-700" },
+    { emoji: "🌿", title: "Plants", topic: "How do plants turn light into stored food?", color: "from-lime-400 to-green-700" },
+    { emoji: "🧠", title: "Brain & senses", topic: "How does the brain combine information from our senses?", color: "from-violet-500 to-purple-800" },
+    { emoji: "🦋", title: "Adaptation", topic: "How do adaptations help organisms survive?", color: "from-cyan-400 to-emerald-600" },
+    { emoji: "🧬", title: "Genes & inheritance", topic: "How do genes pass traits from parents to offspring?", color: "from-pink-500 to-violet-700" },
+  ] },
+};
 
 export default function GeniusHome() {
   const router = useRouter();
   const [topic, setTopic] = useState("");
   const [level, setLevel] = useState<StudyLevel>(6);
+  const [subject, setSubject] = useState<GeniusSubject>("chemistry");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [recent, setRecent] = useState<SavedTopicSummary[]>([]);
@@ -41,7 +60,7 @@ export default function GeniusHome() {
       const response = await fetch("/api/genius/explorations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, level }),
+        body: JSON.stringify({ topic, level, subject }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not start this topic.");
@@ -51,6 +70,7 @@ export default function GeniusHome() {
       setLoading(false);
     }
   };
+  const selected = SUBJECTS[subject];
 
   return (
     <div className="space-y-10 pb-10">
@@ -58,13 +78,21 @@ export default function GeniusHome() {
         <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-violet-500/30 blur-3xl" />
         <div className="absolute left-1/3 -bottom-20 w-56 h-56 rounded-full bg-cyan-400/20 blur-3xl" />
         <div className="relative max-w-3xl">
-          <p className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-black tracking-widest uppercase text-cyan-200">Chemistry Lab of Ideas ⚗️</p>
+          <p className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-black tracking-widest uppercase text-cyan-200">{selected.badge} {selected.emoji}</p>
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight mt-4">What are you curious about today? 🧠✨</h1>
-          <p className="text-slate-300 mt-3 max-w-xl">Start with one question. Follow every “why.” Build, test, and see the invisible world of particles.</p>
+          <p className="text-slate-300 mt-3 max-w-xl">{selected.description}</p>
+
+          <div className="grid grid-cols-3 gap-2 mt-6 max-w-xl">
+            {(Object.keys(SUBJECTS) as GeniusSubject[]).map((item) => (
+              <button key={item} type="button" onClick={() => { setSubject(item); setTopic(""); }} className={`rounded-xl px-3 py-3 text-sm font-black transition ${subject === item ? "bg-cyan-400 text-slate-950" : "bg-white/10 hover:bg-white/20"}`}>
+                {SUBJECTS[item].emoji} {SUBJECTS[item].name}
+              </button>
+            ))}
+          </div>
 
           <form onSubmit={start} className="mt-7 rounded-2xl bg-white p-2 flex flex-col sm:flex-row gap-2 shadow-xl">
-            <label className="sr-only" htmlFor="genius-topic">Chemistry topic</label>
-            <input id="genius-topic" value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="Try: Why does iron rust?" maxLength={120} className="min-w-0 flex-1 text-slate-900 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
+            <label className="sr-only" htmlFor="genius-topic">{selected.name} topic</label>
+            <input id="genius-topic" value={topic} onChange={(event) => setTopic(event.target.value)} placeholder={selected.placeholder} maxLength={120} className="min-w-0 flex-1 text-slate-900 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
             <button disabled={loading || topic.trim().length < 3} className="rounded-xl bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white px-5 py-3 font-black whitespace-nowrap">
               {loading ? "Building your lesson… ⚛️" : "Start exploring 🚀"}
             </button>
@@ -85,11 +113,11 @@ export default function GeniusHome() {
 
       <section>
         <div className="flex items-end justify-between gap-4 mb-4">
-          <div><p className="text-xs font-black uppercase tracking-widest text-violet-600">Pick a portal</p><h2 className="text-2xl font-black text-slate-950">Chemistry collections</h2></div>
+          <div><p className="text-xs font-black uppercase tracking-widest text-violet-600">Pick a portal</p><h2 className="text-2xl font-black text-slate-950">{selected.name} collections</h2></div>
           <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 font-bold">6 worlds to explore</span>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {collections.map((collection) => (
+          {selected.collections.map((collection) => (
             <button
               key={collection.title}
               onClick={() => { setTopic(collection.topic); window.scrollTo({ top: 0, behavior: "smooth" }); }}
@@ -113,6 +141,7 @@ export default function GeniusHome() {
             {recent.map((item) => (
               <Link key={item.id} href={`/genius-corner/saved/${item.id}`} className="rounded-2xl bg-white border border-violet-100 p-4 hover:border-violet-300 hover:shadow-md transition">
                 <span className="text-2xl">{item.emoji}</span>
+                <span className="ml-2 text-[10px] uppercase font-black text-violet-600">{SUBJECTS[item.subject].name}</span>
                 <h3 className="font-black text-slate-900 mt-2 line-clamp-2">{item.displayTitle}</h3>
                 <p className="text-xs text-slate-400 mt-2">Grade {item.defaultLevel} • {item.nodeCount} learning cards</p>
               </Link>

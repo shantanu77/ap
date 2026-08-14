@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { contentFromJson, findExploration, touchExploration } from "@/lib/genius";
+import { toGeniusSubject } from "@/lib/geniusContent";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -14,7 +15,7 @@ export async function GET(_request: Request, context: Context) {
 
   return NextResponse.json({
     id: exploration.id,
-    subject: "chemistry",
+    subject: toGeniusSubject(exploration.subject),
     canonicalTopic: exploration.canonicalTopic,
     displayTitle: exploration.displayTitle,
     defaultLevel: exploration.defaultLevel,

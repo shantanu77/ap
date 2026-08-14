@@ -4,6 +4,7 @@ import type {
   GeniusContent,
   GeniusNode,
   StudyLevel,
+  GeniusSubject,
 } from "@/types/genius";
 import { GENIUS_QUESTION_MAX_LENGTH } from "@/lib/geniusLimits";
 
@@ -14,6 +15,9 @@ const APPROVED_SIMULATIONS = new Set([
   "atom-builder.v1",
   "ph-indicator.v1",
   "mass-balance.v1",
+  "force-motion.v1",
+  "cell-explorer.v1",
+  "food-chain.v1",
 ]);
 
 const BLOCK_TYPES = new Set([
@@ -61,10 +65,16 @@ export function canonicalizeTopic(topic: string): string {
     .slice(0, 100) || "chemistry-topic";
 }
 
-export function displayTitleForTopic(topic: string): string {
+export function toGeniusSubject(value: unknown): GeniusSubject {
+  return value === "physics" || value === "biology" ? value : "chemistry";
+}
+
+export function displayTitleForTopic(topic: string, subject: GeniusSubject = "chemistry"): string {
   const trimmed = topic.replace(/[?.!]+$/, "").trim();
   const title = trimmed.replace(/\b\w/g, (character) => character.toUpperCase());
-  return `${title || "Chemistry Mystery"} ⚗️`;
+  const fallback = subject === "physics" ? "Physics Mystery" : subject === "biology" ? "Biology Mystery" : "Chemistry Mystery";
+  const emoji = subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : "⚗️";
+  return `${title || fallback} ${emoji}`;
 }
 
 export function isUnsafeChemistryRequest(topic: string): boolean {
@@ -268,8 +278,15 @@ function statesNode(level: StudyLevel): GeniusNode {
   );
 }
 
-function genericNode(topic: string, level: StudyLevel): GeniusNode {
-  const title = displayTitleForTopic(topic);
+function genericNode(topic: string, level: StudyLevel, subject: GeniusSubject = "chemistry"): GeniusNode {
+  const title = displayTitleForTopic(topic, subject);
+  const subjectName = subject[0].toUpperCase() + subject.slice(1);
+  const focus = subject === "physics"
+    ? "forces, energy, motion, matter, and measurable cause and effect"
+    : subject === "biology"
+      ? "living structures, their functions, systems, adaptation, and evidence"
+      : "materials, particles, reactions, and evidence";
+  const emoji = subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : "⚗️";
   return nodeBase(
     title,
     level,
@@ -277,16 +294,16 @@ function genericNode(topic: string, level: StudyLevel): GeniusNode {
     null,
     null,
     [
-      { type: "hero", emoji: "⚗️", hook: `${topic} becomes easier when we connect what we can observe to what particles are doing.` },
+      { type: "hero", emoji, hook: `${topic} becomes easier when we connect what we observe to the hidden mechanism that causes it.` },
       {
         type: "paragraph",
         heading: "Start with the evidence 👀",
-        text: `Chemists explore ${topic.toLowerCase()} by making careful observations, comparing materials, and building particle models that explain the patterns they find.`,
+        text: `${subjectName} explores ${topic.toLowerCase()} through careful observations, comparisons, measurements, and models. Here we will connect the evidence to ${focus}.`,
       },
       {
         type: "analogy",
         title: "The invisible detective story 🕵️",
-        text: `Imagine entering a room after a dramatic event: a chair is overturned, a window is open, and papers are everywhere. You did not see what happened, but the clues let you reconstruct it. In ${topic.toLowerCase()}, observations are the clues and a particle model is the explanation that must account for every clue.`,
+        text: `Imagine entering a room after a dramatic event: a chair is overturned, a window is open, and papers are everywhere. You did not see what happened, but the clues let you reconstruct it. In ${topic.toLowerCase()}, observations are the clues and the scientific model must account for every clue.`,
         limit: "Particles do not leave clues intentionally, and a scientific model must make testable predictions—not merely tell a convincing story.",
       },
       {
@@ -306,7 +323,7 @@ function genericNode(topic: string, level: StudyLevel): GeniusNode {
         ],
       },
       { type: "key_fact", emoji: "🚀", title: "Stretch idea: a model must predict", text: "A powerful explanation does not only fit evidence we already have. It predicts what should happen in a new situation, which lets scientists test whether the model survives." },
-      { type: "remember", points: ["Good chemistry explanations connect evidence and particles.", "Think like a detective: every visible clue needs a cause.", "A strong model predicts new evidence and changes when a prediction fails."] },
+      { type: "remember", points: [`Good ${subjectName.toLowerCase()} explanations connect evidence to a mechanism.`, "Think like a detective: every visible clue needs a cause.", "A strong model predicts new evidence and changes when a prediction fails."] },
     ],
     [
       choice("how-it-works", "🔍", "How does it work?", `Explain the mechanism behind ${topic}.`),
@@ -341,16 +358,17 @@ function unsafeNode(topic: string, level: StudyLevel): GeniusNode {
   );
 }
 
-export function createFallbackIntroduction(topic: string, level: StudyLevel): GeniusNode {
-  if (isUnsafeChemistryRequest(topic)) return unsafeNode(topic, level);
+export function createFallbackIntroduction(topic: string, level: StudyLevel, subject: GeniusSubject = "chemistry"): GeniusNode {
+  if (subject === "chemistry" && isUnsafeChemistryRequest(topic)) return unsafeNode(topic, level);
+  if (subject !== "chemistry") return genericNode(topic, level, subject);
   if (/rust|corrosion/i.test(topic)) return rustNode(level);
   if (/atom|element|proton|electron/i.test(topic)) return atomNode(level);
   if (/dissolv|salt.*water|solution/i.test(topic)) return dissolvingNode(level);
   if (/state|solid|liquid|gas|melt|boil/i.test(topic)) return statesNode(level);
-  return genericNode(topic, level);
+  return genericNode(topic, level, subject);
 }
 
-function expansionBlocks(intent: string, topic: string, level: StudyLevel): GeniusBlock[] {
+function expansionBlocks(intent: string, topic: string, level: StudyLevel, subject: GeniusSubject = "chemistry"): GeniusBlock[] {
   const lower = intent.toLowerCase();
   if (/rust.*sim|simulator.*rust/.test(lower)) {
     return [
@@ -415,9 +433,11 @@ function expansionBlocks(intent: string, topic: string, level: StudyLevel): Geni
       { type: "remember", points: ["Water helps the corrosion process; salt often speeds it up.", "Rust is a family of hydrated iron compounds, not one perfectly fixed material."] },
     ];
   }
+  const subjectName = subject[0].toUpperCase() + subject.slice(1);
+  const mechanism = subject === "physics" ? "forces, energy, motion, and measurable changes" : subject === "biology" ? "structures, functions, systems, and living processes" : "particles, energy, and how substances interact";
   return [
-    { type: "hero", emoji: "🔍", hook: `Let’s zoom in on ${topic} and connect the visible clues to particles.` },
-    { type: "paragraph", heading: "The deeper idea", text: `${intent} Chemists answer this by comparing careful observations with models of particles, energy, and how substances interact.` },
+    { type: "hero", emoji: subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : "🔍", hook: `Let’s zoom in on ${topic} and connect the visible clues to the mechanism behind them.` },
+    { type: "paragraph", heading: "The deeper idea", text: `${intent} ${subjectName} answers this by comparing careful observations with models of ${mechanism}.` },
     {
       type: "analogy",
       title: "Freeze the dramatic moment 🎬",
@@ -428,16 +448,16 @@ function expansionBlocks(intent: string, topic: string, level: StudyLevel): Geni
       type: "diagram",
       diagram: "process",
       title: `How this idea unfolds`,
-      caption: `A context map for ${intent.toLowerCase()}. Each step connects the observation to its particle explanation.`,
-      labels: [`Question: ${intent}`, "Identify the visible change", "Track the particles", "Explain the result"],
+        caption: `A context map for ${intent.toLowerCase()}. Each step connects the observation to its scientific explanation.`,
+        labels: [`Question: ${intent}`, "Identify the visible change", "Track the mechanism", "Explain the result"],
     },
     { type: "steps", title: "Follow the reasoning", items: [
       { emoji: "1️⃣", title: "Spot the change", text: "Identify exactly what was observed." },
-      { emoji: "2️⃣", title: "Track the particles", text: "Ask whether particles moved, separated, or rearranged." },
+      { emoji: "2️⃣", title: "Track the mechanism", text: `Ask how ${mechanism} produce the observation.` },
       { emoji: "3️⃣", title: "Test the model", text: "Check whether the explanation predicts another observation." },
     ] },
     { type: "key_fact", emoji: "🌟", title: `Beyond Grade ${level}: test a prediction`, text: "A strong scientific explanation does more than name a fact—it predicts how the evidence would change if one condition changed." },
-    { type: "remember", points: ["Use evidence first, then a particle model.", "Rewind the dramatic visible moment into smaller particle events.", "A model becomes powerful when it explains and predicts observations."] },
+    { type: "remember", points: ["Use evidence first, then a scientific model.", "Rewind the dramatic visible moment into smaller causal steps.", "A model becomes powerful when it explains and predicts observations."] },
   ];
 }
 
@@ -448,8 +468,9 @@ export function createFallbackExpansion(args: {
   label: string;
   intent: string;
   nodeType?: GeniusNode["nodeType"];
+  subject?: GeniusSubject;
 }): GeniusNode {
-  const blocks = expansionBlocks(args.intent, args.topic, args.level);
+  const blocks = expansionBlocks(args.intent, args.topic, args.level, args.subject);
   return nodeBase(
     `${args.label} ${args.nodeType === "QUESTION" ? "💬" : ""}`.trim(),
     args.level,
