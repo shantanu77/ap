@@ -24,6 +24,7 @@ interface DailyMetric {
   writingCompletionRate: number | null;
   writingLegibility: number | null;
   writingEffort: number | null;
+  writingScore: number | null;
   languageConfidence: number | null;
   homeworkCompleteness: number | null;
   discipline: number | null;
@@ -41,10 +42,11 @@ export function WritingChart({ data }: { data: DailyMetric[] }) {
       Completion: d.writingCompletionRate,
       Legibility: d.writingLegibility !== null ? d.writingLegibility * 20 : null,
       Effort: d.writingEffort !== null ? d.writingEffort * 20 : null,
+      Score: d.writingScore,
       Absent: d.absent ? 100 : null,
     }));
 
-  if (chartData.every((d) => d.Completion === null && d.Legibility === null && d.Effort === null && d.Absent === null))
+  if (chartData.every((d) => d.Completion === null && d.Legibility === null && d.Effort === null && d.Score === null && d.Absent === null))
     return <p className="text-gray-400 text-sm text-center py-8">No writing data yet</p>;
 
   return (
@@ -58,6 +60,7 @@ export function WritingChart({ data }: { data: DailyMetric[] }) {
         <Line type="monotone" dataKey="Completion" stroke="#22c55e" strokeWidth={2} dot={false} />
         <Line type="monotone" dataKey="Legibility" stroke="#6366f1" strokeWidth={2} dot={false} />
         <Line type="monotone" dataKey="Effort" stroke="#f59e0b" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="Score" stroke="#15803d" strokeWidth={3} dot />
         <Line type="stepAfter" dataKey="Absent" stroke="#ef4444" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>

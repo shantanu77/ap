@@ -15,6 +15,7 @@ export interface DailyInsight {
   writingCompletionRate: number | null;
   writingLegibility: number | null;
   writingEffort: number | null;
+  writingScore: number | null;
   languageConfidence: number | null;
   homeworkCompleteness: number | null;
   discipline: number | null;
@@ -156,6 +157,7 @@ export function buildDailyInsights(
         writingLines !== null && requiredLines ? Math.round((writingLines / requiredLines) * 100) : null,
       writingLegibility: asNumber(ratings.WRITING?.legibility),
       writingEffort: asNumber(ratings.WRITING?.effort),
+      writingScore: asNumber(ratings.WRITING?.score),
       languageConfidence: asNumber(ratings.LANGUAGE?.confidence),
       homeworkCompleteness: asNumber(ratings.WORK_QUALITY?.homeworkCompleteness),
       discipline: asNumber(ratings.WORK_QUALITY?.discipline),

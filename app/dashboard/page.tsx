@@ -15,6 +15,7 @@ interface MetricsData {
     writingCompletionRate: number | null;
     writingLegibility: number | null;
     writingEffort: number | null;
+    writingScore: number | null;
     languageConfidence: number | null;
     homeworkCompleteness: number | null;
     discipline: number | null;
@@ -98,6 +99,11 @@ export default function DashboardPage() {
         ).toFixed(1)
       : "—";
 
+  const writingScores = metrics.daily.filter((d) => d.writingScore !== null);
+  const avgWritingScore = writingScores.length > 0
+    ? Math.round(writingScores.reduce((sum, day) => sum + (day.writingScore ?? 0), 0) / writingScores.length)
+    : "—";
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-slate-800">Progress Dashboard</h1>
@@ -105,6 +111,12 @@ export default function DashboardPage() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3">
+        <StatCard
+          label="Avg Writing Score"
+          value={avgWritingScore}
+          sub="vision review, out of 100"
+          color="bg-green-700"
+        />
         <StatCard
           label="Current Streak"
           value={`${metrics.streak} 🔥`}
@@ -160,12 +172,12 @@ export default function DashboardPage() {
       )}
 
       {/* Writing chart */}
-      {metrics.daily.some((d) => d.writingCompletionRate !== null || d.absent) && (
+      {metrics.daily.some((d) => d.writingCompletionRate !== null || d.writingScore !== null || d.absent) && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <h2 className="font-semibold text-gray-700 mb-4">✏️ Writing Progress</h2>
           <WritingChart data={metrics.daily} />
           <p className="text-xs text-gray-400 mt-2 text-center">
-            Writing completion, legibility, and effort normalized to 0-100.
+            Writing score, completion, legibility, and effort normalized to 0-100.
           </p>
         </div>
       )}

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Timer from "./Timer";
 import RatingForm from "./RatingForm";
+import WritingExercise from "./WritingExercise";
 import type { DailyContent, PhaseId } from "@/types";
 import { PHASES } from "@/types";
 
@@ -31,6 +32,29 @@ const ICONS: Record<PhaseId, string> = {
   WORK_QUALITY: "📋",
   NEXT_DAY_PREP: "🎒",
 };
+
+function WritingResult({ rating }: { rating: Record<string, unknown> }) {
+  const score = typeof rating.score === "number" ? rating.score : null;
+  const spelling = Array.isArray(rating.spellingMistakes) ? rating.spellingMistakes : [];
+  const grammar = Array.isArray(rating.grammarMistakes) ? rating.grammarMistakes : [];
+  return (
+    <div className="mt-3 rounded-lg border border-green-100 bg-white p-3 space-y-2 text-sm">
+      <div className="flex justify-between items-center">
+        <p className="font-bold text-green-800">Saved writing assessment</p>
+        {score !== null && <span className="rounded-full bg-green-100 px-3 py-1 font-black text-green-800">{score}/100</span>}
+      </div>
+      {typeof rating.summary === "string" && <p className="text-gray-600">{rating.summary}</p>}
+      <p className="text-xs text-gray-500">Spelling mistakes: {spelling.length} · Grammar mistakes: {grammar.length}</p>
+      {typeof rating.timeDeduction === "number" && rating.timeDeduction > 0 && (
+        <p className="text-xs text-amber-700">Time deduction: −{rating.timeDeduction} points</p>
+      )}
+      {[...spelling, ...grammar].map((item, index) => {
+        const mistake = item && typeof item === "object" ? item as Record<string, unknown> : {};
+        return <p key={index} className="text-xs text-gray-600"><span className="line-through text-red-600">{String(mistake.written ?? "")}</span> → <span className="font-semibold text-green-700">{String(mistake.correction ?? "")}</span>: {String(mistake.explanation ?? "")}</p>;
+      })}
+    </div>
+  );
+}
 
 type PhaseStatus = "locked" | "ready" | "active" | "rating" | "done";
 
@@ -306,7 +330,15 @@ export default function PhaseCard({
       )}
 
       {/* Timer — shown when active and not yet done */}
-      {isActive && !showRating && (
+      {isActive && phase.id === "WRITING" && (
+        <WritingExercise
+          writing={content.writing}
+          durationMin={phase.duration}
+          onSave={(rating, time) => onSave(rating, time)}
+        />
+      )}
+
+      {isActive && phase.id !== "WRITING" && !showRating && (
         <div className="mt-5 p-4 bg-white rounded-xl border">
           <Timer
             durationMin={phase.duration}
@@ -317,7 +349,7 @@ export default function PhaseCard({
       )}
 
       {/* Rating form */}
-      {isActive && showRating && !isDone && (
+      {isActive && phase.id !== "WRITING" && showRating && !isDone && (
         <div className="mt-4">
           <RatingForm
             phase={phase.id}
@@ -330,11 +362,9 @@ export default function PhaseCard({
 
       {/* Existing rating display (history / read-only) */}
       {isDone && existingRating && isReadOnly && (
-        <div className="mt-3 text-xs text-gray-400 bg-white rounded-lg p-2">
-          <pre className="whitespace-pre-wrap">
-            {JSON.stringify(existingRating, null, 2)}
-          </pre>
-        </div>
+        phase.id === "WRITING" && "score" in existingRating
+          ? <WritingResult rating={existingRating as Record<string, unknown>} />
+          : <div className="mt-3 text-xs text-gray-400 bg-white rounded-lg p-2"><pre className="whitespace-pre-wrap">{JSON.stringify(existingRating, null, 2)}</pre></div>
       )}
     </div>
   );

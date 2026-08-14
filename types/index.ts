@@ -83,6 +83,25 @@ export interface WritingRating {
   linesWritten: number;
   legibility: 1 | 2 | 3 | 4 | 5;
   effort: 1 | 2 | 3 | 4 | 5;
+  score: number;
+  baseScore: number;
+  timeLimitSec: number;
+  timeSpentSec: number;
+  overtimeSec: number;
+  timeDeduction: number;
+  transcript: string;
+  summary: string;
+  spellingMistakes: WritingMistake[];
+  grammarMistakes: WritingMistake[];
+  structureFeedback: string[];
+  strengths: string[];
+  assessedAt: string;
+}
+
+export interface WritingMistake {
+  written: string;
+  correction: string;
+  explanation: string;
 }
 
 export interface WorkQualityRating {
