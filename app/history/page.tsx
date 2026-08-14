@@ -6,21 +6,23 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, 
 interface SessionSummary {
   id: string;
   date: string;
-  status: "PENDING" | "PARTIAL" | "COMPLETE" | "MISSED";
+  status: "PENDING" | "PARTIAL" | "COMPLETE" | "MISSED" | "NOT_ATTEMPTED";
   phases: { phase: string; completed: boolean }[];
 }
 
 const STATUS_COLOR: Record<string, string> = {
   COMPLETE: "bg-green-500 text-white",
-  PARTIAL: "bg-amber-400 text-white",
-  MISSED: "bg-red-400 text-white",
+  PARTIAL: "bg-red-500 text-white",
+  MISSED: "bg-red-700 text-white",
+  NOT_ATTEMPTED: "bg-red-700 text-white",
   PENDING: "bg-gray-200 text-gray-500",
 };
 
 const STATUS_DOT: Record<string, string> = {
   COMPLETE: "bg-green-500",
-  PARTIAL: "bg-amber-400",
-  MISSED: "bg-red-400",
+  PARTIAL: "bg-red-500",
+  MISSED: "bg-red-700",
+  NOT_ATTEMPTED: "bg-red-700",
   PENDING: "bg-gray-200",
 };
 
@@ -88,18 +90,20 @@ export default function HistoryPage() {
             const dateStr = format(day, "yyyy-MM-dd");
             const session = sessionMap.get(dateStr);
             const isToday = dateStr === format(new Date(), "yyyy-MM-dd");
+            const needsAttention = session?.status === "PARTIAL" || session?.status === "MISSED" || session?.status === "NOT_ATTEMPTED";
+            const untouched = session?.status === "NOT_ATTEMPTED";
 
             return (
               <Link key={dateStr} href={`/session/${dateStr}`}>
                 <div
-                  className={`relative flex flex-col items-center p-1.5 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors ${
+                  className={`relative flex flex-col items-center min-h-12 p-1.5 rounded-xl cursor-pointer transition-colors ${
                     isToday ? "ring-2 ring-indigo-400" : ""
-                  } ${!isSameMonth(day, viewMonth) ? "opacity-30" : ""}`}
+                  } ${untouched ? "bg-red-700 hover:bg-red-800 shadow-sm" : needsAttention ? "bg-red-100 border border-red-400 hover:bg-red-200" : session?.status === "COMPLETE" ? "bg-green-50 hover:bg-green-100" : "hover:bg-gray-50"} ${!isSameMonth(day, viewMonth) ? "opacity-30" : ""}`}
                 >
-                  <span className="text-sm font-medium text-gray-700">{format(day, "d")}</span>
+                  <span className={`text-sm font-bold ${untouched ? "text-white" : needsAttention ? "text-red-800" : "text-gray-700"}`}>{format(day, "d")}</span>
                   {session && (
                     <span
-                      className={`w-2 h-2 rounded-full mt-0.5 ${STATUS_DOT[session.status]}`}
+                      className={`w-2 h-2 rounded-full mt-0.5 ${untouched ? "bg-white" : STATUS_DOT[session.status]}`}
                     />
                   )}
                   {!session && <span className="w-2 h-2 mt-0.5" />}
@@ -110,11 +114,11 @@ export default function HistoryPage() {
         </div>
 
         {/* Legend */}
-        <div className="flex gap-4 mt-4 text-xs text-gray-500 justify-center">
+        <div className="flex flex-wrap gap-4 mt-4 text-xs text-gray-500 justify-center">
           {[
             { color: "bg-green-500", label: "Complete" },
-            { color: "bg-amber-400", label: "Partial" },
-            { color: "bg-red-400", label: "Missed" },
+            { color: "bg-red-500", label: "Incomplete" },
+            { color: "bg-red-700", label: "Not attempted / missed" },
           ].map(({ color, label }) => (
             <div key={label} className="flex items-center gap-1.5">
               <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
@@ -135,24 +139,24 @@ export default function HistoryPage() {
             No sessions recorded yet. Start tonight!
           </div>
         )}
-        {sessions.slice(0, 20).map((s) => {
+        {sessions.filter((s) => s.date.split("T")[0] <= format(new Date(), "yyyy-MM-dd")).slice(0, 20).map((s) => {
           const dateStr = s.date.split("T")[0];
           const completedPhases = s.phases.filter((p) => p.completed).length;
           return (
             <Link key={s.id} href={`/session/${dateStr}`}>
-              <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer">
+              <div className={`rounded-xl border p-4 flex items-center justify-between hover:shadow-sm transition-all cursor-pointer ${s.status === "NOT_ATTEMPTED" || s.status === "MISSED" ? "bg-red-50 border-red-400" : s.status === "PARTIAL" ? "bg-red-50 border-red-300" : "bg-white border-gray-100 hover:border-indigo-200"}`}>
                 <div>
                   <p className="font-semibold text-gray-800 text-sm">
                     {format(parseISO(dateStr), "EEEE, MMM d, yyyy")}
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {completedPhases} of 6 phases completed
+                  <p className={`text-xs mt-0.5 ${s.status === "NOT_ATTEMPTED" ? "font-bold text-red-700" : "text-gray-400"}`}>
+                    {s.status === "NOT_ATTEMPTED" ? "Not opened or attempted · 0 of 6 phases" : `${completedPhases} of 6 phases completed`}
                   </p>
                 </div>
                 <span
                   className={`text-xs px-3 py-1 rounded-full font-semibold ${STATUS_COLOR[s.status]}`}
                 >
-                  {s.status}
+                  {s.status === "NOT_ATTEMPTED" ? "NOT ATTEMPTED" : s.status === "PARTIAL" ? "INCOMPLETE" : s.status}
                 </span>
               </div>
             </Link>
