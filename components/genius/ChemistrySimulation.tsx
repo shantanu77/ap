@@ -223,6 +223,41 @@ function ForceMotionSimulation() {
   );
 }
 
+function BatteryCircuitSimulation() {
+  const [closed, setClosed] = useState(false);
+  const [cells, setCells] = useState<1 | 2>(1);
+  const voltage = cells * 1.5;
+  const brightness = closed ? (cells === 2 ? 100 : 55) : 0;
+  return (
+    <LabShell modelNote="This is a simplified low-voltage circuit model. Real bulb brightness also depends on resistance and the battery's condition. Never connect wires to a wall socket.">
+      <div className="grid sm:grid-cols-[0.9fr_1.2fr] gap-5 items-center">
+        <div className="space-y-3">
+          <label className="block text-sm font-bold">Cells in series
+            <select value={cells} onChange={(event) => setCells(Number(event.target.value) as 1 | 2)} className="mt-2 w-full bg-slate-800 border border-slate-600 rounded-xl p-3">
+              <option value={1}>1 cell — 1.5 V</option>
+              <option value={2}>2 cells — 3.0 V</option>
+            </select>
+          </label>
+          <button type="button" onClick={() => setClosed((value) => !value)} className={`w-full rounded-xl p-3 font-black ${closed ? "bg-emerald-400 text-slate-950" : "bg-slate-700"}`}>
+            {closed ? "Open switch ⏻" : "Close switch ⭘"}
+          </button>
+          <p className="text-xs text-slate-300">Battery voltage: {voltage.toFixed(1)} V • Current path: {closed ? "complete" : "broken"}</p>
+        </div>
+        <div className="relative h-52 rounded-2xl bg-indigo-950 border border-slate-700">
+          <div className={`absolute left-10 right-10 top-10 bottom-10 rounded-3xl border-4 ${closed ? "border-cyan-300" : "border-slate-500"}`} />
+          <div className="absolute left-5 top-1/2 -translate-y-1/2 rounded-lg bg-slate-900 px-2 py-4 text-2xl" aria-label={`${cells} battery cells`}>{cells === 1 ? "🔋" : "🔋🔋"}</div>
+          <div className="absolute right-5 top-1/2 -translate-y-1/2 text-center">
+            <span className="block text-5xl transition-all" style={{ filter: `drop-shadow(0 0 ${brightness / 5}px rgb(250 204 21))`, opacity: closed ? 1 : 0.35 }}>💡</span>
+            <span className="text-[10px] text-slate-300">{brightness}% model brightness</span>
+          </div>
+          {!closed && <span className="absolute left-1/2 top-8 -translate-x-1/2 bg-indigo-950 px-2 text-amber-300 font-black">open gap</span>}
+          {closed && <span className="absolute left-1/2 bottom-3 -translate-x-1/2 text-xs text-cyan-200 animate-pulse">charge flows around the loop →</span>}
+        </div>
+      </div>
+    </LabShell>
+  );
+}
+
 function CellExplorerSimulation() {
   const organelles = [
     { name: "Nucleus", emoji: "🟣", job: "Stores DNA and coordinates many cell activities." },
@@ -270,6 +305,7 @@ export default function ChemistrySimulation({ block }: { block: SimulationBlock 
       {block.simulation === "ph-indicator.v1" && <PhSimulation />}
       {block.simulation === "mass-balance.v1" && <MassBalanceSimulation />}
       {block.simulation === "force-motion.v1" && <ForceMotionSimulation />}
+      {block.simulation === "battery-circuit.v1" && <BatteryCircuitSimulation />}
       {block.simulation === "cell-explorer.v1" && <CellExplorerSimulation />}
       {block.simulation === "food-chain.v1" && <FoodChainSimulation />}
     </section>

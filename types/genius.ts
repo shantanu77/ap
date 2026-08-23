@@ -37,6 +37,7 @@ export type GeniusBlock =
         | "ph-indicator.v1"
         | "mass-balance.v1"
         | "force-motion.v1"
+        | "battery-circuit.v1"
         | "cell-explorer.v1"
         | "food-chain.v1";
       title: string;

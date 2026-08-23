@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ExtractedGeniusBlock } from "@/components/genius/types";
 
 type DiagramBlock = ExtractedGeniusBlock<"diagram">;
@@ -271,6 +271,7 @@ function CoordinateGrid({ labels }: { labels: string[] }) {
 export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
   const labels = block.labels?.filter(Boolean).slice(0, 7) ?? [];
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  useEffect(() => setActiveLabel(null), [block.title, block.diagram]);
   return (
     <figure className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-4 sm:p-6 overflow-hidden">
       <div className="flex items-center gap-2 mb-4">

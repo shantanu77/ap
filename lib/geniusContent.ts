@@ -16,6 +16,7 @@ const APPROVED_SIMULATIONS = new Set([
   "ph-indicator.v1",
   "mass-balance.v1",
   "force-motion.v1",
+  "battery-circuit.v1",
   "cell-explorer.v1",
   "food-chain.v1",
 ]);
@@ -382,8 +383,31 @@ function unsafeNode(topic: string, level: StudyLevel): GeniusNode {
   );
 }
 
+function batteryNode(level: StudyLevel): GeniusNode {
+  return nodeBase(
+    "How Batteries Power a Circuit 🔋",
+    level,
+    "INTRO",
+    null,
+    null,
+    [
+      { type: "hero", emoji: "🔋", hook: "Inside a battery, chemical reactions create an electric push—but charge moves only when there is a complete path." },
+      { type: "paragraph", heading: "Chemical energy becomes electrical energy", text: "Reactions inside an electric cell separate charge between its two terminals. This creates voltage, the electric push that can drive charge through a closed circuit." },
+      { type: "simulation", simulation: "battery-circuit.v1", title: "Battery and Circuit Lab", prompt: "Close the switch, then compare one cell with two cells in series." },
+      { type: "vocabulary", terms: [{ term: "Voltage", definition: "A measure of the electric push between two points." }, { term: "Circuit", definition: "A complete conducting path through which charge can move." }] },
+      { type: "remember", points: ["A battery converts stored chemical energy into electrical energy.", "A bulb lights only when the circuit is complete.", "Cells connected in series add their voltages."] },
+    ],
+    [
+      choice("inside-battery", "⚛️", "What happens inside a battery?", "Explain the chemical changes and charge separation inside a battery."),
+      choice("series-cells", "🔋", "Why do two cells make it brighter?", "Explain voltage when cells are connected in series."),
+      choice("open-circuit", "💡", "Why does an open switch stop the bulb?", "Explain current and the need for a complete circuit."),
+    ]
+  );
+}
+
 export function createFallbackIntroduction(topic: string, level: StudyLevel, subject: GeniusSubject = "chemistry"): GeniusNode {
   if (subject === "chemistry" && isUnsafeChemistryRequest(topic)) return unsafeNode(topic, level);
+  if (/\b(batter(?:y|ies)|electric cells?|voltage|electric circuit)\b/i.test(topic)) return batteryNode(level);
   if (subject !== "chemistry") return genericNode(topic, level, subject);
   if (/rust|corrosion/i.test(topic)) return rustNode(level);
   if (/atom|element|proton|electron/i.test(topic)) return atomNode(level);
@@ -394,6 +418,14 @@ export function createFallbackIntroduction(topic: string, level: StudyLevel, sub
 
 function expansionBlocks(intent: string, topic: string, level: StudyLevel, subject: GeniusSubject = "chemistry"): GeniusBlock[] {
   const lower = intent.toLowerCase();
+  if (/\b(batter(?:y|ies)|electric cells?|voltage|electric circuit)\b/.test(`${lower} ${topic.toLowerCase()}`)) {
+    return [
+      { type: "hero", emoji: "🔋", hook: "A battery does not store electric current—it uses a chemical reaction to push charge around a complete circuit." },
+      { type: "simulation", simulation: "battery-circuit.v1", title: "Battery and Circuit Lab", prompt: "Close the circuit, then compare one cell with two cells. What changes?" },
+      { type: "paragraph", heading: "What is happening inside?", text: "Chemical reactions separate charge at the battery terminals. The resulting voltage is an electric push. When the circuit is closed, that push drives charge through the wire and bulb; opening the circuit stops the continuous path." },
+      { type: "remember", points: ["A battery changes stored chemical energy into electrical energy.", "Current needs a complete conducting path.", "More cells in series provide a larger voltage, within the safe simplified model."] },
+    ];
+  }
   if (/rust.*sim|simulator.*rust/.test(lower)) {
     return [
       { type: "hero", emoji: "🧪", hook: "Change one condition at a time and watch how the rust model responds." },
@@ -518,7 +550,8 @@ export function normalizeGeneratedNode(
   fallback: GeniusNode,
   parentNodeId: string | null,
   nodeType: GeniusNode["nodeType"],
-  level: StudyLevel
+  level: StudyLevel,
+  relevanceText = ""
 ): GeniusNode {
   if (!raw || typeof raw !== "object") return fallback;
   const object = raw as Record<string, unknown>;
@@ -526,7 +559,10 @@ export function normalizeGeneratedNode(
   const parsedBlocks = rawBlocks
     .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
     .filter((item) => BLOCK_TYPES.has(String(item.type)))
-    .filter((item) => item.type !== "simulation" || APPROVED_SIMULATIONS.has(String(item.simulation)))
+    .filter((item) => item.type !== "simulation" || (
+      APPROVED_SIMULATIONS.has(String(item.simulation))
+      && isSimulationRelevant(String(item.simulation), relevanceText)
+    ))
     .slice(0, 10) as unknown as GeniusBlock[];
   if (parsedBlocks.length < 2) return fallback;
   const blocks = ensureVisualBlock(parsedBlocks, stringValue(object.title, fallback.title));
@@ -558,6 +594,23 @@ export function normalizeGeneratedNode(
     exploreChoices: exploreChoices.length >= 2 ? exploreChoices : fallback.exploreChoices,
     createdAt: new Date().toISOString(),
   };
+}
+
+function isSimulationRelevant(simulation: string, context: string): boolean {
+  const text = context.toLowerCase();
+  const patterns: Record<string, RegExp> = {
+    "rust-conditions.v1": /\b(rust|rusting|corrosion|iron)\b/,
+    "particle-states.v1": /\b(solid|liquid|gas|state of matter|melting|boiling|freezing|particle state)\b/,
+    "dissolving.v1": /\b(dissolv|solution|solute|solvent|salt in water)\b/,
+    "atom-builder.v1": /\b(atom|element|proton|neutron|electron|isotope|ion)\b/,
+    "ph-indicator.v1": /\b(ph|acid|base|alkali|indicator)\b/,
+    "mass-balance.v1": /\b(conservation of mass|mass balance|closed container|reaction mass)\b/,
+    "force-motion.v1": /\b(force|motion|acceleration|newton|inertia|push|pull|velocity|speed)\b/,
+    "battery-circuit.v1": /\b(batter(?:y|ies)|electric cell|voltage|electric circuit|current|bulb)\b/,
+    "cell-explorer.v1": /\b(cell|organelle|nucleus|mitochond|membrane|ribosome)\b/,
+    "food-chain.v1": /\b(food chain|food web|ecosystem|producer|consumer|predator|energy transfer)\b/,
+  };
+  return patterns[simulation]?.test(text) ?? false;
 }
 
 export function createContent(introduction: GeniusNode): GeniusContent {
