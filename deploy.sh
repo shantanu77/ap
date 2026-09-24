@@ -1,7 +1,7 @@
 #!/bin/bash
 # Deploy latest code to ap.allshare.me
 set -e
-SSH="ssh -i /home/shantanu/mykey.key -o StrictHostKeyChecking=no root@ap.allshare.me"
+SSH="ssh -i /home/shantanu/allshare.key -o StrictHostKeyChecking=no root@ap.allshare.me"
 echo ">>> Pushing to GitHub..."
 git push origin main
 echo ">>> Deploying to server..."
