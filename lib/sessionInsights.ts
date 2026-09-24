@@ -78,6 +78,9 @@ export function buildIncompleteTasks(
   const homeworkCompleteness = asNumber(ratings.WORK_QUALITY?.homeworkCompleteness);
   if (homeworkCompleteness !== null && homeworkCompleteness < 3) tasks.push("Homework completeness below target");
   if (ratings.WORK_QUALITY?.shortcutUsage === "major") tasks.push("Major shortcut usage");
+  if (asBoolean(ratings.WORK_QUALITY?.targetedPracticeCompleted) === false) {
+    tasks.push("Report-based subject booster not completed");
+  }
 
   if (asBoolean(ratings.NEXT_DAY_PREP?.bagPacked) === false) tasks.push("School bag not packed");
   if (asBoolean(ratings.NEXT_DAY_PREP?.goalSet) === false) tasks.push("Tomorrow goal not set");

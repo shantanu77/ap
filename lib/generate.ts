@@ -4,8 +4,68 @@ import { formatDisplayDate, getTopicForDate, getLanguageForDate, parseDate, toda
 import type { DailyContent } from "@/types";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const SUMMER_READING_WORDS_MIN = 650;
-const SUMMER_READING_WORDS_MAX = 850;
+const READING_WORDS_MIN = 450;
+const READING_WORDS_MAX = 600;
+
+type AcademicFocus = {
+  subject: string;
+  skill: string;
+  reportLevel: "S" | "P";
+  meetingTarget: string;
+  taskGuidance: string;
+};
+
+const ACADEMIC_FOCUS_ROTATION: AcademicFocus[] = [
+  {
+    subject: "Mathematics",
+    skill: "fractions",
+    reportLevel: "S",
+    meetingTarget: "Represent equivalent fractions, place them on a number line, and solve one addition or subtraction problem with a clear model.",
+    taskGuidance: "Use a number line or area model before calculating. Include one equivalence item and one short word problem.",
+  },
+  {
+    subject: "English",
+    skill: "literal comprehension and summarising",
+    reportLevel: "S",
+    meetingTarget: "Identify the main idea and retrieve three accurate details from a Grade 6 text without guessing.",
+    taskGuidance: "Use a short fresh paragraph and require a main-idea sentence plus three details, each tied to exact words in the text.",
+  },
+  {
+    subject: "Expedition / Science",
+    skill: "cause-and-effect scientific explanation",
+    reportLevel: "P",
+    meetingTarget: "Explain a process in a complete cause → mechanism → effect chain using accurate subject vocabulary.",
+    taskGuidance: "Rotate among groundwater recharge, the rock cycle, plant reproduction and forest regeneration, environmental balance, and acids/bases/neutralisation.",
+  },
+  {
+    subject: "Mathematics",
+    skill: "factors, multiples and data handling",
+    reportLevel: "P",
+    meetingTarget: "Choose the correct operation or representation, show working, and check that the answer fits the question.",
+    taskGuidance: "Alternate a common-factor/common-multiple problem with a small table or graph interpretation task. Require one written reason.",
+  },
+  {
+    subject: "English",
+    skill: "narrative structure and writing conventions",
+    reportLevel: "P",
+    meetingTarget: "Plan and produce a short, ordered response with specific detail, complete sentences, capitals, punctuation, and checked spelling.",
+    taskGuidance: "Use oral rehearsal first, then a four-sentence plan or an editing task. Keep handwriting volume dysgraphia-aware.",
+  },
+  {
+    subject: "Digital Literacy",
+    skill: "spreadsheet functions and flowcharts",
+    reportLevel: "P",
+    meetingTarget: "Select an appropriate spreadsheet function or flowchart symbol and explain why it fits the step.",
+    taskGuidance: "Use a tiny data table or a familiar real-life algorithm. Require a prediction, the result, and one correction check.",
+  },
+  {
+    subject: "Weekly Review",
+    skill: "retrieval, organisation and independent follow-through",
+    reportLevel: "P",
+    meetingTarget: "Retrieve this week's key learning, identify unfinished work, and independently plan the first action for Monday.",
+    taskGuidance: "Use a mixed five-item retrieval check covering the week's subjects, then one concrete organise-check-pack action.",
+  },
+];
 
 const FOCUS_COACHING_THEMES = [
   "finishing homework fully and checking it before packing",
@@ -110,6 +170,12 @@ function focusCoachingThemeForDate(dateStr: string): string {
   return FOCUS_COACHING_THEMES[days % FOCUS_COACHING_THEMES.length];
 }
 
+function academicFocusForDate(dateStr: string): AcademicFocus {
+  const dayOfWeek = parseDate(dateStr).getUTCDay();
+  const mondayFirstIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  return ACADEMIC_FOCUS_ROTATION[mondayFirstIndex];
+}
+
 function buildRecentReadingNotes(
   recentPlans: Array<{ content: unknown; editedContent: unknown | null }>
 ): string {
@@ -187,6 +253,20 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
         "No skipped words",
       ],
     },
+    targeted_practice: content.targeted_practice
+      ? {
+          ...content.targeted_practice,
+          subject: normalizeWhitespace(content.targeted_practice.subject),
+          skill: normalizeWhitespace(content.targeted_practice.skill),
+          meeting_target: normalizeWhitespace(content.targeted_practice.meeting_target),
+          task: normalizeWhitespace(content.targeted_practice.task),
+          success_criteria: (content.targeted_practice.success_criteria ?? [])
+            .map(normalizeWhitespace)
+            .filter(Boolean)
+            .slice(0, 4),
+          self_check: normalizeWhitespace(content.targeted_practice.self_check),
+        }
+      : undefined,
     science_hook: normalizeWhitespace(content.science_hook),
     ethics_reflection: normalizeWhitespace(content.ethics_reflection),
     next_day_tip: normalizeWhitespace(content.next_day_tip),
@@ -199,6 +279,7 @@ async function buildPrompt(dateStr: string): Promise<string> {
   const fullDate = formatDisplayDate(dateStr);
   const readingSource = readingSourceForDate(dateStr);
   const focusCoachingTheme = focusCoachingThemeForDate(dateStr);
+  const academicFocus = academicFocusForDate(dateStr);
   const dayOfWeek = parseDate(dateStr).getUTCDay();
   const isWeeklyWordFormationDeepDive = language === "hindi" && dayOfWeek === 3;
   const recentPlans = await prisma.dailyPlan.findMany({
@@ -218,14 +299,14 @@ async function buildPrompt(dateStr: string): Promise<string> {
 
   const languageInstructions =
     language === "review"
-      ? `Language focus: Sunday review day. Give a serious revision covering 6 Hindi words, 6 Sanskrit words, and 4 sentence-level recall questions from this week's language work. The lesson_title should say "Weekly Review".`
+      ? `Language focus: Sunday review day. Give a focused retrieval review covering 4 Hindi words, 4 Sanskrit words, and 4 sentence-level recall questions from this week's language work. The lesson_title should say "Weekly Review".`
       : language === "hindi"
-      ? `Language focus: Hindi. Make this an expanded, rigorous CBSE Grade 6 summer lesson. Teach 10-12 useful vocabulary words plus two sentence patterns, with Devanagari, transliteration, English meaning, and short example sentences. Include an 8-item oral/written practice task. Keep it beginner-accessible but not nursery-level. Use clever, witty humour that an 11-year-old who enjoys memes will actually understand; never use baby talk.${
+      ? `Language focus: Hindi. The report places overall Hindi at Progressing, with some grammar and vocabulary-identification standards at Starting. Teach 6-8 useful words and one sentence pattern with Devanagari, transliteration, English meaning, and short examples. Include a 6-item practice task weighted toward recognition and speaking, with no more than two short written items. Keep it Grade 6 appropriate and never use baby talk.${
           isWeeklyWordFormationDeepDive
             ? " This is the weekly Wednesday WORD FORMATION DEEP DIVE: take one useful Hindi word apart carefully (root/base, prefix or suffix where genuinely applicable, related word family, sound/spelling change, meaning logic, and 3 examples). Accuracy matters: do not invent a root or false etymology."
             : " Set word_formation_deep_dive to null today; the full deep dive happens once each week on Wednesday."
         }`
-      : `Language focus: Sanskrit. Make this a rigorous beginner Sanskrit summer lesson. Teach 8-10 common words OR one short shloka line plus 5 grammar/vocabulary items. Include transliteration, word meanings, and a 6-item oral/written practice task. Keep it clear but substantive.`;
+      : `Language focus: Sanskrit. The report places Sanskrit at Progressing across listening, speaking, reading and writing. Teach 5-6 common words OR one short line plus 3 grammar/vocabulary items. Include transliteration, word meanings, and a 5-item oral/recognition practice task with one short ordered-writing item. Aim for secure recall and accurate use, not volume.`;
 
   return `You are a content creator for a daily learning session for Aashvath, a Grade 6 CBSE student in India.
 
@@ -235,10 +316,17 @@ STUDENT PROFILE:
 - Has dysgraphia — writing is physically hard for him; keep all writing tasks short (max 5 lines)
 - Loves science, non-fiction, space, technology
 - Learns by watching YouTube videos, not reading books
-- Very poor in Hindi and Sanskrit (starting from near-zero)
-- Summer holidays are active now, so the session can be longer and more rigorous than the school-night plan.
-- Session is supervised by his father; target total duration is about 90 minutes during holidays.
+- Hindi and Sanskrit are both currently Progressing; some Hindi language-identification skills are Starting
+- His verbal explanations often show stronger understanding than his written work
+- Session is supervised by his father and must remain achievable on a school night
 - School: Heritage Experiential School, CBSE curriculum
+
+TERM 1 REPORT-BASED PRIORITIES:
+- Strengths to preserve: oral interpretation, inference and text analysis, large-number arithmetic, magnet and electricity investigations, charting, and algorithms are already Meeting.
+- Highest gaps: literal reading comprehension and fractions are Starting.
+- Progressing areas to move toward Meeting: English discussion/presentation, narrative writing and conventions; Hindi and Sanskrit; factors/multiples and data handling; scientific classification and cause/effect explanations; spreadsheet functions and flowcharts.
+- Work Ethics is Progressing in every reported academic subject. The teacher's key next step is organisation: plan tasks, manage resources, and follow through independently.
+- Do not reteach a Meeting skill as if it were a weakness. Use it as a confidence-building bridge into today's target.
 
 TODAY: ${fullDate}
 READING TOPIC THIS WEEK: ${topic}
@@ -251,10 +339,18 @@ TODAY'S FREE/PUBLIC-DOMAIN READING ANCHOR:
 RECENT READ-ALOUD TITLES TO AVOID REPEATING:
 ${recentReadingNotes}
 
-Generate a summer-holiday daily learning package. It should be engaging, rigorous, and age-appropriate for a gifted Grade 6 student who avoids reading.
-Reading must be at least one printed page: ${SUMMER_READING_WORDS_MIN}-${SUMMER_READING_WORDS_MAX} words, split into short paragraphs. Use the public-domain reading anchor above as the source/theme, but create a self-contained original passage or adapted public-domain-style chapter page suitable for this learner. Do not quote modern copyrighted books.
+TODAY'S REPORT-BASED SUBJECT BOOSTER:
+- Subject: ${academicFocus.subject}
+- Skill: ${academicFocus.skill}
+- Current report level: ${academicFocus.reportLevel}
+- Definition of Meeting: ${academicFocus.meetingTarget}
+- Task design: ${academicFocus.taskGuidance}
+
+Generate a school-term daily learning package. It should be engaging, rigorous, and achievable for a gifted Grade 6 student who avoids reading and finds handwriting physically demanding.
+Reading must be ${READING_WORDS_MIN}-${READING_WORDS_MAX} words, split into short paragraphs. Use the public-domain reading anchor above as the source/theme, but create a self-contained original passage or adapted public-domain-style chapter page suitable for this learner. Do not quote modern copyrighted books.
 After the main passage, include a separate 130-180 word read-aloud coaching paragraph about ${focusCoachingTheme}. It must show Aashvath a realistic school/home moment, explain why the habit matters, and give a tiny action sequence he can use immediately. Sound like a smart coach, not a lecture; avoid shame, labels, threats, and vague advice such as merely saying "focus more". Vary the scenario and wording from day to day.
-Include enough tasks to fill about 90 minutes: deeper reading, 5 comprehension questions, a more substantial language lesson, 5-line writing, and a concrete follow-up task.
+Make the first two comprehension questions directly practise literal retrieval and main-idea summarising; later questions can use his existing inference/analysis strength.
+Include one 10-15 minute targeted-practice task that follows today's subject booster exactly. It must have a small, observable finish line and no more than five handwritten lines.
 The science content should feel like a smart YouTube hook, but the work itself should require focus.
 Do not reuse a recent read-aloud title, central fact, or passage angle from the list above.
 The writing exercise must be EXACTLY 5 short lines, each on its own new line. Do not return one long sentence or a paragraph.
@@ -268,12 +364,12 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     "topic": "${topic}",
     "source_title": "${readingSource.title}",
     "source_author": "${readingSource.author}",
-    "source_note": "Free/public-domain reading anchor used for today's summer reading.",
-    "passage": "${SUMMER_READING_WORDS_MIN}-${SUMMER_READING_WORDS_MAX} word one-page reading for a curious 11-year-old. Short paragraphs. Use the mood/theme of ${readingSource.title} by ${readingSource.author}, connect it naturally to ${topic}, and include concrete details, inference opportunities, and one surprising science/history comparison.",
+    "source_note": "Free/public-domain reading anchor used for today's school-term reading.",
+    "passage": "${READING_WORDS_MIN}-${READING_WORDS_MAX} word reading for a curious 11-year-old. Short paragraphs. Use the mood/theme of ${readingSource.title} by ${readingSource.author}, connect it naturally to ${topic}, and include clearly retrievable details, inference opportunities, and one surprising science/history comparison.",
     "focus_work_ethic_coaching": "A separate 130-180 word read-aloud coaching paragraph focused on ${focusCoachingTheme}. Use a realistic scenario, explain the value, and end with a memorable 3-step action Aashvath can try tomorrow.",
     "comprehension_questions": [
-      "Question 1 (factual recall from the passage)",
-      "Question 2 (inference or reason from the passage)",
+      "Question 1 (literal retrieval: require two accurate details from the passage)",
+      "Question 2 (state the main idea in one complete sentence)",
       "Question 3 (vocabulary or phrase meaning from context)",
       "Question 4 (evidence-based explanation using two details)",
       "Question 5 (connect to real life, science, or Aashvath's interests)"
@@ -283,7 +379,7 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     "type": "${language}",
     "lesson_title": "Short lesson title",
     "content": "The actual lesson content. For vocabulary: present each word as: DEVANAGARI (transliteration) = English meaning, example in a sentence. For grammar/patterns: show the pattern with 4-5 examples. For shloka: the text + transliteration + word-by-word meaning + full meaning. Make it scannable but substantive.",
-    "practice_task": "For Hindi, an 8-item practice task; otherwise 6 items. It should take 10-15 minutes and include speaking, recognition, and one short written/copy item.",
+    "practice_task": "A 5-6 item task taking about 10 minutes. Prioritise speaking, listening and recognition; include no more than two short written/copy items.",
     "remember_tip": "One clever memory trick, story, or visual association to help remember the lesson.",
     "humour_hook": "For Hindi, one witty meme-style joke/caption using today's words correctly, followed by a one-sentence explanation of the language joke. For Sanskrit/review, use null unless genuinely useful.",
     "word_formation_deep_dive": ${isWeeklyWordFormationDeepDive ? '"A structured, accurate deep dive with headings: BUILD IT, WORD FAMILY, MEANING LOGIC, TRY IT. Explain one Hindi word formation in detail and give 3 examples."' : "null"}
@@ -293,6 +389,19 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     "prompt": "A 5-line passage for Aashvath to copy neatly. It should connect today's reading to science, responsibility, or observation. Return exactly 5 short sentences, each on a separate line using newline characters.",
     "lines_required": 5,
     "success_criteria": ["All 5 lines are attempted", "Letters are legible", "No skipped words", "Margins and spacing are controlled"]
+  },
+  "targeted_practice": {
+    "subject": "${academicFocus.subject}",
+    "skill": "${academicFocus.skill}",
+    "report_level": "${academicFocus.reportLevel}",
+    "meeting_target": "${academicFocus.meetingTarget}",
+    "task": "A complete, ready-to-do 10-15 minute task following this direction: ${academicFocus.taskGuidance}",
+    "success_criteria": [
+      "One concrete accuracy check specific to this task",
+      "One check that requires working, evidence, or a complete explanation",
+      "One check Aashvath can perform independently before finishing"
+    ],
+    "self_check": "One short question Aashvath answers before marking the task complete."
   },
   "ethics_reflection": "One thought (2-3 sentences) about the value of discipline, effort, or honesty. Connect it to Aashvath's world — school, sports, video games, science experiments. Not preachy. More like a coach talking to a player.",
   "next_day_tip": "A specific, actionable reminder for tomorrow. E.g. 'Check if you have your science notebook for tomorrow's class' or 'Review the Hindi words from today one more time before breakfast'. Keep it concrete."

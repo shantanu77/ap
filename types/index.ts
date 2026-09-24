@@ -27,12 +27,23 @@ export interface WritingContent {
   success_criteria: string[];
 }
 
+export interface TargetedPracticeContent {
+  subject: string;
+  skill: string;
+  report_level: "S" | "P" | "M" | "E";
+  meeting_target: string;
+  task: string;
+  success_criteria: string[];
+  self_check: string;
+}
+
 export interface DailyContent {
   date: string;
   science_hook: string;
   reading: ReadingContent;
   language: LanguageContent;
   writing: WritingContent;
+  targeted_practice?: TargetedPracticeContent;
   ethics_reflection: string;
   next_day_tip: string;
 }
@@ -109,6 +120,8 @@ export interface WorkQualityRating {
   homeworkCompleteness: 1 | 2 | 3 | 4 | 5;
   discipline: 1 | 2 | 3 | 4 | 5;
   shortcutUsage: "none" | "minor" | "major";
+  targetedPracticeCompleted?: boolean;
+  targetedPracticeOutcome?: "not_yet" | "with_help" | "independent";
 }
 
 export interface NextDayPrepRating {

@@ -211,14 +211,47 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
     case "WORK_QUALITY":
       return (
         <div className="space-y-3">
+          {content.targeted_practice && (
+            <div className="rounded-xl border-2 border-rose-200 bg-white p-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-rose-100 px-2 py-1 text-xs font-bold text-rose-700">
+                  REPORT-BASED BOOSTER
+                </span>
+                <span className="text-xs font-semibold text-gray-500">
+                  {content.targeted_practice.subject} · currently {content.targeted_practice.report_level}
+                </span>
+              </div>
+              <div>
+                <p className="font-bold text-gray-800">{content.targeted_practice.skill}</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Meeting target: {content.targeted_practice.meeting_target}
+                </p>
+              </div>
+              <p className="text-sm leading-relaxed text-gray-700">
+                {content.targeted_practice.task}
+              </p>
+              <div className="space-y-1">
+                {content.targeted_practice.success_criteria.map((criterion, index) => (
+                  <div key={index} className="flex gap-2 text-sm text-gray-600">
+                    <span className="text-rose-500">✓</span>
+                    <span>{criterion}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="rounded-lg bg-rose-50 p-2 text-sm font-medium text-rose-800">
+                Self-check: {content.targeted_practice.self_check}
+              </p>
+            </div>
+          )}
           <p className="text-sm text-gray-700 font-medium">
             Review today&apos;s school homework and classwork together.
           </p>
           <div className="space-y-2 text-sm text-gray-600">
             {[
               "Is every question attempted?",
-              "Are answers written in full sentences (not just colors/diagrams)?",
-              "Are subject notebooks organized?",
+              "Do written answers show the understanding he explained aloud?",
+              "Are capitals, punctuation and spellings checked?",
+              "Are the diary, worksheets and subject notebooks organized?",
               "Is the handwriting readable?",
             ].map((q, i) => (
               <div key={i} className="flex gap-2">
@@ -355,6 +388,7 @@ export default function PhaseCard({
             phase={phase.id}
             writingLinesRequired={content.writing.lines_required}
             reading={content.reading}
+            targetedPractice={content.targeted_practice}
             onSave={handleSave}
           />
         </div>

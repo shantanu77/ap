@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { DaySummaryRating, PhaseId, ReadingContent, ReadAloudAnswerRating } from "@/types";
+import type { DaySummaryRating, PhaseId, ReadingContent, ReadAloudAnswerRating, TargetedPracticeContent } from "@/types";
 
 const StarRating = ({
   label,
@@ -64,6 +64,7 @@ interface RatingFormProps {
   phase: PhaseId;
   writingLinesRequired?: number;
   reading?: ReadingContent;
+  targetedPractice?: TargetedPracticeContent;
   onSave: (ratings: object) => void;
 }
 
@@ -71,6 +72,7 @@ export default function RatingForm({
   phase,
   writingLinesRequired = 5,
   reading,
+  targetedPractice,
   onSave,
 }: RatingFormProps) {
   const [mood, setMood] = useState(3);
@@ -98,6 +100,8 @@ export default function RatingForm({
   const [homeworkCompleteness, setHomeworkCompleteness] = useState(3);
   const [discipline, setDiscipline] = useState(3);
   const [shortcutUsage, setShortcutUsage] = useState<"none" | "minor" | "major">("none");
+  const [targetedPracticeCompleted, setTargetedPracticeCompleted] = useState<boolean | null>(null);
+  const [targetedPracticeOutcome, setTargetedPracticeOutcome] = useState<"not_yet" | "with_help" | "independent">("not_yet");
   const [bagPacked, setBagPacked] = useState<boolean | null>(null);
   const [goalSet, setGoalSet] = useState<boolean | null>(null);
   const [goal, setGoal] = useState("");
@@ -287,7 +291,19 @@ export default function RatingForm({
         ratings = { linesWritten, legibility, effort };
         break;
       case "WORK_QUALITY":
-        ratings = { homeworkCompleteness, discipline, shortcutUsage };
+        ratings = {
+          homeworkCompleteness,
+          discipline,
+          shortcutUsage,
+          ...(targetedPractice
+            ? {
+                targetedPracticeCompleted: targetedPracticeCompleted ?? false,
+                targetedPracticeOutcome: targetedPracticeCompleted
+                  ? targetedPracticeOutcome
+                  : "not_yet",
+              }
+            : {}),
+        };
         break;
       case "NEXT_DAY_PREP":
         ratings = {
@@ -516,6 +532,48 @@ export default function RatingForm({
 
       {phase === "WORK_QUALITY" && (
         <>
+          {targetedPractice && (
+            <div className="rounded-xl border border-rose-100 bg-white p-3 space-y-3">
+              <div>
+                <p className="text-sm font-bold text-gray-700">Report-based booster</p>
+                <p className="text-xs text-gray-500">
+                  {targetedPractice.subject} · {targetedPractice.skill}
+                </p>
+              </div>
+              <YesNo
+                label="Completed the booster?"
+                value={targetedPracticeCompleted}
+                onChange={(value) => {
+                  setTargetedPracticeCompleted(value);
+                  if (!value) setTargetedPracticeOutcome("not_yet");
+                }}
+              />
+              {targetedPracticeCompleted && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">How was it completed?</label>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      ["with_help", "With help"],
+                      ["independent", "Independently"],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setTargetedPracticeOutcome(value)}
+                        className={`rounded-lg border-2 px-3 py-1.5 text-sm font-semibold ${
+                          targetedPracticeOutcome === value
+                            ? "border-rose-500 bg-rose-500 text-white"
+                            : "border-gray-300 text-gray-500"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <StarRating
             label="Homework completeness"
             value={homeworkCompleteness}
