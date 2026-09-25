@@ -7,6 +7,10 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 interface VisionResult {
+  isHandwritten?: unknown;
+  submissionType?: unknown;
+  handwritingConfidence?: unknown;
+  handwritingEvidence?: unknown;
   transcript?: unknown;
   linesWritten?: unknown;
   legibility?: unknown;
@@ -85,11 +89,15 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "system",
-          content: `You are a meticulous, encouraging handwriting assessor for a Grade 6 CBSE student with dysgraphia. Inspect only what is visibly written in the uploaded page. The image has been converted to high-contrast grayscale to make handwriting easier to inspect. Compare it line by line with the supplied copy-writing prompt. Use [unclear] rather than inventing an unreadable word.
+          content: `You are a meticulous, encouraging handwriting assessor for a Grade 6 CBSE student with dysgraphia. Inspect only what is visibly written in the uploaded page. The image has been converted to high-contrast grayscale to make handwriting easier to inspect.
+
+First validate the submission. The main answer must be genuine handwriting made with a pen or pencil on paper. Set isHandwritten=false for typed or printed answers, screenshots, text displayed on a screen, blank pages, non-writing images, handwriting-style fonts, or a printed worksheet with no substantial handwritten answer. A printed source or page ruling may be visible, but the student's five-line response itself must be handwritten. Do not reject neat handwriting merely because it is consistent. Look for multiple concrete signals such as natural variation in letter shapes, pressure or stroke texture, imperfect baselines, spacing variation, joins, corrections, and interaction with paper lines. State what is actually visible; never invent evidence. submissionType must be one of handwritten, typed_or_printed, blank, non_writing, or uncertain. handwritingConfidence is 0-100.
+
+Only when isHandwritten=true, compare the response line by line with the supplied copy-writing prompt. Use [unclear] rather than inventing an unreadable word.
 
 Evaluation priorities are spelling, grammar and sentence structure, and legibility. Find every visible mistake, including omitted or substituted words, capitalization, punctuation, agreement, word order, incomplete sentences, and spelling. Do not count the same issue twice. For EACH mistake, quote the exact written fragment, give the exact correction, then explain the applicable rule, why the original is wrong in this sentence, and why the correction works. Never give vague feedback such as "improve grammar". Separate true language mistakes from handwriting that is merely hard to read. A source sentence that was copied correctly must not be penalized. Do not demand or recommend a rewrite.
 
-Return JSON only with: transcript:string preserving line breaks (use [unclear] where necessary), linesWritten:integer, legibility:integer 1-5, effort:integer 1-5, contentAccuracyScore:integer 0-20, spellingScore:integer 0-25, grammarStructureScore:integer 0-30, legibilityScore:integer 0-25, spellingMistakes:array of {written,correction,explanation}, grammarMistakes:array of {written,correction,explanation}, structureFeedback:string[], legibilityFeedback:string[], strengths:string[], summary:string. Legibility feedback must cite specific observed letter formation, spacing, alignment, size consistency, or ambiguous words and explain its reading impact. Scores total 100 before any separate time deduction. Be evidence-based, thorough, and supportive.`
+Return JSON only with: isHandwritten:boolean, submissionType:string, handwritingConfidence:integer 0-100, handwritingEvidence:string[], transcript:string preserving line breaks (use [unclear] where necessary), linesWritten:integer, legibility:integer 1-5, effort:integer 1-5, contentAccuracyScore:integer 0-20, spellingScore:integer 0-25, grammarStructureScore:integer 0-30, legibilityScore:integer 0-25, spellingMistakes:array of {written,correction,explanation}, grammarMistakes:array of {written,correction,explanation}, structureFeedback:string[], legibilityFeedback:string[], strengths:string[], summary:string. Legibility feedback must cite specific observed letter formation, spacing, alignment, size consistency, or ambiguous words and explain its reading impact. Scores total 100 before any separate time deduction. Be evidence-based, thorough, and supportive.`
         },
         {
           role: "user",
@@ -102,6 +110,24 @@ Return JSON only with: transcript:string preserving line breaks (use [unclear] w
     });
 
     const result = parseVisionResult(response.choices[0].message.content);
+    const handwritingEvidence = strings(result.handwritingEvidence, 5);
+    const handwritingConfidence = clamp(result.handwritingConfidence, 0, 100);
+    if (result.isHandwritten !== true || handwritingConfidence < 60) {
+      const submissionType = String(result.submissionType ?? "uncertain").trim();
+      return NextResponse.json(
+        {
+          code: "HANDWRITING_REQUIRED",
+          error:
+            submissionType === "typed_or_printed"
+              ? "This looks typed or printed. Please upload Aashvath's handwritten page."
+              : "I could not verify genuine handwriting. Retake a clear photo of the handwritten page.",
+          submissionType,
+          handwritingConfidence,
+          handwritingEvidence,
+        },
+        { status: 422 }
+      );
+    }
     const baseScore =
       clamp(result.contentAccuracyScore, 0, 20) +
       clamp(result.spellingScore, 0, 25) +
@@ -110,6 +136,9 @@ Return JSON only with: transcript:string preserving line breaks (use [unclear] w
     const overtimeSec = Math.max(0, timeSpentSec - timeLimitSec);
     const timeDeduction = Math.min(20, Math.ceil(overtimeSec / 60));
     const rating: WritingRating = {
+      isHandwritten: true,
+      handwritingConfidence,
+      handwritingEvidence,
       linesWritten: clamp(result.linesWritten, 0, Math.max(10, linesRequired)),
       legibility: clamp(result.legibility, 1, 5) as WritingRating["legibility"],
       effort: clamp(result.effort, 1, 5) as WritingRating["effort"],

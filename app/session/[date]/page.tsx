@@ -157,6 +157,18 @@ export default function SessionPage() {
         // non-fatal
       }
 
+      setSession((previous) => {
+        if (!previous) return previous;
+        const nextPhase = { phase: phase.id, ratings, completed: true };
+        return {
+          ...previous,
+          phases: [
+            ...previous.phases.filter((item) => item.phase !== phase.id),
+            nextPhase,
+          ],
+        };
+      });
+
       setPhaseStatuses((prev) => {
         const next = [...prev];
         next[idx] = "done";
@@ -234,6 +246,8 @@ export default function SessionPage() {
     );
   }
 
+  const sessionContent = applyTodayDisciplineToPrep(content, session);
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -270,6 +284,46 @@ export default function SessionPage() {
               {pendingWork.length - 1} more older day{pendingWork.length === 2 ? "" : "s"} also need review.
             </p>
           )}
+        </div>
+      )}
+
+      {content.targeted_practice && (
+        <div className="rounded-2xl border-2 border-rose-300 bg-gradient-to-br from-rose-50 to-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-black tracking-wide text-rose-700">TERM 1 REPORT FOCUS</p>
+              <h2 className="mt-1 text-lg font-extrabold text-slate-800">
+                {content.targeted_practice.subject}: {content.targeted_practice.skill}
+              </h2>
+            </div>
+            <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
+              Report level {content.targeted_practice.report_level} → Meeting
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-rose-100 bg-white p-4">
+              <p className="text-xs font-bold text-gray-500">WHAT MEETING LOOKS LIKE</p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                {content.targeted_practice.meeting_target}
+              </p>
+            </div>
+            <div className="rounded-xl border border-rose-100 bg-white p-4">
+              <p className="text-xs font-bold text-gray-500">TODAY&apos;S ACTION</p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                {content.targeted_practice.task}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {content.targeted_practice.success_criteria.map((criterion) => (
+              <span key={criterion} className="rounded-lg bg-white px-3 py-2 text-xs text-gray-600 shadow-sm ring-1 ring-rose-100">
+                ✓ {criterion}
+              </span>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-rose-700">
+            This action is completed and tracked in the Work Quality phase as independent, with help, or unfinished.
+          </p>
         </div>
       )}
 
@@ -379,7 +433,7 @@ export default function SessionPage() {
               phaseIndex={idx}
               status={phaseStatuses[idx]}
               existingRating={existingRating?.ratings}
-              content={content}
+              content={sessionContent}
               onActivate={() => handleActivate(idx)}
               onSave={(ratings, time) => handleSave(idx, ratings, time)}
               isReadOnly={!isEditable}
@@ -410,4 +464,39 @@ function getPrevDate(dateStr: string) {
   const d = new Date(dateStr + "T12:00:00");
   d.setDate(d.getDate() - 1);
   return d.toISOString().split("T")[0];
+}
+
+function applyTodayDisciplineToPrep(content: DailyContent, session: SessionData | null): DailyContent {
+  if (!content.next_day_prep) return content;
+  const workQuality = session?.phases.find((phase) => phase.phase === "WORK_QUALITY");
+  if (!workQuality?.completed) return content;
+
+  const ratings = workQuality.ratings as Record<string, unknown>;
+  const adjustments: string[] = [];
+  const homeworkCompleteness = Number(ratings.homeworkCompleteness);
+  const discipline = Number(ratings.discipline);
+
+  if (Number.isFinite(homeworkCompleteness) && homeworkCompleteness < 3) {
+    adjustments.push("Finish the incomplete homework identified today and verify every question before moving on.");
+  }
+  if (Number.isFinite(discipline) && discipline < 3) {
+    adjustments.push("Write the exact first action for the task that lost focus today, then complete that action before leisure.");
+  }
+  if (ratings.shortcutUsage === "minor" || ratings.shortcutUsage === "major") {
+    adjustments.push("Replace today's shortcut with one complete written answer that shows the reasoning explained aloud.");
+  }
+  if (ratings.targetedPracticeCompleted === false) {
+    adjustments.push(`Complete today's ${content.targeted_practice?.skill ?? "report-based"} booster before starting a new practice task.`);
+  }
+  if (adjustments.length === 0) return content;
+
+  const checklist = [...new Set([...adjustments, ...content.next_day_prep.checklist])].slice(0, 6);
+  return {
+    ...content,
+    next_day_prep: {
+      ...content.next_day_prep,
+      focus: `Repair today's unfinished or low-discipline work first. ${content.next_day_prep.focus}`,
+      checklist,
+    },
+  };
 }

@@ -66,7 +66,12 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
       formData.append("timeLimitSec", String(timeLimitSec));
       const response = await fetch("/api/writing/analyse", { method: "POST", body: formData });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not analyse the writing.");
+      if (!response.ok) {
+        const evidence = Array.isArray(data.handwritingEvidence)
+          ? data.handwritingEvidence.map((item: unknown) => String(item)).filter(Boolean).join(" ")
+          : "";
+        throw new Error([data.error || "Could not analyse the writing.", evidence].filter(Boolean).join(" "));
+      }
       setReview(data as WritingRating);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not analyse the writing.");
@@ -106,6 +111,9 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
             <p className="text-3xl font-black text-green-700">{review.score}</p>
             <p className="text-xs text-gray-500">out of 100</p>
           </div>
+        </div>
+        <div className="rounded-lg border border-green-200 bg-green-50 p-2 text-sm text-green-800">
+          ✓ Handwriting verified · {review.handwritingConfidence}% confidence
         </div>
         {review.timeDeduction > 0 && (
           <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
@@ -148,7 +156,7 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
         <>
           <div>
             <p className="font-bold text-gray-800">Upload the completed page</p>
-            <p className="text-xs text-gray-500">Use a clear, well-lit photo showing the whole page. The image is analysed, but only the assessment is saved.</p>
+            <p className="text-xs text-gray-500">Use a clear, well-lit photo showing the whole handwritten page. Typed, printed, blank, or non-writing uploads will be rejected. The image is analysed, but only the assessment is saved.</p>
           </div>
           <input
             type="file"
@@ -164,7 +172,7 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
           {previewUrl && <img src={previewUrl} alt="Writing page preview" className="max-h-72 w-full rounded-lg border object-contain" />}
           {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
           <button onClick={analysePhoto} disabled={!photo || analysing || preparingPhoto} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold disabled:opacity-50">
-            {analysing ? "Analysing spelling, grammar and structure…" : "Analyse photo & give marks"}
+            {analysing ? "Verifying handwriting and analysing the work…" : "Verify handwriting & give marks"}
           </button>
         </>
       )}

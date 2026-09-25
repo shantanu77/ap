@@ -37,6 +37,15 @@ export interface TargetedPracticeContent {
   self_check: string;
 }
 
+export interface NextDayPrepContent {
+  date: string;
+  label: string;
+  is_school_day: boolean;
+  reason: "school_day" | "weekend" | "holiday";
+  focus: string;
+  checklist: string[];
+}
+
 export interface DailyContent {
   date: string;
   science_hook: string;
@@ -44,6 +53,7 @@ export interface DailyContent {
   language: LanguageContent;
   writing: WritingContent;
   targeted_practice?: TargetedPracticeContent;
+  next_day_prep?: NextDayPrepContent;
   ethics_reflection: string;
   next_day_tip: string;
 }
@@ -92,6 +102,9 @@ export interface LanguageRating {
 }
 
 export interface WritingRating {
+  isHandwritten: boolean;
+  handwritingConfidence: number;
+  handwritingEvidence: string[];
   linesWritten: number;
   legibility: 1 | 2 | 3 | 4 | 5;
   effort: 1 | 2 | 3 | 4 | 5;
@@ -131,6 +144,8 @@ export interface NextDayPrepRating {
   goal: string;
   focusClass?: string;
   homeRoutineReady?: boolean;
+  checklist?: { item: string; completed: boolean }[];
+  allChecklistComplete?: boolean;
 }
 
 export type PhaseRatingData =

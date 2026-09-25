@@ -176,6 +176,68 @@ function academicFocusForDate(dateStr: string): AcademicFocus {
   return ACADEMIC_FOCUS_ROTATION[mondayFirstIndex];
 }
 
+function nextDateString(dateStr: string): string {
+  const date = parseDate(dateStr);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().split("T")[0];
+}
+
+function nextDayContext(dateStr: string) {
+  const date = nextDateString(dateStr);
+  const day = parseDate(date).getUTCDay();
+  const isWeekend = day === 0 || day === 6;
+  const isHoliday = new Set(
+    (process.env.SCHOOL_HOLIDAYS ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item))
+  ).has(date);
+
+  return {
+    date,
+    label: formatDisplayDate(date),
+    isSchoolDay: !isWeekend && !isHoliday,
+    reason: isWeekend ? "weekend" as const : isHoliday ? "holiday" as const : "school_day" as const,
+  };
+}
+
+function defaultNextDayPrep(dateStr: string, todaySkill: string) {
+  const next = nextDayContext(dateStr);
+  const nextFocus = academicFocusForDate(next.date);
+
+  if (!next.isSchoolDay) {
+    return {
+      date: next.date,
+      label: next.label,
+      is_school_day: false,
+      reason: next.reason,
+      focus: `Close today's ${todaySkill} work honestly and recover anything unfinished before leisure.`,
+      checklist: [
+        `Finish or correct today's ${todaySkill} task; do not carry a known gap forward.`,
+        "Put today's books, worksheets, and stationery back in their proper places.",
+        "Write down any unfinished school task and its exact first action.",
+        `Choose a time for one 10-minute ${todaySkill} review.`,
+        "Check the diary and timetable for the next school day only; do not pack as if school is tomorrow.",
+      ],
+    };
+  }
+
+  return {
+    date: next.date,
+    label: next.label,
+    is_school_day: true,
+    reason: next.reason,
+    focus: `Arrive ready, follow through independently, and use ${nextFocus.skill} as the focused practice target.`,
+    checklist: [
+      `Finish or correct today's ${todaySkill} task before packing it away.`,
+      `Check the real diary and timetable for ${next.label}; list every required item.`,
+      "Pack each listed book, notebook, worksheet, and special item, ticking the diary as you go.",
+      `Complete one 10-minute ${nextFocus.skill} review or worked example.`,
+      "Set out the home study space and choose the first task to begin before screens.",
+    ],
+  };
+}
+
 function buildRecentReadingNotes(
   recentPlans: Array<{ content: unknown; editedContent: unknown | null }>
 ): string {
@@ -207,6 +269,36 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
   while (uniqueQuestions.length < 5) {
     uniqueQuestions.push(`What is one important idea from the passage in question ${uniqueQuestions.length + 1}?`);
   }
+  const normalizedTargetedPractice = content.targeted_practice
+    ? {
+        ...content.targeted_practice,
+        subject: normalizeWhitespace(content.targeted_practice.subject),
+        skill: normalizeWhitespace(content.targeted_practice.skill),
+        meeting_target: normalizeWhitespace(content.targeted_practice.meeting_target),
+        task: normalizeWhitespace(content.targeted_practice.task),
+        success_criteria: (content.targeted_practice.success_criteria ?? [])
+          .map(normalizeWhitespace)
+          .filter(Boolean)
+          .slice(0, 4),
+        self_check: normalizeWhitespace(content.targeted_practice.self_check),
+      }
+    : undefined;
+  const todaySkill = normalizedTargetedPractice?.skill ?? academicFocusForDate(dateStr).skill;
+  const fallbackNextDayPrep = defaultNextDayPrep(dateStr, todaySkill);
+  const normalizedNextDayPrep = content.next_day_prep
+    ? {
+        ...content.next_day_prep,
+        date: fallbackNextDayPrep.date,
+        label: fallbackNextDayPrep.label,
+        is_school_day: fallbackNextDayPrep.is_school_day,
+        reason: fallbackNextDayPrep.reason,
+        focus: normalizeWhitespace(content.next_day_prep.focus),
+        checklist: (content.next_day_prep.checklist ?? [])
+          .map(normalizeWhitespace)
+          .filter(Boolean)
+          .slice(0, 6),
+      }
+    : fallbackNextDayPrep;
 
   return {
     ...content,
@@ -253,20 +345,8 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
         "No skipped words",
       ],
     },
-    targeted_practice: content.targeted_practice
-      ? {
-          ...content.targeted_practice,
-          subject: normalizeWhitespace(content.targeted_practice.subject),
-          skill: normalizeWhitespace(content.targeted_practice.skill),
-          meeting_target: normalizeWhitespace(content.targeted_practice.meeting_target),
-          task: normalizeWhitespace(content.targeted_practice.task),
-          success_criteria: (content.targeted_practice.success_criteria ?? [])
-            .map(normalizeWhitespace)
-            .filter(Boolean)
-            .slice(0, 4),
-          self_check: normalizeWhitespace(content.targeted_practice.self_check),
-        }
-      : undefined,
+    targeted_practice: normalizedTargetedPractice,
+    next_day_prep: normalizedNextDayPrep,
     science_hook: normalizeWhitespace(content.science_hook),
     ethics_reflection: normalizeWhitespace(content.ethics_reflection),
     next_day_tip: normalizeWhitespace(content.next_day_tip),
@@ -280,6 +360,8 @@ async function buildPrompt(dateStr: string): Promise<string> {
   const readingSource = readingSourceForDate(dateStr);
   const focusCoachingTheme = focusCoachingThemeForDate(dateStr);
   const academicFocus = academicFocusForDate(dateStr);
+  const next = nextDayContext(dateStr);
+  const nextAcademicFocus = academicFocusForDate(next.date);
   const dayOfWeek = parseDate(dateStr).getUTCDay();
   const isWeeklyWordFormationDeepDive = language === "hindi" && dayOfWeek === 3;
   const recentPlans = await prisma.dailyPlan.findMany({
@@ -346,6 +428,13 @@ TODAY'S REPORT-BASED SUBJECT BOOSTER:
 - Definition of Meeting: ${academicFocus.meetingTarget}
 - Task design: ${academicFocus.taskGuidance}
 
+NEXT-DAY CONTEXT:
+- Date: ${next.label}
+- School day: ${next.isSchoolDay ? "yes" : "no"}
+- Reason: ${next.reason}
+- Carry forward today's ${academicFocus.skill} discipline target.
+- ${next.isSchoolDay ? `Use the real diary/timetable for preparation and include a short ${nextAcademicFocus.skill} review. Never invent a timetable, class, book, or special material.` : "Do not say school is tomorrow and do not ask him to pack for tomorrow. Focus on closing unfinished work, organisation, a short review, and checking the next actual school day."}
+
 Generate a school-term daily learning package. It should be engaging, rigorous, and achievable for a gifted Grade 6 student who avoids reading and finds handwriting physically demanding.
 Reading must be ${READING_WORDS_MIN}-${READING_WORDS_MAX} words, split into short paragraphs. Use the public-domain reading anchor above as the source/theme, but create a self-contained original passage or adapted public-domain-style chapter page suitable for this learner. Do not quote modern copyrighted books.
 After the main passage, include a separate 130-180 word read-aloud coaching paragraph about ${focusCoachingTheme}. It must show Aashvath a realistic school/home moment, explain why the habit matters, and give a tiny action sequence he can use immediately. Sound like a smart coach, not a lecture; avoid shame, labels, threats, and vague advice such as merely saying "focus more". Vary the scenario and wording from day to day.
@@ -403,8 +492,22 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     ],
     "self_check": "One short question Aashvath answers before marking the task complete."
   },
+  "next_day_prep": {
+    "date": "${next.date}",
+    "label": "${next.label}",
+    "is_school_day": ${next.isSchoolDay},
+    "reason": "${next.reason}",
+    "focus": "One specific discipline focus connecting today's work to the next useful action.",
+    "checklist": [
+      "Action 1: close or correct today's ${academicFocus.skill} work",
+      "Action 2: one concrete organisation action",
+      "Action 3: one unfinished-work or diary/timetable action appropriate to whether school is open",
+      "Action 4: one short review action appropriate to ${next.label}",
+      "Action 5: one independent follow-through action"
+    ]
+  },
   "ethics_reflection": "One thought (2-3 sentences) about the value of discipline, effort, or honesty. Connect it to Aashvath's world — school, sports, video games, science experiments. Not preachy. More like a coach talking to a player.",
-  "next_day_tip": "A specific, actionable reminder for tomorrow. E.g. 'Check if you have your science notebook for tomorrow's class' or 'Review the Hindi words from today one more time before breakfast'. Keep it concrete."
+  "next_day_tip": "A specific, actionable reminder for ${next.label}. Respect whether it is a school day and never invent a timetable."
 }`;
 }
 

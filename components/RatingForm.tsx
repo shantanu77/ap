@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { DaySummaryRating, PhaseId, ReadingContent, ReadAloudAnswerRating, TargetedPracticeContent } from "@/types";
+import type { DaySummaryRating, NextDayPrepContent, PhaseId, ReadingContent, ReadAloudAnswerRating, TargetedPracticeContent } from "@/types";
 
 const StarRating = ({
   label,
@@ -65,6 +65,7 @@ interface RatingFormProps {
   writingLinesRequired?: number;
   reading?: ReadingContent;
   targetedPractice?: TargetedPracticeContent;
+  nextDayPrep?: NextDayPrepContent;
   onSave: (ratings: object, timeSpentSec?: number) => void;
 }
 
@@ -73,6 +74,7 @@ export default function RatingForm({
   writingLinesRequired = 5,
   reading,
   targetedPractice,
+  nextDayPrep,
   onSave,
 }: RatingFormProps) {
   const [mood, setMood] = useState(3);
@@ -104,11 +106,12 @@ export default function RatingForm({
   const [shortcutUsage, setShortcutUsage] = useState<"none" | "minor" | "major">("none");
   const [targetedPracticeCompleted, setTargetedPracticeCompleted] = useState<boolean | null>(null);
   const [targetedPracticeOutcome, setTargetedPracticeOutcome] = useState<"not_yet" | "with_help" | "independent">("not_yet");
-  const [bagPacked, setBagPacked] = useState<boolean | null>(null);
-  const [goalSet, setGoalSet] = useState<boolean | null>(null);
   const [goal, setGoal] = useState("");
   const [focusClass, setFocusClass] = useState("");
-  const [homeRoutineReady, setHomeRoutineReady] = useState<boolean | null>(null);
+  const [prepChecks, setPrepChecks] = useState<boolean[]>(
+    () => nextDayPrep?.checklist.map(() => false) ?? []
+  );
+  const [nextDayPrepError, setNextDayPrepError] = useState<string | null>(null);
   const writingOptions = Array.from({ length: writingLinesRequired + 1 }, (_, index) => index);
   const readAloudQuestions = reading?.comprehension_questions ?? [];
   const verifiedAnswerCount = readAloudAnswers.filter(Boolean).length;
@@ -331,12 +334,25 @@ export default function RatingForm({
         };
         break;
       case "NEXT_DAY_PREP":
+        if (nextDayPrep && prepChecks.some((checked) => !checked)) {
+          setNextDayPrepError("Aashvath must personally tick every completed preparation action.");
+          return;
+        }
+        if (!focusClass.trim() || !goal.trim()) {
+          setNextDayPrepError("Answer both preparation questions before continuing.");
+          return;
+        }
         ratings = {
-          bagPacked: bagPacked ?? false,
-          goalSet: goalSet ?? false,
-          goal,
-          focusClass,
-          homeRoutineReady: homeRoutineReady ?? false,
+          bagPacked: nextDayPrep ? !nextDayPrep.is_school_day || prepChecks.every(Boolean) : false,
+          goalSet: Boolean(goal.trim()),
+          goal: goal.trim(),
+          focusClass: focusClass.trim(),
+          homeRoutineReady: prepChecks.every(Boolean),
+          checklist: nextDayPrep?.checklist.map((item, index) => ({
+            item,
+            completed: Boolean(prepChecks[index]),
+          })),
+          allChecklistComplete: prepChecks.every(Boolean),
         };
         break;
     }
@@ -670,31 +686,70 @@ export default function RatingForm({
 
       {phase === "NEXT_DAY_PREP" && (
         <>
-          <YesNo label="School bag packed?" value={bagPacked} onChange={setBagPacked} />
+          {nextDayPrep && (
+            <div className="space-y-3 rounded-xl border border-purple-200 bg-white p-4">
+              <div>
+                <p className="font-bold text-purple-800">{nextDayPrep.label}</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {nextDayPrep.is_school_day
+                    ? "School-day preparation"
+                    : nextDayPrep.reason === "weekend"
+                      ? "Weekend plan — no packing for tomorrow"
+                      : "School holiday plan — no packing for tomorrow"}
+                </p>
+              </div>
+              <p className="text-sm text-gray-700">{nextDayPrep.focus}</p>
+              <div className="space-y-2">
+                {nextDayPrep.checklist.map((item, index) => (
+                  <label key={item} className="flex cursor-pointer gap-3 rounded-lg border border-purple-100 p-3 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(prepChecks[index])}
+                      onChange={(event) => {
+                        setPrepChecks((current) => current.map((checked, itemIndex) =>
+                          itemIndex === index ? event.target.checked : checked
+                        ));
+                        setNextDayPrepError(null);
+                      }}
+                      className="mt-0.5 h-5 w-5 accent-purple-600"
+                    />
+                    <span>{item}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600">Focus class for tomorrow</label>
+            <label className="text-sm font-medium text-gray-600">
+              {nextDayPrep?.is_school_day ? "Which class needs your best focus?" : "Which useful activity will you focus on?"}
+            </label>
             <input
               className="w-full border rounded-lg p-2 text-sm text-gray-700"
               value={focusClass}
-              onChange={(e) => setFocusClass(e.target.value)}
-              placeholder="e.g. Maths — catch the instruction before starting"
+              onChange={(e) => {
+                setFocusClass(e.target.value);
+                setNextDayPrepError(null);
+              }}
+              placeholder={nextDayPrep?.is_school_day
+                ? "e.g. Maths — listen to the full instruction before starting"
+                : "e.g. Finish the incomplete worksheet before screen time"}
             />
           </div>
-          <YesNo label="Mini-goal set for tomorrow?" value={goalSet} onChange={setGoalSet} />
           <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600">Tomorrow&apos;s goal</label>
+            <label className="text-sm font-medium text-gray-600">
+              {nextDayPrep?.is_school_day ? "What is your next-school-day goal?" : "What is your day-off goal?"}
+            </label>
             <input
               className="w-full border rounded-lg p-2 text-sm text-gray-700"
               value={goal}
-              onChange={(e) => setGoal(e.target.value)}
+              onChange={(e) => {
+                setGoal(e.target.value);
+                setNextDayPrepError(null);
+              }}
               placeholder="e.g. When distracted, look back and write the next key point"
             />
           </div>
-          <YesNo
-            label="Home landing routine ready (bag → snack → diary → homework before screens)?"
-            value={homeRoutineReady}
-            onChange={setHomeRoutineReady}
-          />
+          {nextDayPrepError && <p className="text-sm font-semibold text-red-600">{nextDayPrepError}</p>}
         </>
       )}
 

@@ -186,6 +186,23 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
     case "WRITING":
       return (
         <div className="space-y-3">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-bold tracking-wide text-emerald-800">20-MINUTE WRITING PLAN</p>
+            <div className="mt-3 grid gap-2 text-sm text-gray-700 sm:grid-cols-2">
+              {[
+                ["0–3 min", "Read all five lines aloud. Notice capitals, punctuation, and unfamiliar spellings."],
+                ["3–5 min", "Trace each sentence with your finger and say where it begins and ends."],
+                ["5–15 min", "Handwrite the five lines carefully. Copy one complete phrase at a time."],
+                ["15–18 min", "Compare source and page word by word. Fix omissions, spelling, capitals, and punctuation."],
+                ["18–20 min", "Check spacing and legibility, then photograph the whole handwritten page."],
+              ].map(([time, instruction]) => (
+                <div key={time} className="rounded-lg border border-emerald-100 bg-white p-3">
+                  <p className="font-bold text-emerald-700">{time}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-600">{instruction}</p>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="bg-white rounded-lg border-2 border-dashed border-green-300 p-4">
             <p className="text-xs font-semibold text-green-700 mb-2">COPY THIS NEATLY:</p>
             <p className="text-gray-800 leading-loose text-base whitespace-pre-line font-medium">
@@ -267,24 +284,14 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
       return (
         <div className="space-y-3">
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-            <p className="text-xs font-semibold text-purple-700 mb-1">📅 Tomorrow&apos;s Tip</p>
+            <p className="text-xs font-semibold text-purple-700 mb-1">
+              📅 {content.next_day_prep?.label ?? "Next useful step"}
+            </p>
             <p className="text-gray-700 text-sm">{content.next_day_tip}</p>
           </div>
-          <div className="space-y-1 text-sm text-gray-600">
-            {[
-              "Pack school bag with tomorrow's books",
-              "Check timetable, diary, homework, and any PE / art materials",
-              "Choose one class for the focus goal: eyes on speaker, write one key point, return after distractions",
-              "Plan the home landing: bag at study spot → water/snack → diary check before screens",
-              "List homework, start the hardest or most urgent task, then check and pack completed work",
-              "Sleep by 10:30 PM",
-            ].map((item, i) => (
-              <div key={i} className="flex gap-2">
-                <span>☐</span>
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
+          <p className="text-sm text-gray-600">
+            Complete and tick the personalised checklist under <strong>Rate this phase</strong>, then answer both preparation questions.
+          </p>
         </div>
       );
   }
@@ -389,6 +396,7 @@ export default function PhaseCard({
             writingLinesRequired={content.writing.lines_required}
             reading={content.reading}
             targetedPractice={content.targeted_practice}
+            nextDayPrep={content.next_day_prep}
             onSave={handleSave}
           />
         </div>
