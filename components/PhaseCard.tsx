@@ -81,8 +81,8 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
             <p className="text-xs font-semibold text-indigo-700 mb-1">💭 Ethics Reflection</p>
             <p className="text-gray-700 text-sm">{content.ethics_reflection}</p>
           </div>
-          <p className="text-sm text-gray-500 font-medium">
-            Talk about your day — what was fun, what was hard, what you learned.
+          <p className="text-sm text-gray-600 font-medium">
+            Your recorded day review is the activity. Use the speaking path below, then save the reviewed recording.
           </p>
         </div>
       );
@@ -311,8 +311,8 @@ export default function PhaseCard({
     setShowRating(true);
   };
 
-  const handleSave = (ratings: object) => {
-    onSave(ratings, elapsed);
+  const handleSave = (ratings: object, timeSpentSec?: number) => {
+    onSave(ratings, timeSpentSec ?? elapsed);
   };
 
   const isDone = status === "done" || (isReadOnly && existingRating);
@@ -355,14 +355,7 @@ export default function PhaseCard({
         </div>
       </div>
 
-      {/* Content — always visible for done phases (read-only) or active phases */}
-      {(isActive || isDone || isReadOnly) && (
-        <div className="mt-3">
-          <PhaseContent phaseId={phase.id} content={content} />
-        </div>
-      )}
-
-      {/* Timer — shown when active and not yet done */}
+      {/* Active timer stays at the top, before the activity content. */}
       {isActive && phase.id === "WRITING" && (
         <WritingExercise
           writing={content.writing}
@@ -372,17 +365,24 @@ export default function PhaseCard({
       )}
 
       {isActive && phase.id !== "WRITING" && !showRating && (
-        <div className="mt-5 p-4 bg-white rounded-xl border">
+        <div className="mb-5 rounded-xl border bg-white p-4">
           <Timer
             durationMin={phase.duration}
             onComplete={handleTimerDone}
-            autoStart={phase.id !== "READ_ALOUD"}
+            autoStart
           />
         </div>
       )}
 
+      {/* Content — always visible for done phases (read-only) or active phases */}
+      {(isActive || isDone || isReadOnly) && (
+        <div className="mt-3">
+          <PhaseContent phaseId={phase.id} content={content} />
+        </div>
+      )}
+
       {/* Rating form */}
-      {isActive && phase.id !== "WRITING" && showRating && !isDone && (
+      {isActive && phase.id !== "WRITING" && (showRating || phase.id === "DAY_REVIEW") && !isDone && (
         <div className="mt-4">
           <RatingForm
             phase={phase.id}

@@ -43,7 +43,7 @@ function parseSummary(raw: string | null): DaySummaryResult {
       summary:
         typeof parsed.summary === "string" && parsed.summary.trim()
           ? parsed.summary.trim()
-          : "Ashvath shared a short summary of his day.",
+          : "Aashvath shared a short summary of his day.",
       rating: clampRating(parsed.rating),
       feedback:
         typeof parsed.feedback === "string" && parsed.feedback.trim()
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
       model: "whisper-1",
       language: "en",
       response_format: "json",
-      prompt: "A grade 6 student named Ashvath is describing how his school day went.",
+      prompt: "A Grade 6 student named Aashvath is describing his school day using five parts: the day, one learning, a challenge, work status, and tomorrow's action.",
     });
     const transcript = transcription.text.trim();
 
@@ -108,12 +108,12 @@ export async function POST(req: Request) {
         {
           role: "system",
           content:
-            "You coach a Grade 6 student on spoken day summaries. Return only JSON with keys summary:string, rating:number from 1 to 5, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Be kind, direct, and practical.",
+            "You coach a Grade 6 student on spoken day reviews. Return only JSON with keys summary:string, rating:number from 1 to 5, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check whether the student covered five anchors: what happened during the day, one specific learning, one challenge and response, completed or unfinished work, and one concrete action for tomorrow. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing anchor in feedback when applicable. Be kind, direct, and practical.",
         },
         {
           role: "user",
           content: JSON.stringify({
-            learner: "Ashvath",
+            learner: "Aashvath",
             task: "Review this spoken day summary and show how he can say it better.",
             transcript,
           }),

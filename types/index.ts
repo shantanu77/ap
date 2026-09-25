@@ -76,6 +76,7 @@ export interface ReadAloudAnswerRating {
 export interface DaySummaryRating {
   transcript: string;
   summary: string;
+  recordingDurationSec?: number;
   rating: 1 | 2 | 3 | 4 | 5;
   feedback: string;
   betterSummary: string;

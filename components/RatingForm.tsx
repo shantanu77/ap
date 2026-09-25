@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DaySummaryRating, PhaseId, ReadingContent, ReadAloudAnswerRating, TargetedPracticeContent } from "@/types";
 
 const StarRating = ({
@@ -65,7 +65,7 @@ interface RatingFormProps {
   writingLinesRequired?: number;
   reading?: ReadingContent;
   targetedPractice?: TargetedPracticeContent;
-  onSave: (ratings: object) => void;
+  onSave: (ratings: object, timeSpentSec?: number) => void;
 }
 
 export default function RatingForm({
@@ -81,6 +81,8 @@ export default function RatingForm({
   const [daySummary, setDaySummary] = useState<DaySummaryRating | null>(null);
   const [dayRecording, setDayRecording] = useState(false);
   const [dayRecorder, setDayRecorder] = useState<MediaRecorder | null>(null);
+  const [dayRecordingSeconds, setDayRecordingSeconds] = useState(0);
+  const dayRecordingStartedAt = useRef<number | null>(null);
   const [daySummaryError, setDaySummaryError] = useState<string | null>(null);
   const [reviewingDaySummary, setReviewingDaySummary] = useState(false);
   const [interest, setInterest] = useState(3);
@@ -112,6 +114,20 @@ export default function RatingForm({
   const verifiedAnswerCount = readAloudAnswers.filter(Boolean).length;
   const correctAnswerCount = readAloudAnswers.filter((answer) => answer?.correct).length;
 
+  useEffect(() => {
+    if (!dayRecording || dayRecordingStartedAt.current === null) return;
+    const updateDuration = () => {
+      if (dayRecordingStartedAt.current !== null) {
+        setDayRecordingSeconds(
+          Math.max(0, Math.floor((Date.now() - dayRecordingStartedAt.current) / 1000))
+        );
+      }
+    };
+    updateDuration();
+    const interval = window.setInterval(updateDuration, 250);
+    return () => window.clearInterval(interval);
+  }, [dayRecording]);
+
   const startDaySummaryRecording = async () => {
     setDaySummaryError(null);
     try {
@@ -122,17 +138,25 @@ export default function RatingForm({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
+      setDaySummary(null);
+      setDayRecordingSeconds(0);
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.push(event.data);
       };
       recorder.onstop = async () => {
+        const durationSec = dayRecordingStartedAt.current === null
+          ? dayRecordingSeconds
+          : Math.max(0, Math.floor((Date.now() - dayRecordingStartedAt.current) / 1000));
         stream.getTracks().forEach((track) => track.stop());
+        dayRecordingStartedAt.current = null;
+        setDayRecordingSeconds(durationSec);
         setDayRecorder(null);
         setDayRecording(false);
-        await reviewDaySummary(new Blob(chunks, { type: recorder.mimeType }));
+        await reviewDaySummary(new Blob(chunks, { type: recorder.mimeType }), durationSec);
       };
 
+      dayRecordingStartedAt.current = Date.now();
       recorder.start();
       setDayRecorder(recorder);
       setDayRecording(true);
@@ -147,7 +171,7 @@ export default function RatingForm({
     }
   };
 
-  const reviewDaySummary = async (audioBlob: Blob) => {
+  const reviewDaySummary = async (audioBlob: Blob, durationSec: number) => {
     setReviewingDaySummary(true);
     setDaySummaryError(null);
 
@@ -165,6 +189,7 @@ export default function RatingForm({
       setDaySummary({
         transcript: String(data.transcript ?? ""),
         summary: String(data.summary ?? ""),
+        recordingDurationSec: durationSec,
         rating: Math.min(5, Math.max(1, Math.round(Number(data.rating) || 1))) as 1 | 2 | 3 | 4 | 5,
         feedback: String(data.feedback ?? ""),
         betterSummary: String(data.betterSummary ?? ""),
@@ -265,14 +290,14 @@ export default function RatingForm({
     switch (phase) {
       case "DAY_REVIEW":
         if (!daySummary) {
-          setDaySummaryError("Ashvath must record and review his day summary before continuing.");
+          setDaySummaryError("Aashvath must record and review his day summary before continuing.");
           return;
         }
         ratings = { mood, engagement, highlights, daySummary };
         break;
       case "READ_ALOUD":
         if (!reading || verifiedAnswerCount !== readAloudQuestions.length) {
-          setReadAloudError("Ashvath must record and verify every answer before continuing.");
+          setReadAloudError("Aashvath must record and verify every answer before continuing.");
           return;
         }
         ratings = {
@@ -315,25 +340,59 @@ export default function RatingForm({
         };
         break;
     }
-    onSave(ratings);
+    onSave(ratings, phase === "DAY_REVIEW" ? daySummary?.recordingDurationSec : undefined);
+  };
+
+  const dayDurationClass = dayRecordingSeconds < 60
+    ? "border-red-200 bg-red-50 text-red-700"
+    : dayRecordingSeconds < 180
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : "border-green-200 bg-green-50 text-green-700";
+
+  const dayDurationLabel = dayRecordingSeconds < 60
+    ? "Keep going — include each part below"
+    : dayRecordingSeconds < 180
+      ? "Good detail — aim for 3 minutes"
+      : "Complete day review";
+
+  const formatRecordingDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
   };
 
   return (
     <div className="space-y-5 pt-4 border-t border-gray-200">
-      <h4 className="font-semibold text-gray-700">Rate this phase</h4>
+      <h4 className="font-semibold text-gray-700">
+        {phase === "DAY_REVIEW" ? "Talk about your day" : "Rate this phase"}
+      </h4>
 
       {phase === "DAY_REVIEW" && (
         <>
-          <StarRating label="Mood today" value={mood} onChange={setMood} />
-          <StarRating label="Engagement level" value={engagement} onChange={setEngagement} />
           <div className="rounded-xl border border-amber-100 bg-white p-3 space-y-3">
             <div>
-              <label className="text-sm font-medium text-gray-600">
-                Ashvath&apos;s spoken day summary
-              </label>
-              <p className="text-xs text-gray-500 mt-1">
-                Record what happened today, how it felt, and one thing to improve tomorrow.
+              <p className="font-bold text-gray-800">Use this five-part speaking path</p>
+              <p className="mt-1 text-xs text-gray-500">Speak naturally. The prompts are hints, not questions to answer with one word.</p>
+            </div>
+            <ol className="space-y-2 text-sm text-gray-700">
+              {[
+                ["1", "The day", "Today started with… The main things that happened were…"],
+                ["2", "One learning", "In ___ class I learned… One detail I remember is…"],
+                ["3", "A challenge", "The difficult moment was… I responded by…"],
+                ["4", "Work status", "I completed… I still need to finish… My materials are…"],
+                ["5", "Tomorrow", "Tomorrow I will improve ___ by doing…"],
+              ].map(([number, title, hint]) => (
+                <li key={number} className="flex gap-3 rounded-lg bg-amber-50 p-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xs font-black text-white">{number}</span>
+                  <span><strong>{title}:</strong> <span className="text-gray-600">{hint}</span></span>
+                </li>
+              ))}
+            </ol>
+            <div className={`rounded-xl border p-3 text-center ${dayDurationClass}`}>
+              <p className="font-mono text-4xl font-black tabular-nums">
+                {formatRecordingDuration(dayRecordingSeconds)}
               </p>
+              <p className="mt-1 text-xs font-bold">{dayDurationLabel}</p>
+              <p className="mt-1 text-[11px] opacity-80">Under 1 min: red · 1–3 min: yellow · 3+ min: green</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {dayRecording ? (
@@ -351,15 +410,15 @@ export default function RatingForm({
                   disabled={reviewingDaySummary || recordingIndex !== null}
                   className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-semibold disabled:opacity-50"
                 >
-                  {daySummary ? "Record again" : "Record summary"}
+                  {daySummary ? "Record day review again" : "Record day review"}
                 </button>
               )}
               {reviewingDaySummary && (
                 <span className="text-xs text-amber-700">Reviewing speech...</span>
               )}
               {daySummary && (
-                <span className="text-xs px-2 py-1 rounded-full font-semibold bg-amber-100 text-amber-700">
-                  Summary rating · {daySummary.rating}/5
+                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${dayDurationClass}`}>
+                  Recorded {formatRecordingDuration(daySummary.recordingDurationSec ?? dayRecordingSeconds)} · {daySummary.rating}/5
                 </span>
               )}
             </div>
@@ -396,6 +455,8 @@ export default function RatingForm({
               <p className="text-sm font-semibold text-red-600">{daySummaryError}</p>
             )}
           </div>
+          <StarRating label="Mood today" value={mood} onChange={setMood} />
+          <StarRating label="Engagement level" value={engagement} onChange={setEngagement} />
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-600">Parent notes</label>
             <textarea
@@ -414,10 +475,10 @@ export default function RatingForm({
           <div className="space-y-3">
             <div>
               <label className="text-sm font-medium text-gray-600">
-                Ashvath&apos;s recorded answers
+                Aashvath&apos;s recorded answers
               </label>
               <p className="text-xs text-gray-500 mt-1">
-                No guest work. Each answer must be recorded by Ashvath, transcribed, and verified.
+                No guest work. Each answer must be recorded by Aashvath, transcribed, and verified.
               </p>
             </div>
             {readAloudQuestions.map((question, index) => {
