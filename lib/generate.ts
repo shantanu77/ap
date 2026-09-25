@@ -217,7 +217,7 @@ function defaultNextDayPrep(dateStr: string, todaySkill: string) {
         "Put today's books, worksheets, and stationery back in their proper places.",
         "Write down any unfinished school task and its exact first action.",
         `Choose a time for one 10-minute ${todaySkill} review.`,
-        "Check the diary and timetable for the next school day only; do not pack as if school is tomorrow.",
+        "Check the diary and timetable, note the next school date, and leave packing for the appropriate evening.",
       ],
     };
   }
