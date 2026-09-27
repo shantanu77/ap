@@ -60,6 +60,12 @@ const YesNo = ({
   </div>
 );
 
+function normalizeAiRating(value: unknown): number {
+  const rating = Number(value);
+  if (!Number.isFinite(rating)) return 1;
+  return Math.min(5, Math.max(1, Math.round(rating * 10) / 10));
+}
+
 interface RatingFormProps {
   phase: PhaseId;
   writingLinesRequired?: number;
@@ -198,7 +204,7 @@ export default function RatingForm({
         transcript: String(data.transcript ?? ""),
         summary: String(data.summary ?? ""),
         recordingDurationSec: durationSec,
-        rating: Math.min(5, Math.max(1, Math.round(Number(data.rating) || 1))) as 1 | 2 | 3 | 4 | 5,
+        rating: normalizeAiRating(data.rating),
         feedback: String(data.feedback ?? ""),
         betterSummary: String(data.betterSummary ?? ""),
         speakingTips: Array.isArray(data.speakingTips)
@@ -277,7 +283,7 @@ export default function RatingForm({
         transcript: String(data.transcript ?? ""),
         correct: Boolean(data.correct),
         score: data.correct ? 1 : 0,
-        rating: Math.min(5, Math.max(1, Math.round(Number(data.rating) || 1))) as 1 | 2 | 3 | 4 | 5,
+        rating: normalizeAiRating(data.rating),
         feedback: String(data.feedback ?? ""),
       };
 

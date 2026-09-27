@@ -5,18 +5,17 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 interface DaySummaryResult {
   summary: string;
-  rating: 1 | 2 | 3 | 4 | 5;
+  rating: number;
   feedback: string;
   betterSummary: string;
   speakingTips: string[];
   fillerWords: string[];
 }
 
-function clampRating(value: unknown): 1 | 2 | 3 | 4 | 5 {
-  const rating = Math.round(Number(value));
-  if (rating <= 1) return 1;
-  if (rating >= 5) return 5;
-  return rating as 1 | 2 | 3 | 4 | 5;
+function clampRating(value: unknown): number {
+  const rating = Number(value);
+  if (!Number.isFinite(rating)) return 1;
+  return Math.min(5, Math.max(1, Math.round(rating * 10) / 10));
 }
 
 function stringList(value: unknown): string[] {
@@ -121,8 +120,8 @@ export async function POST(req: Request) {
         {
           role: "system",
           content: isSchoolDay
-            ? "You coach a Grade 6 student on spoken school-day reviews. Return only JSON with keys summary:string, rating:number from 1 to 5, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five anchors: what happened at school, one specific learning, one challenge and response, completed or unfinished schoolwork, and one concrete action for the next school day. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing anchor when applicable. Be kind, direct, and practical."
-            : "You coach a Grade 6 student on spoken weekend or holiday reflections. Return only JSON with keys summary:string, rating:number from 1 to 5, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five day-off anchors: what he did, one thing learned/noticed/read/watched/practised, one challenge or important choice, a balance of responsibility and rest, and one useful next step. Never require or infer school attendance, classes, homework, or today's schoolwork. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing day-off anchor when applicable. Be kind, direct, and practical.",
+            ? "You coach a Grade 6 student on spoken school-day reviews. Return only JSON with keys summary:string, rating:number from 1 to 5 using up to one decimal place, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five anchors: what happened at school, one specific learning, one challenge and response, completed or unfinished schoolwork, and one concrete action for the next school day. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing anchor when applicable. Be kind, direct, and practical."
+            : "You coach a Grade 6 student on spoken weekend or holiday reflections. Return only JSON with keys summary:string, rating:number from 1 to 5 using up to one decimal place, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five day-off anchors: what he did, one thing learned/noticed/read/watched/practised, one challenge or important choice, a balance of responsibility and rest, and one useful next step. Never require or infer school attendance, classes, homework, or today's schoolwork. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing day-off anchor when applicable. Be kind, direct, and practical.",
         },
         {
           role: "user",

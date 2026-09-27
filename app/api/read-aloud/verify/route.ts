@@ -6,16 +6,14 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 interface VerificationResult {
   correct: boolean;
   score: 0 | 1;
-  rating: 1 | 2 | 3 | 4 | 5;
+  rating: number;
   feedback: string;
 }
 
-function clampRating(value: unknown): 1 | 2 | 3 | 4 | 5 {
-  const rating = Math.round(Number(value));
+function clampRating(value: unknown): number {
+  const rating = Number(value);
   if (!Number.isFinite(rating)) return 1;
-  if (rating <= 1) return 1;
-  if (rating >= 5) return 5;
-  return rating as 1 | 2 | 3 | 4 | 5;
+  return Math.min(5, Math.max(1, Math.round(rating * 10) / 10));
 }
 
 function parseVerification(raw: string | null): VerificationResult {
@@ -95,7 +93,7 @@ export async function POST(req: Request) {
         {
           role: "system",
           content:
-            "You grade a child's spoken reading comprehension answer. Return only JSON with keys correct:boolean, rating:number from 1 to 5, feedback:string. Award correct only when the transcript answers the question using details or a valid inference from the passage. Do not require exact wording. The rating and feedback must also evaluate how the answer is spoken: sentence structure, full-sentence response, clarity, filler words such as um/uh/like/you know, and how to phrase the answer better. Keep feedback short and practical.",
+            "You grade a child's spoken reading comprehension answer. Return only JSON with keys correct:boolean, rating:number from 1 to 5 using up to one decimal place, feedback:string. Award correct only when the transcript answers the question using details or a valid inference from the passage. Do not require exact wording. The rating and feedback must also evaluate how the answer is spoken: sentence structure, full-sentence response, clarity, filler words such as um/uh/like/you know, and how to phrase the answer better. Keep feedback short and practical.",
         },
         {
           role: "user",

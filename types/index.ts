@@ -86,7 +86,7 @@ export interface ReadAloudAnswerRating {
   transcript: string;
   correct: boolean;
   score: 0 | 1;
-  rating: 1 | 2 | 3 | 4 | 5;
+  rating: number;
   feedback: string;
 }
 
@@ -94,7 +94,7 @@ export interface DaySummaryRating {
   transcript: string;
   summary: string;
   recordingDurationSec?: number;
-  rating: 1 | 2 | 3 | 4 | 5;
+  rating: number;
   feedback: string;
   betterSummary: string;
   speakingTips: string[];
