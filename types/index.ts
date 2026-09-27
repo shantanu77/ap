@@ -46,8 +46,15 @@ export interface NextDayPrepContent {
   checklist: string[];
 }
 
+export interface DayContextContent {
+  is_school_day: boolean;
+  reason: "school_day" | "weekend" | "holiday";
+  label: string;
+}
+
 export interface DailyContent {
   date: string;
+  day_context?: DayContextContent;
   science_hook: string;
   reading: ReadingContent;
   language: LanguageContent;

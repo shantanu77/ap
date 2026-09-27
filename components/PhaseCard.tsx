@@ -56,6 +56,65 @@ function WritingResult({ rating }: { rating: Record<string, unknown> }) {
   );
 }
 
+function valueText(value: unknown): string {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (value === null || value === undefined || value === "") return "Not recorded";
+  return String(value);
+}
+
+function SavedRating({ phaseId, rating }: { phaseId: PhaseId; rating: Record<string, unknown> }) {
+  if (phaseId === "WRITING" && "score" in rating) return <WritingResult rating={rating} />;
+
+  if (phaseId === "DAY_REVIEW") {
+    const summary = rating.daySummary && typeof rating.daySummary === "object"
+      ? rating.daySummary as Record<string, unknown>
+      : {};
+    return (
+      <div className="mt-3 rounded-xl border border-amber-200 bg-white p-4 text-sm text-gray-700 space-y-2">
+        <p className="font-bold text-amber-800">Saved response and ratings</p>
+        <p><strong>Recording rating:</strong> {valueText(summary.rating)}/5</p>
+        <p><strong>Transcript:</strong> {valueText(summary.transcript)}</p>
+        <p><strong>Summary:</strong> {valueText(summary.summary)}</p>
+        <p><strong>Coaching:</strong> {valueText(summary.feedback)}</p>
+        <p><strong>Mood:</strong> {valueText(rating.mood)}/5 · <strong>Engagement:</strong> {valueText(rating.engagement)}/5</p>
+        <p><strong>Parent notes:</strong> {valueText(rating.highlights)}</p>
+      </div>
+    );
+  }
+
+  if (phaseId === "READ_ALOUD") {
+    const answers = Array.isArray(rating.answers) ? rating.answers : [];
+    return (
+      <div className="mt-3 rounded-xl border border-blue-200 bg-white p-4 text-sm text-gray-700 space-y-3">
+        <p className="font-bold text-blue-800">Saved answers and ratings</p>
+        <p><strong>Verified score:</strong> {valueText(rating.verificationSummary)}</p>
+        {answers.map((item, index) => {
+          const answer = item && typeof item === "object" ? item as Record<string, unknown> : {};
+          return <div key={index} className="rounded-lg bg-blue-50 p-3 space-y-1"><p><strong>{index + 1}. {valueText(answer.question)}</strong></p><p>Answer: {valueText(answer.transcript)}</p><p>{valueText(answer.correct)} · {valueText(answer.rating)}/5 · {valueText(answer.feedback)}</p></div>;
+        })}
+        <p><strong>Interest:</strong> {valueText(rating.interest)}/5</p>
+      </div>
+    );
+  }
+
+  const rows: Array<[string, unknown]> = phaseId === "LANGUAGE"
+    ? [["Completed", rating.completed], ["Confidence", `${valueText(rating.confidence)}/5`], ["Notes", rating.notes]]
+    : phaseId === "WRITING"
+      ? [["Lines written", rating.linesWritten], ["Legibility", `${valueText(rating.legibility)}/5`], ["Effort", `${valueText(rating.effort)}/5`]]
+    : phaseId === "WORK_QUALITY"
+      ? [["Homework completeness", `${valueText(rating.homeworkCompleteness)}/5`], ["Discipline", `${valueText(rating.discipline)}/5`], ["Shortcut use", rating.shortcutUsage], ["Report booster completed", rating.targetedPracticeCompleted], ["Booster outcome", rating.targetedPracticeOutcome]]
+      : [["Preparation completed", rating.allChecklistComplete], ["Focus answer", rating.focusClass], ["Goal answer", rating.goal]];
+  const checklist = Array.isArray(rating.checklist) ? rating.checklist : [];
+
+  return (
+    <div className="mt-3 rounded-xl border border-green-200 bg-white p-4 text-sm text-gray-700 space-y-2">
+      <p className="font-bold text-green-800">Saved response and ratings</p>
+      {rows.map(([label, value]) => <p key={label}><strong>{label}:</strong> {valueText(value)}</p>)}
+      {checklist.length > 0 && <div><strong>Checklist:</strong>{checklist.map((item, index) => { const row = item && typeof item === "object" ? item as Record<string, unknown> : {}; return <p key={index} className="ml-2">{row.completed ? "✓" : "○"} {valueText(row.item)}</p>; })}</div>}
+    </div>
+  );
+}
+
 type PhaseStatus = "locked" | "ready" | "active" | "rating" | "done";
 
 interface PhaseCardProps {
@@ -82,7 +141,9 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
             <p className="text-gray-700 text-sm">{content.ethics_reflection}</p>
           </div>
           <p className="text-sm text-gray-600 font-medium">
-            Your recorded day review is the activity. Use the speaking path below, then save the reviewed recording.
+            {content.day_context?.is_school_day === false
+              ? `This is a ${content.day_context.reason} reflection, not a school-day evaluation. Talk about what actually happened today.`
+              : "Your recorded school-day review is the activity. Use the speaking path below, then save the reviewed recording."}
           </p>
         </div>
       );
@@ -397,16 +458,15 @@ export default function PhaseCard({
             reading={content.reading}
             targetedPractice={content.targeted_practice}
             nextDayPrep={content.next_day_prep}
+            dayContext={content.day_context}
             onSave={handleSave}
           />
         </div>
       )}
 
-      {/* Existing rating display (history / read-only) */}
-      {isDone && existingRating && isReadOnly && (
-        phase.id === "WRITING" && "score" in existingRating
-          ? <WritingResult rating={existingRating as Record<string, unknown>} />
-          : <div className="mt-3 text-xs text-gray-400 bg-white rounded-lg p-2"><pre className="whitespace-pre-wrap">{JSON.stringify(existingRating, null, 2)}</pre></div>
+      {/* Keep completed answers and ratings visible while the student moves forward. */}
+      {isDone && existingRating && (
+        <SavedRating phaseId={phase.id} rating={existingRating as Record<string, unknown>} />
       )}
     </div>
   );

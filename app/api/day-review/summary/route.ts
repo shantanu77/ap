@@ -25,13 +25,15 @@ function stringList(value: unknown): string[] {
     : [];
 }
 
-function parseSummary(raw: string | null): DaySummaryResult {
+function parseSummary(raw: string | null, isSchoolDay: boolean): DaySummaryResult {
   if (!raw) {
     return {
       summary: "No day summary was returned.",
       rating: 1,
       feedback: "Try again and speak for a few complete sentences.",
-      betterSummary: "Today was interesting because I learned one new thing and noticed one thing I can improve tomorrow.",
+      betterSummary: isSchoolDay
+        ? "At school today I learned one useful thing, handled one challenge, and chose one action for my next school day."
+        : "Today I enjoyed one activity, noticed something useful, handled one challenge, and chose a helpful next step.",
       speakingTips: ["Speak in full sentences.", "Say one clear example from the day."],
       fillerWords: [],
     };
@@ -52,7 +54,9 @@ function parseSummary(raw: string | null): DaySummaryResult {
       betterSummary:
         typeof parsed.betterSummary === "string" && parsed.betterSummary.trim()
           ? parsed.betterSummary.trim()
-          : "Today went well because I can name one thing I learned, one challenge, and one thing I will improve tomorrow.",
+          : isSchoolDay
+            ? "At school today I can name one thing I learned, one challenge, and one action for my next school day."
+            : "Today I can name one thing I did, one useful discovery, one important choice, and my next helpful step.",
       speakingTips: stringList(parsed.speakingTips),
       fillerWords: stringList(parsed.fillerWords),
     };
@@ -61,7 +65,9 @@ function parseSummary(raw: string | null): DaySummaryResult {
       summary: "Could not parse the day summary review.",
       rating: 1,
       feedback: "Try recording again with two or three complete sentences.",
-      betterSummary: "Today I learned something useful, faced one challenge, and know what I want to improve tomorrow.",
+      betterSummary: isSchoolDay
+        ? "At school today I learned something useful, faced one challenge, and chose an action for my next school day."
+        : "Today I did something enjoyable, noticed something useful, handled one challenge, and chose my next helpful step.",
       speakingTips: ["Use complete sentences.", "Avoid long pauses and filler words."],
       fillerWords: [],
     };
@@ -76,6 +82,9 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const audio = formData.get("audio");
+    const dayType = String(formData.get("dayType") ?? "school_day");
+    const contextLabel = String(formData.get("contextLabel") ?? "School-day reflection");
+    const isSchoolDay = dayType === "school_day";
 
     if (!(audio instanceof File)) {
       return NextResponse.json({ error: "Audio recording is required" }, { status: 400 });
@@ -86,7 +95,9 @@ export async function POST(req: Request) {
       model: "whisper-1",
       language: "en",
       response_format: "json",
-      prompt: "A Grade 6 student named Aashvath is describing his school day using five parts: the day, one learning, a challenge, work status, and tomorrow's action.",
+      prompt: isSchoolDay
+        ? "A Grade 6 student named Aashvath is describing his school day using five parts: the school day, one learning, a challenge, schoolwork status, and his next-school-day action."
+        : `A Grade 6 student named Aashvath is giving a ${dayType} reflection about his activities, one discovery, a challenge or choice, responsibility and rest, and one useful next step. Do not assume he attended school today.`,
     });
     const transcript = transcription.text.trim();
 
@@ -96,7 +107,9 @@ export async function POST(req: Request) {
         summary: "No spoken day summary was detected.",
         rating: 1,
         feedback: "Record again and say what happened, how you felt, and one thing you learned.",
-        betterSummary: "Today I felt focused because I completed my work. One hard part was staying patient, and tomorrow I will ask questions sooner.",
+        betterSummary: isSchoolDay
+          ? "At school today I learned one useful thing, handled one challenge, and chose one action for my next school day."
+          : "Today I enjoyed one activity, noticed something useful, handled one challenge, and chose a helpful next step.",
         speakingTips: ["Speak loudly enough for the microphone.", "Use three complete sentences."],
         fillerWords: [],
       });
@@ -107,13 +120,15 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "system",
-          content:
-            "You coach a Grade 6 student on spoken day reviews. Return only JSON with keys summary:string, rating:number from 1 to 5, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check whether the student covered five anchors: what happened during the day, one specific learning, one challenge and response, completed or unfinished work, and one concrete action for tomorrow. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing anchor in feedback when applicable. Be kind, direct, and practical.",
+          content: isSchoolDay
+            ? "You coach a Grade 6 student on spoken school-day reviews. Return only JSON with keys summary:string, rating:number from 1 to 5, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five anchors: what happened at school, one specific learning, one challenge and response, completed or unfinished schoolwork, and one concrete action for the next school day. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing anchor when applicable. Be kind, direct, and practical."
+            : "You coach a Grade 6 student on spoken weekend or holiday reflections. Return only JSON with keys summary:string, rating:number from 1 to 5, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five day-off anchors: what he did, one thing learned/noticed/read/watched/practised, one challenge or important choice, a balance of responsibility and rest, and one useful next step. Never require or infer school attendance, classes, homework, or today's schoolwork. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing day-off anchor when applicable. Be kind, direct, and practical.",
         },
         {
           role: "user",
           content: JSON.stringify({
             learner: "Aashvath",
+            context: contextLabel,
             task: "Review this spoken day summary and show how he can say it better.",
             transcript,
           }),
@@ -123,7 +138,7 @@ export async function POST(req: Request) {
       response_format: { type: "json_object" },
     });
 
-    const result = parseSummary(review.choices[0].message.content);
+    const result = parseSummary(review.choices[0].message.content, isSchoolDay);
     return NextResponse.json({ transcript, ...result });
   } catch (err) {
     console.error("Day review summary failed:", err);

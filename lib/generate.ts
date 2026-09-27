@@ -182,22 +182,32 @@ function nextDateString(dateStr: string): string {
   return date.toISOString().split("T")[0];
 }
 
-function nextDayContext(dateStr: string) {
-  const date = nextDateString(dateStr);
-  const day = parseDate(date).getUTCDay();
+function dayContext(dateStr: string) {
+  const day = parseDate(dateStr).getUTCDay();
   const isWeekend = day === 0 || day === 6;
   const isHoliday = new Set(
     (process.env.SCHOOL_HOLIDAYS ?? "")
       .split(",")
       .map((item) => item.trim())
       .filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item))
-  ).has(date);
+  ).has(dateStr);
+
+  return {
+    is_school_day: !isWeekend && !isHoliday,
+    reason: isWeekend ? "weekend" as const : isHoliday ? "holiday" as const : "school_day" as const,
+    label: isWeekend ? "Weekend reflection" : isHoliday ? "Holiday reflection" : "School-day reflection",
+  };
+}
+
+function nextDayContext(dateStr: string) {
+  const date = nextDateString(dateStr);
+  const context = dayContext(date);
 
   return {
     date,
     label: formatDisplayDate(date),
-    isSchoolDay: !isWeekend && !isHoliday,
-    reason: isWeekend ? "weekend" as const : isHoliday ? "holiday" as const : "school_day" as const,
+    isSchoolDay: context.is_school_day,
+    reason: context.reason,
   };
 }
 
@@ -303,6 +313,7 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
   return {
     ...content,
     date: dateStr,
+    day_context: dayContext(dateStr),
     reading: {
       ...content.reading,
       title: normalizeWhitespace(content.reading.title),

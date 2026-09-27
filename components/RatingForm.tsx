@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { DaySummaryRating, NextDayPrepContent, PhaseId, ReadingContent, ReadAloudAnswerRating, TargetedPracticeContent } from "@/types";
+import type { DayContextContent, DaySummaryRating, NextDayPrepContent, PhaseId, ReadingContent, ReadAloudAnswerRating, TargetedPracticeContent } from "@/types";
 
 const StarRating = ({
   label,
@@ -66,6 +66,7 @@ interface RatingFormProps {
   reading?: ReadingContent;
   targetedPractice?: TargetedPracticeContent;
   nextDayPrep?: NextDayPrepContent;
+  dayContext?: DayContextContent;
   onSave: (ratings: object, timeSpentSec?: number) => void;
 }
 
@@ -75,6 +76,7 @@ export default function RatingForm({
   reading,
   targetedPractice,
   nextDayPrep,
+  dayContext,
   onSave,
 }: RatingFormProps) {
   const [mood, setMood] = useState(3);
@@ -116,6 +118,7 @@ export default function RatingForm({
   const readAloudQuestions = reading?.comprehension_questions ?? [];
   const verifiedAnswerCount = readAloudAnswers.filter(Boolean).length;
   const correctAnswerCount = readAloudAnswers.filter((answer) => answer?.correct).length;
+  const isSchoolDay = dayContext?.is_school_day ?? true;
 
   useEffect(() => {
     if (!dayRecording || dayRecordingStartedAt.current === null) return;
@@ -181,6 +184,8 @@ export default function RatingForm({
     try {
       const formData = new FormData();
       formData.append("audio", audioBlob, "day-summary.webm");
+      formData.append("dayType", dayContext?.reason ?? "school_day");
+      formData.append("contextLabel", dayContext?.label ?? "School-day reflection");
 
       const res = await fetch("/api/day-review/summary", {
         method: "POST",
@@ -386,17 +391,28 @@ export default function RatingForm({
         <>
           <div className="rounded-xl border border-amber-100 bg-white p-3 space-y-3">
             <div>
-              <p className="font-bold text-gray-800">Use this five-part speaking path</p>
+              <p className="font-bold text-gray-800">
+                {isSchoolDay ? "Use this five-part school-day speaking path" : `Use this five-part ${dayContext?.reason ?? "day-off"} speaking path`}
+              </p>
               <p className="mt-1 text-xs text-gray-500">Speak naturally. The prompts are hints, not questions to answer with one word.</p>
             </div>
             <ol className="space-y-2 text-sm text-gray-700">
-              {[
-                ["1", "The day", "Today started with… The main things that happened were…"],
-                ["2", "One learning", "In ___ class I learned… One detail I remember is…"],
-                ["3", "A challenge", "The difficult moment was… I responded by…"],
-                ["4", "Work status", "I completed… I still need to finish… My materials are…"],
-                ["5", "Tomorrow", "Tomorrow I will improve ___ by doing…"],
-              ].map(([number, title, hint]) => (
+              {(isSchoolDay
+                ? [
+                    ["1", "The school day", "At school today… The main things that happened were…"],
+                    ["2", "One learning", "In ___ class I learned… One detail I remember is…"],
+                    ["3", "A challenge", "The difficult moment was… I responded by…"],
+                    ["4", "Schoolwork status", "I completed… I still need to finish… My materials are…"],
+                    ["5", "Next step", "For my next school day, I will improve ___ by doing…"],
+                  ]
+                : [
+                    ["1", "Your day", "Today I spent time… The main things that happened were…"],
+                    ["2", "One discovery", "I learned, noticed, read, watched, or practised…"],
+                    ["3", "A challenge or choice", "One difficult or important moment was… I chose to…"],
+                    ["4", "Responsibility and rest", "I helped with… I organised… I enjoyed…"],
+                    ["5", "Next useful step", "The next useful thing I want to do is…"],
+                  ]
+              ).map(([number, title, hint]) => (
                 <li key={number} className="flex gap-3 rounded-lg bg-amber-50 p-2">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xs font-black text-white">{number}</span>
                   <span><strong>{title}:</strong> <span className="text-gray-600">{hint}</span></span>
@@ -480,7 +496,7 @@ export default function RatingForm({
               rows={2}
               value={highlights}
               onChange={(e) => setHighlights(e.target.value)}
-              placeholder="What went well today at school?"
+              placeholder={isSchoolDay ? "What went well today at school?" : "What went well today?"}
             />
           </div>
         </>
