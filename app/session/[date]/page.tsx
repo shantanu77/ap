@@ -38,6 +38,8 @@ interface PendingWorkItem {
   incompleteTasks: string[];
 }
 
+interface BoardSettings { activeDays: number[]; remindersEnabled: boolean; reminderEmail: string | null; reminderTime: string }
+
 export default function SessionPage() {
   const params = useParams();
   const dateStr = params.date as string;
@@ -55,6 +57,10 @@ export default function SessionPage() {
   const [markingMissed, setMarkingMissed] = useState(false);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [pendingWork, setPendingWork] = useState<PendingWorkItem[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [boardSettings, setBoardSettings] = useState<BoardSettings>({ activeDays: [0, 2, 4], remindersEnabled: false, reminderEmail: "", reminderTime: "18:00" });
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState("");
 
   // Load plan and existing session
   useEffect(() => {
@@ -112,6 +118,25 @@ export default function SessionPage() {
       .then((items: PendingWorkItem[]) => setPendingWork(items))
       .catch(() => setPendingWork([]));
   }, [isToday]);
+
+  useEffect(() => {
+    fetch(`/api/sessions/streak?date=${dateStr}`).then((res) => res.ok ? res.json() : { streak: 0 }).then((data) => setStreak(Number(data.streak) || 0)).catch(() => setStreak(0));
+  }, [dateStr]);
+
+  useEffect(() => {
+    fetch("/api/board/settings").then((res) => res.ok ? res.json() : null).then((data) => { if (data) setBoardSettings(data); }).catch(() => undefined);
+  }, []);
+
+  const saveBoardSettings = async () => {
+    setSettingsMessage("");
+    try {
+      const response = await fetch("/api/board/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(boardSettings) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Settings could not be saved.");
+      setBoardSettings(data);
+      setSettingsMessage("Settings saved! ✅");
+    } catch (error) { setSettingsMessage(error instanceof Error ? error.message : "Settings could not be saved."); }
+  };
 
   const startSession = useCallback(async () => {
     if (sessionStarted) return;
@@ -218,6 +243,8 @@ export default function SessionPage() {
   const isPastCatchUp = !isToday && !allDone && session?.status !== "COMPLETE";
   const isEditable = isToday || isPastCatchUp;
   const isMissed = session?.status === "MISSED";
+  const boardDayNumber = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
+  const isScheduledBoardDay = boardSettings.activeDays.includes(boardDayNumber);
   const content = plan?.editedContent ?? plan?.content;
   const primaryPendingWork = pendingWork[0];
 
@@ -251,12 +278,23 @@ export default function SessionPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="text-center space-y-1">
-        <h1 className="text-2xl font-bold text-slate-800">
-          {isToday ? "Tonight's Session 🌙" : isPastCatchUp ? "Catch-up Session" : "Session Review"}
+      <div className="relative text-center space-y-1 rounded-3xl bg-gradient-to-r from-sky-100 via-purple-100 to-pink-100 px-4 py-5">
+        <button type="button" aria-label="Board calendar settings" onClick={() => setSettingsOpen(!settingsOpen)} className="absolute right-3 top-3 rounded-full bg-white/80 p-2 text-xl shadow">⚙️</button>
+        <h1 className="text-3xl font-black text-slate-800">
+          {isToday ? "Tonight's Study Quest 🌙" : isPastCatchUp ? "Catch-up Quest" : "Session Review"}
         </h1>
-        <p className="text-gray-500 text-sm">{formatDisplayDate(dateStr)}</p>
+        <p className="text-slate-600 text-base">{formatDisplayDate(dateStr)} · You&apos;ve got this, Aashvath! 🌟</p>
       </div>
+
+      {settingsOpen && <div className="rounded-3xl border-2 border-indigo-200 bg-white p-5 shadow-sm space-y-4">
+        <div><h2 className="text-xl font-black text-indigo-800">🗓️ Aashvath&apos;s Study Calendar</h2><p className="text-sm text-slate-600">Choose the days this board appears. Default: Sunday, Tuesday, Thursday.</p></div>
+        <div className="flex flex-wrap gap-2">{["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => <label key={day} className={`cursor-pointer rounded-full px-3 py-2 font-bold ${boardSettings.activeDays.includes(index) ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-600"}`}><input className="sr-only" type="checkbox" checked={boardSettings.activeDays.includes(index)} onChange={(event) => setBoardSettings((current) => ({ ...current, activeDays: event.target.checked ? [...current.activeDays, index].sort() : current.activeDays.filter((item) => item !== index) }))} />{day}</label>)}</div>
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={boardSettings.remindersEnabled} onChange={(event) => setBoardSettings((current) => ({ ...current, remindersEnabled: event.target.checked }))} className="h-5 w-5 accent-indigo-600" />Email a reminder</label>
+        {boardSettings.remindersEnabled && <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-semibold text-slate-700">Aashvath&apos;s email<input type="email" value={boardSettings.reminderEmail ?? ""} onChange={(event) => setBoardSettings((current) => ({ ...current, reminderEmail: event.target.value }))} className="mt-1 w-full rounded-xl border p-2" placeholder="aashvath@example.com" /></label><label className="text-sm font-semibold text-slate-700">Reminder time<input type="time" value={boardSettings.reminderTime} onChange={(event) => setBoardSettings((current) => ({ ...current, reminderTime: event.target.value }))} className="mt-1 w-full rounded-xl border p-2" /></label></div>}
+        <div className="flex items-center gap-3"><button type="button" onClick={() => void saveBoardSettings()} className="rounded-full bg-indigo-600 px-5 py-2 font-bold text-white">Save calendar ⚙️</button>{settingsMessage && <span className="text-sm font-semibold text-indigo-700">{settingsMessage}</span>}</div>
+      </div>}
+
+      {isToday && !isScheduledBoardDay && <div className="rounded-3xl border-2 border-sky-200 bg-sky-50 p-5 text-center"><p className="text-3xl">🌈🌿</p><p className="mt-1 text-lg font-black text-sky-800">Today is a rest day!</p><p className="text-sky-700">Your next Study Quest is on {getNextBoardDay(boardSettings.activeDays, boardDayNumber)}. Enjoy your day and come back then! 😊</p></div>}
 
       {isToday && primaryPendingWork && (
         <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 shadow-sm">
@@ -384,17 +422,17 @@ export default function SessionPage() {
 
       {/* All-done message */}
       {allDone && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center">
-          <p className="text-3xl mb-2">🎉</p>
-          <p className="font-bold text-green-800 text-lg">Session Complete!</p>
-          <p className="text-green-600 text-sm mt-1">
-            Great work tonight, Aashvath. See you tomorrow at 9 PM!
-          </p>
+        <div className="bg-gradient-to-br from-yellow-100 via-green-50 to-sky-100 border-2 border-green-300 rounded-3xl p-6 text-center shadow-sm">
+          <p className="text-5xl mb-2">🎉🏆🌈</p>
+          <p className="font-black text-green-800 text-2xl">You did it, Aashvath!</p>
+          <p className="text-green-700 text-base mt-1">Today&apos;s tasks are complete. You earned a ⭐ Focus Star, 📚 Learning Champ, and 💪 Follow Through badge!</p>
+          {streak >= 3 && <p className="mt-3 text-xl font-black text-orange-700">🔥 {streak}-day streak! {streak >= 15 ? "🏅 15-day Super Streak!" : streak >= 5 ? "🥇 5-day Streak Star!" : "🎯 3-day Streak Starter!"}</p>}
+          {streak < 3 && <p className="mt-2 text-sm font-bold text-orange-700">✨ {3 - streak} more completed day{3 - streak === 1 ? "" : "s"} to your first 3-day streak reward!</p>}
         </div>
       )}
 
       {/* Start prompt for today */}
-      {isToday && !sessionStarted && (
+      {isToday && isScheduledBoardDay && !sessionStarted && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5 text-center space-y-3">
           <p className="text-indigo-800 font-semibold">Ready to start?</p>
           <p className="text-indigo-600 text-sm">
@@ -424,7 +462,7 @@ export default function SessionPage() {
       )}
 
       {/* Phase cards */}
-      <div className="space-y-4">
+      {(!isToday || isScheduledBoardDay) && <div className="space-y-4">
         {PHASES.map((phase, idx) => {
           const existingRating = session?.phases.find((p) => p.phase === phase.id) ?? null;
           return (
@@ -440,7 +478,7 @@ export default function SessionPage() {
             />
           );
         })}
-      </div>
+      </div>}
 
       {/* Nav between days */}
       <div className="flex justify-between text-sm pt-2">
@@ -464,6 +502,14 @@ function getPrevDate(dateStr: string) {
   const d = new Date(dateStr + "T12:00:00");
   d.setDate(d.getDate() - 1);
   return d.toISOString().split("T")[0];
+}
+
+function getNextBoardDay(activeDays: number[], fromDay: number) {
+  for (let offset = 1; offset <= 7; offset += 1) {
+    const day = (fromDay + offset) % 7;
+    if (activeDays.includes(day)) return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day];
+  }
+  return "your next scheduled day";
 }
 
 function applyTodayDisciplineToPrep(content: DailyContent, session: SessionData | null): DailyContent {

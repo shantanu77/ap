@@ -18,6 +18,7 @@ export interface LanguageContent {
   humour_hook?: string | null;
   word_formation_deep_dive?: string | null;
   devanagari_words?: { word: string; meaning: string; transliteration: string }[];
+  practice_sentences?: { sentence: string; transliteration?: string; meaning: string; word_explanation: string; english_sentence: string }[];
 }
 
 export interface WritingContent {
@@ -164,11 +165,11 @@ export type PhaseRatingData =
   | NextDayPrepRating;
 
 export const PHASES = [
-  { id: "DAY_REVIEW", label: "Day Review", duration: 10, color: "amber" },
-  { id: "READ_ALOUD", label: "Read Aloud", duration: 30, color: "blue" },
-  { id: "LANGUAGE", label: "Hindi / Sanskrit", duration: 25, color: "orange" },
-  { id: "WRITING", label: "Writing Exercise", duration: 20, color: "green" },
-  { id: "WORK_QUALITY", label: "Work Quality Check", duration: 10, color: "rose" },
+  { id: "DAY_REVIEW", label: "Day Review", duration: 3, color: "amber" },
+  { id: "READ_ALOUD", label: "Read Aloud", duration: 5, color: "blue" },
+  { id: "LANGUAGE", label: "Hindi / Sanskrit", duration: 5, color: "orange" },
+  { id: "WRITING", label: "Writing Exercise", duration: 15, color: "green" },
+  { id: "WORK_QUALITY", label: "Work Quality Check", duration: 5, color: "rose" },
   { id: "NEXT_DAY_PREP", label: "Next Day Prep", duration: 5, color: "purple" },
 ] as const;
 

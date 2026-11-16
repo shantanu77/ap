@@ -44,7 +44,7 @@ function WritingResult({ rating }: { rating: Record<string, unknown> }) {
         {score !== null && <span className="rounded-full bg-green-100 px-3 py-1 font-black text-green-800">{score}/100</span>}
       </div>
       {typeof rating.summary === "string" && <p className="text-gray-600">{rating.summary}</p>}
-      <p className="text-xs text-gray-500">Spelling mistakes: {spelling.length} · Grammar mistakes: {grammar.length}</p>
+      <p className="text-xs text-gray-500">Spelling mistakes: {spelling.length} · Grammar &amp; punctuation: {grammar.length}</p>
       {typeof rating.timeDeduction === "number" && rating.timeDeduction > 0 && (
         <p className="text-xs text-amber-700">Time deduction: −{rating.timeDeduction} points</p>
       )}
@@ -77,7 +77,6 @@ function SavedRating({ phaseId, rating }: { phaseId: PhaseId; rating: Record<str
         <p><strong>Summary:</strong> {valueText(summary.summary)}</p>
         <p><strong>Coaching:</strong> {valueText(summary.feedback)}</p>
         <p><strong>Mood:</strong> {valueText(rating.mood)}/5 · <strong>Engagement:</strong> {valueText(rating.engagement)}/5</p>
-        <p><strong>Parent notes:</strong> {valueText(rating.highlights)}</p>
       </div>
     );
   }
@@ -102,15 +101,17 @@ function SavedRating({ phaseId, rating }: { phaseId: PhaseId; rating: Record<str
     : phaseId === "WRITING"
       ? [["Lines written", rating.linesWritten], ["Legibility", `${valueText(rating.legibility)}/5`], ["Effort", `${valueText(rating.effort)}/5`]]
     : phaseId === "WORK_QUALITY"
-      ? [["Homework completeness", `${valueText(rating.homeworkCompleteness)}/5`], ["Discipline", `${valueText(rating.discipline)}/5`], ["Shortcut use", rating.shortcutUsage], ["Report booster completed", rating.targetedPracticeCompleted], ["Booster outcome", rating.targetedPracticeOutcome]]
+      ? [["Homework completeness", `${valueText(rating.homeworkCompleteness)}/5`], ["Discipline", `${valueText(rating.discipline)}/5`], ["Shortcut use", rating.shortcutUsage], ["Report booster completed", rating.targetedPracticeCompleted], ["Booster outcome", rating.targetedPracticeOutcome], ["Booster photo score", rating.boosterReview && typeof rating.boosterReview === "object" ? `${valueText((rating.boosterReview as Record<string, unknown>).rating)}/5 · ${valueText((rating.boosterReview as Record<string, unknown>).summary)}` : null]]
       : [["Preparation completed", rating.allChecklistComplete], ["Focus answer", rating.focusClass], ["Goal answer", rating.goal]];
   const checklist = Array.isArray(rating.checklist) ? rating.checklist : [];
+  const sentenceChecks = Array.isArray(rating.sentenceChecks) ? rating.sentenceChecks : [];
 
   return (
     <div className="mt-3 rounded-xl border border-green-200 bg-white p-4 text-sm text-gray-700 space-y-2">
       <p className="font-bold text-green-800">Saved response and ratings</p>
       {rows.map(([label, value]) => <p key={label}><strong>{label}:</strong> {valueText(value)}</p>)}
       {checklist.length > 0 && <div><strong>Checklist:</strong>{checklist.map((item, index) => { const row = item && typeof item === "object" ? item as Record<string, unknown> : {}; return <p key={index} className="ml-2">{row.completed ? "✓" : "○"} {valueText(row.item)}</p>; })}</div>}
+      {sentenceChecks.length > 0 && <div className="space-y-1"><strong>Spoken sentence checks:</strong>{sentenceChecks.map((item, index) => { const row = item && typeof item === "object" ? item as Record<string, unknown> : {}; return <p key={index} className="ml-2">{row.correct ? "✅" : "🔁"} {valueText(row.transcript)} — {valueText(row.feedback)}</p>; })}</div>}
     </div>
   );
 }
@@ -194,6 +195,7 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
     case "LANGUAGE":
       return (
         <div className="space-y-3">
+          <p className="rounded-xl bg-orange-100 p-3 text-center text-lg font-black text-orange-800">👂 सुनो और दोहराओ · Listen and repeat!</p>
           <div className="flex items-center gap-2">
             <span
               className={`text-xs px-2 py-1 rounded-full font-semibold ${
@@ -248,14 +250,13 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
       return (
         <div className="space-y-3">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-xs font-bold tracking-wide text-emerald-800">20-MINUTE WRITING PLAN</p>
+            <p className="text-xs font-bold tracking-wide text-emerald-800">15-MINUTE WRITING PLAN</p>
             <div className="mt-3 grid gap-2 text-sm text-gray-700 sm:grid-cols-2">
               {[
-                ["0–3 min", "Read all five lines aloud. Notice capitals, punctuation, and unfamiliar spellings."],
-                ["3–5 min", "Trace each sentence with your finger and say where it begins and ends."],
-                ["5–15 min", "Handwrite the five lines carefully. Copy one complete phrase at a time."],
-                ["15–18 min", "Compare source and page word by word. Fix omissions, spelling, capitals, and punctuation."],
-                ["18–20 min", "Check spacing and legibility, then photograph the whole handwritten page."],
+                ["0–2 min", "Read the prompt and plan a beginning, middle, and ending."],
+                ["2–11 min", "Write one complete paragraph of up to 100 words, at a comfortable pace."],
+                ["11–13 min", "Check every sentence for capitals and punctuation."],
+                ["13–15 min", "Check spelling and grammar, then photograph the whole page."],
               ].map(([time, instruction]) => (
                 <div key={time} className="rounded-lg border border-emerald-100 bg-white p-3">
                   <p className="font-bold text-emerald-700">{time}</p>
@@ -265,7 +266,7 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
             </div>
           </div>
           <div className="bg-white rounded-lg border-2 border-dashed border-green-300 p-4">
-            <p className="text-xs font-semibold text-green-700 mb-2">COPY THIS NEATLY:</p>
+            <p className="text-xs font-semibold text-green-700 mb-2">✍️ WRITE A COMPLETE PARAGRAPH (UP TO 100 WORDS):</p>
             <p className="text-gray-800 leading-loose text-base whitespace-pre-line font-medium">
               {content.writing.prompt}
             </p>
@@ -280,8 +281,7 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
             ))}
           </div>
           <p className="text-xs text-gray-400">
-            Target: {content.writing.lines_required} lines • Take your time, legibility matters
-            more than speed
+            No more than 1.5 minutes per line as a guide • Check punctuation, grammar, and spelling
           </p>
         </div>
       );
@@ -322,7 +322,7 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
             </div>
           )}
           <p className="text-sm text-gray-700 font-medium">
-            Review today&apos;s school homework and classwork together.
+            Check today&apos;s school homework and classwork. A helper can take a quick photo of the booster page for a simple accuracy check.
           </p>
           <div className="space-y-2 text-sm text-gray-600">
             {[
@@ -351,7 +351,7 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
             <p className="text-gray-700 text-sm">{content.next_day_tip}</p>
           </div>
           <p className="text-sm text-gray-600">
-            Complete and tick the personalised checklist under <strong>Rate this phase</strong>, then answer both preparation questions.
+            Complete and tick each item below. The progress bar fills as you finish them!
           </p>
         </div>
       );
@@ -389,7 +389,7 @@ export default function PhaseCard({
 
   return (
     <div
-      className={`rounded-2xl border-l-4 ${colors} p-5 transition-all ${
+      className={`rounded-3xl border-l-8 ${colors} p-6 transition-all shadow-sm ${
         isLocked ? "opacity-50" : ""
       }`}
     >
@@ -398,8 +398,8 @@ export default function PhaseCard({
         <div className="flex items-center gap-3">
           <span className="text-2xl">{icon}</span>
           <div>
-            <h3 className="font-bold text-gray-800 text-base">{phase.label}</h3>
-            <span className="text-xs text-gray-500">{phase.duration} minutes</span>
+            <h3 className="font-black text-gray-800 text-lg">{phase.label}</h3>
+            <span className="text-sm font-semibold text-gray-500">About {phase.duration} minutes ⏱️</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -438,8 +438,13 @@ export default function PhaseCard({
             durationMin={phase.duration}
             onComplete={handleTimerDone}
             autoStart
+            doneLabel={phase.id === "READ_ALOUD" ? "✓ Stop reading" : "✓ Done"}
           />
         </div>
+      )}
+
+      {isActive && phase.id !== "WRITING" && !showRating && (
+        <p className="mb-3 text-center text-sm font-semibold text-slate-600">🌟 The timer is a guide. Finished early? Press Done and move on.</p>
       )}
 
       {/* Content — always visible for done phases (read-only) or active phases */}
@@ -450,12 +455,13 @@ export default function PhaseCard({
       )}
 
       {/* Rating form */}
-      {isActive && phase.id !== "WRITING" && (showRating || phase.id === "DAY_REVIEW") && !isDone && (
+      {isActive && phase.id !== "WRITING" && (showRating || phase.id === "DAY_REVIEW" || phase.id === "NEXT_DAY_PREP") && !isDone && (
         <div className="mt-4">
           <RatingForm
             phase={phase.id}
             writingLinesRequired={content.writing.lines_required}
             reading={content.reading}
+            language={content.language}
             targetedPractice={content.targeted_practice}
             nextDayPrep={content.next_day_prep}
             dayContext={content.day_context}

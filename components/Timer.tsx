@@ -6,9 +6,10 @@ interface TimerProps {
   durationMin: number;
   onComplete: (elapsedSec: number) => void;
   autoStart?: boolean;
+  doneLabel?: string;
 }
 
-export default function Timer({ durationMin, onComplete, autoStart = false }: TimerProps) {
+export default function Timer({ durationMin, onComplete, autoStart = false, doneLabel = "✓ Done" }: TimerProps) {
   const totalSec = durationMin * 60;
   const [remaining, setRemaining] = useState(totalSec);
   const [running, setRunning] = useState(autoStart);
@@ -84,9 +85,10 @@ export default function Timer({ durationMin, onComplete, autoStart = false }: Ti
           onClick={handleDone}
           className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 active:scale-95"
         >
-          ✓ Done
+          {doneLabel}
         </button>
       </div>
+      <p className="text-sm font-semibold text-slate-600">⏱️ When you finish, press “{doneLabel.replace(/^✓\s*/, "")}”. You can stop early!</p>
     </div>
   );
 }

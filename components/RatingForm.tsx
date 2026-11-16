@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { DayContextContent, DaySummaryRating, NextDayPrepContent, PhaseId, ReadingContent, ReadAloudAnswerRating, TargetedPracticeContent } from "@/types";
+import type { DayContextContent, DaySummaryRating, LanguageContent, NextDayPrepContent, PhaseId, ReadingContent, ReadAloudAnswerRating, TargetedPracticeContent } from "@/types";
 
 const StarRating = ({
   label,
@@ -70,6 +70,7 @@ interface RatingFormProps {
   phase: PhaseId;
   writingLinesRequired?: number;
   reading?: ReadingContent;
+  language?: LanguageContent;
   targetedPractice?: TargetedPracticeContent;
   nextDayPrep?: NextDayPrepContent;
   dayContext?: DayContextContent;
@@ -80,6 +81,7 @@ export default function RatingForm({
   phase,
   writingLinesRequired = 5,
   reading,
+  language,
   targetedPractice,
   nextDayPrep,
   dayContext,
@@ -106,6 +108,10 @@ export default function RatingForm({
   const [langCompleted, setLangCompleted] = useState<boolean | null>(null);
   const [confidence, setConfidence] = useState(3);
   const [langNotes, setLangNotes] = useState("");
+  const [languageResults, setLanguageResults] = useState<Array<{ transcript: string; correct: boolean; feedback: string } | null>>([]);
+  const [languageRecording, setLanguageRecording] = useState<number | null>(null);
+  const [languageRecorder, setLanguageRecorder] = useState<MediaRecorder | null>(null);
+  const [languageError, setLanguageError] = useState<string | null>(null);
   const [linesWritten, setLinesWritten] = useState(3);
   const [legibility, setLegibility] = useState(3);
   const [effort, setEffort] = useState(3);
@@ -114,6 +120,10 @@ export default function RatingForm({
   const [shortcutUsage, setShortcutUsage] = useState<"none" | "minor" | "major">("none");
   const [targetedPracticeCompleted, setTargetedPracticeCompleted] = useState<boolean | null>(null);
   const [targetedPracticeOutcome, setTargetedPracticeOutcome] = useState<"not_yet" | "with_help" | "independent">("not_yet");
+  const [boosterPhoto, setBoosterPhoto] = useState<File | null>(null);
+  const [boosterReview, setBoosterReview] = useState<{ completed: boolean; rating: number; summary: string } | null>(null);
+  const [checkingBooster, setCheckingBooster] = useState(false);
+  const [boosterError, setBoosterError] = useState("");
   const [goal, setGoal] = useState("");
   const [focusClass, setFocusClass] = useState("");
   const [prepChecks, setPrepChecks] = useState<boolean[]>(
@@ -125,6 +135,37 @@ export default function RatingForm({
   const verifiedAnswerCount = readAloudAnswers.filter(Boolean).length;
   const correctAnswerCount = readAloudAnswers.filter((answer) => answer?.correct).length;
   const isSchoolDay = dayContext?.is_school_day ?? true;
+  const languageSentences = language?.practice_sentences ?? [];
+
+  const recordLanguageSentence = async (index: number) => {
+    if (!language) return;
+    setLanguageError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        setLanguageRecorder(null);
+        setLanguageRecording(null);
+        try {
+          const form = new FormData();
+          form.append("audio", new Blob(chunks, { type: recorder.mimeType }), `language-${index + 1}.webm`);
+          form.append("sentence", languageSentences[index].sentence);
+          form.append("englishSentence", languageSentences[index].english_sentence);
+          form.append("meaning", languageSentences[index].meaning);
+          const response = await fetch("/api/language/verify", { method: "POST", body: form });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Could not check this sentence.");
+          setLanguageResults((previous) => { const next = [...previous]; next[index] = { transcript: data.transcript, correct: data.correct, feedback: data.feedback }; return next; });
+        } catch (error) { setLanguageError(error instanceof Error ? error.message : "Could not check this sentence."); }
+      };
+      recorder.start();
+      setLanguageRecorder(recorder);
+      setLanguageRecording(index);
+    } catch (error) { setLanguageError(error instanceof Error ? error.message : "Microphone could not start."); }
+  };
 
   useEffect(() => {
     if (!dayRecording || dayRecordingStartedAt.current === null) return;
@@ -307,7 +348,7 @@ export default function RatingForm({
           setDaySummaryError("Aashvath must record and review his day summary before continuing.");
           return;
         }
-        ratings = { mood, engagement, highlights, daySummary };
+        ratings = { mood, engagement, daySummary };
         break;
       case "READ_ALOUD":
         if (!reading || verifiedAnswerCount !== readAloudQuestions.length) {
@@ -324,12 +365,20 @@ export default function RatingForm({
         };
         break;
       case "LANGUAGE":
-        ratings = { completed: langCompleted ?? false, confidence, notes: langNotes };
+        if (languageSentences.length && languageResults.filter(Boolean).length !== languageSentences.length) {
+          setLanguageError("Record all five sentences so we can check how clearly you said them.");
+          return;
+        }
+        ratings = { completed: true, confidence, notes: langNotes, sentenceChecks: languageResults.filter(Boolean) };
         break;
       case "WRITING":
         ratings = { linesWritten, legibility, effort };
         break;
       case "WORK_QUALITY":
+        if (targetedPractice && targetedPracticeCompleted && !boosterReview) {
+          setBoosterError("Add a photo of the finished booster page so it can be checked.");
+          return;
+        }
         ratings = {
           homeworkCompleteness,
           discipline,
@@ -340,6 +389,7 @@ export default function RatingForm({
                 targetedPracticeOutcome: targetedPracticeCompleted
                   ? targetedPracticeOutcome
                   : "not_yet",
+                boosterReview,
               }
             : {}),
         };
@@ -495,16 +545,6 @@ export default function RatingForm({
           </div>
           <StarRating label="Mood today" value={mood} onChange={setMood} />
           <StarRating label="Engagement level" value={engagement} onChange={setEngagement} />
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600">Parent notes</label>
-            <textarea
-              className="w-full border rounded-lg p-2 text-sm text-gray-700 resize-none"
-              rows={2}
-              value={highlights}
-              onChange={(e) => setHighlights(e.target.value)}
-              placeholder={isSchoolDay ? "What went well today at school?" : "What went well today?"}
-            />
-          </div>
         </>
       )}
 
@@ -516,7 +556,7 @@ export default function RatingForm({
                 Aashvath&apos;s recorded answers
               </label>
               <p className="text-xs text-gray-500 mt-1">
-                No guest work. Each answer must be recorded by Aashvath, transcribed, and verified.
+                No guesswork. Aashvath records each answer, and the system checks it against the passage.
               </p>
             </div>
             {readAloudQuestions.map((question, index) => {
@@ -587,7 +627,19 @@ export default function RatingForm({
 
       {phase === "LANGUAGE" && (
         <>
-          <YesNo label="Completed the lesson?" value={langCompleted} onChange={setLangCompleted} />
+          <p className="text-sm font-semibold text-orange-800">Listen, learn the word, then say each sentence aloud. 🎙️</p>
+          {languageSentences.map((item, index) => {
+            const result = languageResults[index];
+            return <div key={`${index}-${item.sentence}`} className="rounded-xl border border-orange-200 bg-white p-3 space-y-2">
+              <p className="text-lg font-bold text-slate-800">{index + 1}. {item.sentence}</p>
+              {item.transliteration && <p className="text-sm text-slate-500">{item.transliteration}</p>}
+              <p className="text-sm"><strong>Word:</strong> {item.meaning} — {item.word_explanation}</p>
+              <p className="text-sm text-slate-600">English: {item.english_sentence}</p>
+              {languageRecording === index ? <button type="button" onClick={() => languageRecorder?.stop()} className="rounded-lg bg-red-500 px-3 py-2 text-white font-bold">⏹ Stop speaking</button> : <button type="button" disabled={languageRecording !== null} onClick={() => void recordLanguageSentence(index)} className="rounded-lg bg-orange-500 px-3 py-2 text-white font-bold disabled:opacity-50">🎙️ {result ? "Try again" : "Say it aloud"}</button>}
+              {result && <p className={`text-sm font-semibold ${result.correct ? "text-green-700" : "text-amber-700"}`}>{result.correct ? "✅ Nicely said!" : "🔁 Try once more"} {result.feedback}<br/><span className="font-normal">Heard: {result.transcript}</span></p>}
+            </div>;
+          })}
+          {languageError && <p className="text-sm font-semibold text-red-600">{languageError}</p>}
           <StarRating label="Confidence after lesson" value={confidence} onChange={setConfidence} />
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-600">Notes</label>
@@ -647,6 +699,24 @@ export default function RatingForm({
                   if (!value) setTargetedPracticeOutcome("not_yet");
                 }}
               />
+              <div className="rounded-xl bg-rose-50 p-3 space-y-2">
+                <p className="text-sm font-bold text-rose-800">📸 Quick booster check</p>
+                <p className="text-xs text-slate-600">Take a photo of the completed page to check that the task was done and get a simple score.</p>
+                <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { setBoosterPhoto(event.target.files?.[0] ?? null); setBoosterReview(null); }} className="block w-full text-sm" />
+                <button type="button" disabled={!boosterPhoto || checkingBooster} onClick={async () => {
+                  if (!boosterPhoto || !targetedPractice) return;
+                  setCheckingBooster(true);
+                  try {
+                    const form = new FormData(); form.append("photo", boosterPhoto); form.append("task", targetedPractice.task); form.append("criteria", targetedPractice.success_criteria.join("; "));
+                    const response = await fetch("/api/booster/analyse", { method: "POST", body: form }); const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || "Could not check this page.");
+                    setBoosterReview(data); setTargetedPracticeCompleted(Boolean(data.completed));
+                  } catch (error) { setBoosterError(error instanceof Error ? error.message : "Could not check the booster page."); }
+                  finally { setCheckingBooster(false); }
+                }} className="rounded-lg bg-rose-500 px-3 py-2 font-bold text-white disabled:opacity-50">{checkingBooster ? "Checking the page…" : "Check my booster 📷"}</button>
+                {boosterReview && <p className="text-sm font-semibold text-rose-800">{boosterReview.completed ? "✅ Task found" : "🔎 Try again"} · {boosterReview.rating}/5 — {boosterReview.summary}</p>}
+                {boosterError && <p className="text-sm font-semibold text-red-600">{boosterError}</p>}
+              </div>
               {targetedPracticeCompleted && (
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-600">How was it completed?</label>
@@ -703,11 +773,18 @@ export default function RatingForm({
               ))}
             </div>
           </div>
+          <div className="rounded-2xl border-2 border-rose-200 bg-rose-50 p-4 text-center">
+            <p className="text-lg font-black text-rose-800">🌟 My Study Promise 🌟</p>
+            <p className="mt-2 text-base leading-relaxed text-slate-700">I will be disciplined, consistent, and proud of the quality of my work. I will put my studies before entertainment and distractions, do my best honestly, and keep improving one step at a time.</p>
+            <button type="button" onClick={() => { if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); window.speechSynthesis.speak(new SpeechSynthesisUtterance("I will be disciplined, consistent, and proud of the quality of my work. I will put my studies before entertainment and distractions, do my best honestly, and keep improving one step at a time.")); } }} className="mt-3 rounded-full bg-rose-500 px-4 py-2 font-bold text-white">🔊 Read my promise aloud</button>
+          </div>
         </>
       )}
 
       {phase === "NEXT_DAY_PREP" && (
         <>
+          {nextDayPrep?.checklist.length ? <div className="rounded-full bg-purple-100 h-4 overflow-hidden" aria-label={`${prepChecks.filter(Boolean).length} of ${prepChecks.length} preparation tasks complete`}><div className="h-full bg-purple-500 transition-all" style={{ width: `${prepChecks.length ? (prepChecks.filter(Boolean).length / prepChecks.length) * 100 : 0}%` }} /></div> : null}
+          <p className="text-center text-sm font-bold text-purple-700">{prepChecks.filter(Boolean).length}/{prepChecks.length} tasks complete 🎒</p>
           {nextDayPrep && (
             <div className="space-y-3 rounded-xl border border-purple-200 bg-white p-4">
               <div>
@@ -779,7 +856,7 @@ export default function RatingForm({
         onClick={handleSave}
         className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-base hover:bg-indigo-700 active:scale-95 transition-all"
       >
-        Save &amp; Continue →
+        🎉 Save &amp; Continue →
       </button>
     </div>
   );

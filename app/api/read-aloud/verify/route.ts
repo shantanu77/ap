@@ -93,13 +93,13 @@ export async function POST(req: Request) {
         {
           role: "system",
           content:
-            "You grade a child's spoken reading comprehension answer. Return only JSON with keys correct:boolean, rating:number from 1 to 5 using up to one decimal place, feedback:string. Award correct only when the transcript answers the question using details or a valid inference from the passage. Do not require exact wording. The rating and feedback must also evaluate how the answer is spoken: sentence structure, full-sentence response, clarity, filler words such as um/uh/like/you know, and how to phrase the answer better. Keep feedback short and practical.",
+            "You grade a child's spoken reading comprehension answer. Return only JSON with keys correct:boolean, rating:number from 1 to 5 using up to one decimal place, feedback:string. Award correct only when the transcript answers the question using details or a valid inference from the passage. Do not require exact wording. The rating and feedback must also evaluate sentence structure, clarity, filler words, and phrasing. If the recording does not answer the specific question, mark incorrect. Keep feedback short and practical.",
         },
         {
           role: "user",
           content: JSON.stringify({
             learner: "Ashvath",
-            rule: "No guest work: the answer must be Ashvath's own spoken answer, not a typed answer or parent substitute.",
+            rule: "No guesswork: an answer counts as correct only when the spoken transcript gives a relevant fact or justified inference from the passage. The child must speak the answer.",
             passage,
             question,
             transcript,

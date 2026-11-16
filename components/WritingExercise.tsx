@@ -121,7 +121,7 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
           </p>
         )}
         <Feedback title="Spelling" items={review.spellingMistakes} empty="No spelling mistakes found." />
-        <Feedback title="Grammar" items={review.grammarMistakes} empty="No grammar mistakes found." />
+        <Feedback title="Grammar & punctuation" items={review.grammarMistakes} empty="No grammar or punctuation mistakes found." />
         {review.structureFeedback.length > 0 && (
           <div><p className="text-sm font-bold text-gray-700">Sentence structure</p><ul className="list-disc pl-5 text-sm text-gray-600">{review.structureFeedback.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
         )}
@@ -144,11 +144,11 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
       {!doneWriting ? (
         <>
           <div className="text-center">
-            <p className="text-xs font-semibold text-gray-500">GRADE 6 WRITING TIME</p>
+          <p className="text-xs font-semibold text-gray-500">✍️ PARAGRAPH WRITING TIME</p>
             <p className={`text-5xl font-mono font-bold tabular-nums ${overtime ? "text-red-600" : remaining <= 60 ? "text-amber-500" : "text-slate-800"}`}>
               {overtime ? `+${formatDuration(overtime)}` : formatDuration(remaining)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">{overtime ? "Overtime is now reducing the score" : `${durationMin}-minute limit, adjusted for his grade and writing needs`}</p>
+          <p className="text-xs text-gray-500 mt-1">{overtime ? "Overtime is now reducing the score" : `${durationMin} minutes · up to 100 words. Finish early? Press Done writing.`}</p>
           </div>
           <button onClick={finishWriting} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700">✓ Done writing</button>
         </>

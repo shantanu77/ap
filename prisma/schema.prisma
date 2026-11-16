@@ -84,3 +84,15 @@ model GeniusExploration {
   @@index([lastOpenedAt])
   @@map("genius_explorations")
 }
+
+model BoardSettings {
+  id               String   @id @default("board")
+  activeDays       Json
+  remindersEnabled Boolean  @default(false)
+  reminderEmail    String?
+  reminderTime     String   @default("18:00")
+  lastReminderDate String?
+  updatedAt        DateTime @updatedAt
+
+  @@map("board_settings")
+}

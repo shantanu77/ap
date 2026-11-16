@@ -152,10 +152,18 @@ function dedupeQuestions(questions: string[]): string[] {
 
   for (const question of questions) {
     const normalized = normalizeWhitespace(question).toLowerCase();
-    if (!normalized || seen.has(normalized)) continue;
+    const terms = new Set(normalized.replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((word) => word.length > 3 && !["what", "which", "when", "where", "would", "could", "explain", "describe", "according", "passage"].includes(word)));
+    const repeatedIdea = unique.some((existing) => {
+      const other = new Set(existing.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((word) => word.length > 3 && !["what", "which", "when", "where", "would", "could", "explain", "describe", "according", "passage"].includes(word)));
+      const shared = [...terms].filter((word) => other.has(word)).length;
+      return terms.size > 0 && other.size > 0 && shared / Math.min(terms.size, other.size) >= 0.72;
+    });
+    if (!normalized || seen.has(normalized) || repeatedIdea) continue;
     seen.add(normalized);
     unique.push(normalizeWhitespace(question));
   }
+
+  while (unique.length < 5) unique.push(`Choose a different detail from the passage and explain why it matters (question ${unique.length + 1}).`);
 
   return unique;
 }
@@ -270,10 +278,11 @@ function buildRecentReadingNotes(
 }
 
 export function normalizeDailyContent(dateStr: string, content: DailyContent): DailyContent {
-  const linesRequired =
-    Number.isFinite(content.writing?.lines_required) && content.writing.lines_required > 0
-      ? Math.min(5, Math.max(3, Math.round(content.writing.lines_required)))
-      : 5;
+  const linesRequired = 10;
+  const rawWritingPrompt = normalizeWhitespace(content.writing?.prompt ?? "");
+  const writingTopic = (rawWritingPrompt.match(/[.!?](?:\s|$)/g)?.length ?? 0) > 3
+    ? `Write an original paragraph of up to 100 words about ${content.reading.topic.toLowerCase()}. Explain one interesting idea and connect it to your own experience.`
+    : rawWritingPrompt;
 
   const uniqueQuestions = dedupeQuestions(content.reading.comprehension_questions ?? []);
   while (uniqueQuestions.length < 5) {
@@ -345,15 +354,39 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
       word_formation_deep_dive: content.language.word_formation_deep_dive
         ? content.language.word_formation_deep_dive.trim()
         : content.language.word_formation_deep_dive,
+      practice_sentences: (Array.isArray(content.language.practice_sentences) && content.language.practice_sentences.length
+        ? content.language.practice_sentences
+        : content.language.type === "sanskrit"
+          ? [
+              ["अहं पठामि।", "ahaṃ paṭhāmi", "I read.", "पठामि means ‘I read’; the verb describes reading.", "I read a story every evening."],
+              ["बालकः जलं पिबति।", "bālakaḥ jalaṃ pibati", "The boy drinks water.", "पिबति means ‘drinks’; it tells what someone does.", "The boy drinks water after playing."],
+              ["वयं विद्यालयं गच्छामः।", "vayaṃ vidyālayaṃ gacchāmaḥ", "We go to school.", "गच्छामः means ‘we go’; its ending matches ‘we’.", "We go to school together."],
+              ["सूर्यः प्रकाशते।", "sūryaḥ prakāśate", "The sun shines.", "प्रकाशते means ‘shines’ or ‘gives light’.", "The sun shines in the morning."],
+              ["पुष्पं सुन्दरम् अस्ति।", "puṣpaṃ sundaram asti", "The flower is beautiful.", "सुन्दरम् means ‘beautiful’ and describes the flower.", "The flower is beautiful and bright."],
+            ]
+          : [
+              ["मैं पुस्तक पढ़ता हूँ।", "main pustak paṛhtā hū̃", "I read a book.", "पढ़ता हूँ means ‘read’; it tells an action I do.", "I read a book before bed."],
+              ["बालक पानी पीता है।", "bālak pānī pītā hai", "The boy drinks water.", "पीता है means ‘drinks’; it tells what the boy does.", "The boy drinks water after playing."],
+              ["हम विद्यालय जाते हैं।", "ham vidyālay jāte haiṃ", "We go to school.", "जाते हैं means ‘go’; it describes movement by ‘we’.", "We go to school together."],
+              ["सूरज चमकता है।", "sūraj camaktā hai", "The sun shines.", "चमकता है means ‘shines’; it describes bright light.", "The sun shines in the morning."],
+              ["फूल बहुत सुंदर है।", "phūl bahut sundar hai", "The flower is very beautiful.", "सुंदर means ‘beautiful’; बहुत makes it ‘very beautiful’.", "The flower is very beautiful."],
+            ]).slice(0, 5).map((item) => Array.isArray(item) ? ({ sentence: item[0], transliteration: item[1], meaning: item[2], word_explanation: item[3], english_sentence: item[4] }) : ({
+            ...item,
+            sentence: normalizeWhitespace(item.sentence),
+            transliteration: item.transliteration ? normalizeWhitespace(item.transliteration) : item.transliteration,
+            meaning: normalizeWhitespace(item.meaning),
+            word_explanation: normalizeWhitespace(item.word_explanation),
+            english_sentence: normalizeWhitespace(item.english_sentence),
+          })),
     },
     writing: {
       ...content.writing,
       lines_required: linesRequired,
-      prompt: ensureExactWritingLines(content.writing.prompt, linesRequired),
+      prompt: writingTopic,
       success_criteria: [
-        `All ${linesRequired} lines are attempted`,
-        "Letters are legible",
-        "No skipped words",
+        "Write a complete paragraph of up to 100 words",
+        "Use complete sentences and clear punctuation",
+        "Check grammar and spelling",
       ],
     },
     targeted_practice: normalizedTargetedPractice,
@@ -449,7 +482,7 @@ NEXT-DAY CONTEXT:
 Generate a school-term daily learning package. It should be engaging, rigorous, and achievable for a gifted Grade 6 student who avoids reading and finds handwriting physically demanding.
 Reading must be ${READING_WORDS_MIN}-${READING_WORDS_MAX} words, split into short paragraphs. Use the public-domain reading anchor above as the source/theme, but create a self-contained original passage or adapted public-domain-style chapter page suitable for this learner. Do not quote modern copyrighted books.
 After the main passage, include a separate 130-180 word read-aloud coaching paragraph about ${focusCoachingTheme}. It must show Aashvath a realistic school/home moment, explain why the habit matters, and give a tiny action sequence he can use immediately. Sound like a smart coach, not a lecture; avoid shame, labels, threats, and vague advice such as merely saying "focus more". Vary the scenario and wording from day to day.
-Make the first two comprehension questions directly practise literal retrieval and main-idea summarising; later questions can use his existing inference/analysis strength.
+Make the five comprehension questions clearly different from one another. Never repeat a question or ask the same thing with changed wording. First question: literal retrieval; second: main idea; later ones: vocabulary, evidence and a fresh real-life connection.
 Include one 10-15 minute targeted-practice task that follows today's subject booster exactly. It must have a small, observable finish line and no more than five handwritten lines.
 The science content should feel like a smart YouTube hook, but the work itself should require focus.
 Do not reuse a recent read-aloud title, central fact, or passage angle from the list above.
@@ -478,17 +511,24 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
   "language": {
     "type": "${language}",
     "lesson_title": "Short lesson title",
-    "content": "The actual lesson content. For vocabulary: present each word as: DEVANAGARI (transliteration) = English meaning, example in a sentence. For grammar/patterns: show the pattern with 4-5 examples. For shloka: the text + transliteration + word-by-word meaning + full meaning. Make it scannable but substantive.",
-    "practice_task": "A 5-6 item task taking about 10 minutes. Prioritise speaking, listening and recognition; include no more than two short written/copy items.",
+    "content": "The actual lesson content. For vocabulary: present each word as: DEVANAGARI (transliteration) = English meaning, example in a sentence. For grammar/patterns: show the pattern with examples. For shloka: the text + transliteration + word-by-word meaning + full meaning. Make it scannable but substantive.",
+    "practice_sentences": [
+      {"sentence":"Hindi or Sanskrit sentence in native script","transliteration":"Latin transliteration","meaning":"English translation","word_explanation":"Explain the focus word simply","english_sentence":"A natural English sentence using the same idea"},
+      {"sentence":"Second sentence","transliteration":"...","meaning":"...","word_explanation":"...","english_sentence":"..."},
+      {"sentence":"Third sentence","transliteration":"...","meaning":"...","word_explanation":"...","english_sentence":"..."},
+      {"sentence":"Fourth sentence","transliteration":"...","meaning":"...","word_explanation":"...","english_sentence":"..."},
+      {"sentence":"Fifth sentence","transliteration":"...","meaning":"...","word_explanation":"...","english_sentence":"..."}
+    ],
+    "practice_task": "Five short listen, explain, and speak sentences. Explain one focus word, give its English meaning, then use the same word in an English sentence. Aashvath speaks each target sentence for recording and evaluation.",
     "remember_tip": "One clever memory trick, story, or visual association to help remember the lesson.",
     "humour_hook": "For Hindi, one witty meme-style joke/caption using today's words correctly, followed by a one-sentence explanation of the language joke. For Sanskrit/review, use null unless genuinely useful.",
     "word_formation_deep_dive": ${isWeeklyWordFormationDeepDive ? '"A structured, accurate deep dive with headings: BUILD IT, WORD FAMILY, MEANING LOGIC, TRY IT. Explain one Hindi word formation in detail and give 3 examples."' : "null"}
   },
   "writing": {
     "type": "copy",
-    "prompt": "A 5-line passage for Aashvath to copy neatly. It should connect today's reading to science, responsibility, or observation. Return exactly 5 short sentences, each on a separate line using newline characters.",
-    "lines_required": 5,
-    "success_criteria": ["All 5 lines are attempted", "Letters are legible", "No skipped words", "Margins and spacing are controlled"]
+    "prompt": "Give Aashvath an engaging topic and clear writing prompt for an original complete paragraph of up to 100 words. Connect it to today's reading, science, responsibility, or observation. Do not provide the paragraph for him to copy.",
+    "lines_required": 10,
+    "success_criteria": ["Write one complete paragraph up to 100 words", "Use capitals and punctuation", "Check grammar and spelling", "Write legibly"]
   },
   "targeted_practice": {
     "subject": "${academicFocus.subject}",
