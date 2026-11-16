@@ -16,7 +16,9 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const activeDays = Array.isArray(body.activeDays) ? [...new Set(body.activeDays.map(Number).filter((day: number) => Number.isInteger(day) && day >= 0 && day <= 6))] : [];
+    const activeDays: number[] = Array.isArray(body.activeDays)
+      ? Array.from(new Set<number>((body.activeDays as unknown[]).map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)))
+      : [];
     const reminderEmail = typeof body.reminderEmail === "string" ? body.reminderEmail.trim() : "";
     const reminderTime = typeof body.reminderTime === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(body.reminderTime) ? body.reminderTime : "18:00";
     if (!activeDays.length) return NextResponse.json({ error: "Choose at least one board day." }, { status: 400 });
