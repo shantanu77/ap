@@ -16,7 +16,9 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
   const [elapsedSec, setElapsedSec] = useState(0);
   const [doneWriting, setDoneWriting] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
-  const [originalPhotoSize, setOriginalPhotoSize] = useState<number | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [preparingPhoto, setPreparingPhoto] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [review, setReview] = useState<WritingRating | null>(null);
@@ -41,6 +43,11 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [photo]);
+
+  useEffect(() => {
+    if (videoRef.current && cameraStream) videoRef.current.srcObject = cameraStream;
+    return () => cameraStream?.getTracks().forEach((track) => track.stop());
+  }, [cameraStream]);
 
   const remaining = Math.max(0, timeLimitSec - elapsedSec);
   const overtime = Math.max(0, elapsedSec - timeLimitSec);
@@ -80,23 +87,53 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
     }
   };
 
-  const preparePhoto = async (source: File | null) => {
-    setReview(null);
-    setError(null);
-    setOriginalPhotoSize(source?.size ?? null);
-    if (!source) {
-      setPhoto(null);
+  const openCamera = async () => {
+    setCameraError(null);
+    setPhoto(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      setCameraStream(stream);
+    } catch (error) {
+      setCameraError(error instanceof Error && error.name === "NotAllowedError"
+        ? "Camera access is needed to take the writing photo. Please allow camera access and try again."
+        : "Could not open the camera. Check that this device has a camera and try again.");
+    }
+  };
+
+  const capturePhoto = async () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      setCameraError("The camera is still starting. Please wait a moment and try again.");
       return;
     }
     setPreparingPhoto(true);
+    setCameraError(null);
     try {
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(1, 2400 / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Camera capture is unavailable.");
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const blob = await canvasToBlob(canvas, 0.9);
+      const source = new File([blob], "writing-page-camera.jpg", { type: "image/jpeg", lastModified: Date.now() });
       setPhoto(await optimiseWritingPhoto(source));
-    } catch {
-      setPhoto(null);
-      setError("Could not prepare this photo. Please take another clear photo in JPEG, PNG, or WebP format.");
+      setCameraStream(null);
+    } catch (error) {
+      setCameraError(error instanceof Error ? error.message : "Could not capture this photo. Please try again.");
     } finally {
       setPreparingPhoto(false);
     }
+  };
+
+  const retakePhoto = async () => {
+    setReview(null);
+    setPhoto(null);
+    await openCamera();
   };
 
   if (review) {
@@ -155,21 +192,15 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
       ) : (
         <>
           <div>
-            <p className="font-bold text-gray-800">Upload the completed page</p>
-            <p className="text-xs text-gray-500">Use a clear, well-lit photo showing the whole handwritten page. Typed, printed, blank, or non-writing uploads will be rejected. The image is analysed, but only the assessment is saved.</p>
+            <p className="font-bold text-gray-800">📸 Take a photo of your finished page</p>
+            <p className="text-xs text-gray-500">Use the camera here to show the whole page in good light. Gallery uploads are turned off. The photo is checked, but only the assessment is saved.</p>
           </div>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            capture="environment"
-            onChange={(event) => void preparePhoto(event.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-green-100 file:px-3 file:py-2 file:font-semibold file:text-green-700"
-          />
+          {!cameraStream && !photo && <button type="button" onClick={() => void openCamera()} className="w-full rounded-xl bg-green-600 py-3 font-bold text-white hover:bg-green-700">Open camera 📷</button>}
+          {cameraStream && <div className="space-y-2"><video ref={videoRef} autoPlay playsInline muted className="max-h-[65vh] w-full rounded-xl border bg-black object-contain" /><div className="flex gap-2"><button type="button" onClick={() => void capturePhoto()} disabled={preparingPhoto} className="flex-1 rounded-xl bg-green-600 py-3 font-bold text-white disabled:opacity-50">{preparingPhoto ? "Preparing photo…" : "Capture page 📸"}</button><button type="button" onClick={() => setCameraStream(null)} className="rounded-xl bg-slate-200 px-4 py-3 font-bold text-slate-700">Close</button></div></div>}
           {preparingPhoto && <p className="text-sm font-semibold text-green-700">Preparing a smaller high-contrast copy…</p>}
-          {photo && originalPhotoSize !== null && (
-            <p className="text-xs text-gray-500">Optimised before upload: {formatBytes(originalPhotoSize)} → {formatBytes(photo.size)} · grayscale JPEG</p>
-          )}
           {previewUrl && <img src={previewUrl} alt="Writing page preview" className="max-h-72 w-full rounded-lg border object-contain" />}
+          {cameraError && <p className="text-sm font-semibold text-red-600">{cameraError}</p>}
+          {photo && <button type="button" onClick={() => void retakePhoto()} className="w-full rounded-lg bg-slate-100 py-2 font-semibold text-slate-700">Retake photo</button>}
           {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
           <button onClick={analysePhoto} disabled={!photo || analysing || preparingPhoto} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold disabled:opacity-50">
             {analysing ? "Verifying handwriting and analysing the work…" : "Verify handwriting & give marks"}
