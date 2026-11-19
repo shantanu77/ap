@@ -16,6 +16,8 @@ const APPROVED_SIMULATIONS = new Set([
   "ph-indicator.v1",
   "mass-balance.v1",
   "force-motion.v1",
+  "gravity-field.v1",
+  "compound-bonding.v1",
   "battery-circuit.v1",
   "cell-explorer.v1",
   "food-chain.v1",
@@ -292,6 +294,7 @@ function genericNode(topic: string, level: StudyLevel, subject: GeniusSubject = 
         ? "patterns, quantities, representations, and step-by-step reasoning"
         : "materials, particles, reactions, and evidence";
   const emoji = subject === "physics" ? "🚀" : subject === "biology" ? "🧬" : subject === "math" ? "➗" : "⚗️";
+  const requiredSimulation = requiredInteractiveSimulation(`${topic} ${subject}`);
   return nodeBase(
     title,
     level,
@@ -311,13 +314,15 @@ function genericNode(topic: string, level: StudyLevel, subject: GeniusSubject = 
         text: `Imagine entering a room after a dramatic event: a chair is overturned, a window is open, and papers are everywhere. You did not see what happened, but the clues let you reconstruct it. In ${topic.toLowerCase()}, observations are the clues and the scientific model must account for every clue.`,
         limit: "Particles do not leave clues intentionally, and a scientific model must make testable predictions—not merely tell a convincing story.",
       },
-      {
-        type: "diagram",
-        diagram: "concept-map",
-        title: `A map of ${topic}`,
-        caption: `The visual connects ${topic.toLowerCase()} to the evidence, particles, and explanation used by chemists.`,
-        labels: [topic, "Visible clues", "Particles involved", "Cause of the change", "Real-life example"],
-      },
+      requiredSimulation
+        ? { type: "simulation", simulation: requiredSimulation[0], title: requiredSimulation[1], prompt: requiredSimulation[2] }
+        : {
+            type: "diagram",
+            diagram: "concept-map",
+            title: `A map of ${topic}`,
+            caption: `The visual connects ${topic.toLowerCase()} to the evidence, particles, and explanation used by scientists.`,
+            labels: [topic, "Visible clues", "Particles involved", "Cause of the change", "Real-life example"],
+          },
       {
         type: "steps",
         title: "Think like a chemist 🧠",
@@ -565,7 +570,44 @@ export function normalizeGeneratedNode(
     ))
     .slice(0, 10) as unknown as GeniusBlock[];
   if (parsedBlocks.length < 2) return fallback;
-  const blocks = ensureVisualBlock(parsedBlocks, stringValue(object.title, fallback.title));
+  const controlledBlocks = parsedBlocks.map((block): GeniusBlock => {
+    if (block.type !== "diagram") return block;
+    const record = block as unknown as Record<string, unknown>;
+    const title = stringValue(record.title, "Explore the main idea");
+    const labels = Array.isArray(record.labels)
+      ? record.labels.filter((label): label is string => typeof label === "string" && Boolean(label.trim())).map((label) => label.trim().slice(0, 70)).slice(0, 6)
+      : [];
+    const interactiveLabels = labels.length >= 3
+      ? labels
+      : [title, ...labels, "Key part", "What changes"].slice(0, 4);
+    const supportedDiagrams = new Set([
+      "rusting", "particle-states", "atom", "dissolving", "reaction", "concept-map",
+      "process", "before-after", "particle-scene", "scale", "coordinate-grid",
+    ]);
+    const diagram = supportedDiagrams.has(String(record.diagram))
+      && !(record.diagram === "coordinate-grid" && !labels.some((label) => /\(-?\d+(?:\.\d+)?,\s*-?\d+(?:\.\d+)?\)/.test(label)))
+      ? block.diagram
+      : "concept-map";
+    return {
+      ...block,
+      diagram,
+      title,
+      caption: stringValue(record.caption, `Select a label to focus on that part of ${title}.`),
+      labels: interactiveLabels,
+    };
+  });
+  const requiredSimulation = requiredInteractiveSimulation(relevanceText);
+  let generatedBlocks = controlledBlocks;
+  if (requiredSimulation) {
+    const [simulation, title, prompt] = requiredSimulation;
+    const hasSimulation = controlledBlocks.some((block) => block.type === "simulation" && block.simulation === simulation);
+    generatedBlocks = controlledBlocks.filter((block) => block.type !== "diagram");
+    if (!hasSimulation) {
+      const block: GeniusBlock = { type: "simulation", simulation, title, prompt };
+      generatedBlocks.splice(Math.min(2, generatedBlocks.length), 0, block);
+    }
+  }
+  const blocks = ensureVisualBlock(generatedBlocks, stringValue(object.title, fallback.title));
 
   const rawChoices = Array.isArray(object.explore_choices)
     ? object.explore_choices
@@ -596,6 +638,20 @@ export function normalizeGeneratedNode(
   };
 }
 
+function requiredInteractiveSimulation(context: string): [Extract<GeniusBlock, { type: "simulation" }>["simulation"], string, string] | null {
+  const text = context.toLowerCase();
+  if (/\b(gravity|gravitation|gravitational|weight on (?:the )?(?:moon|planet))\b/.test(text)) {
+    return ["gravity-field.v1", "Gravity Field Lab", "Change the planet's mass or the object's distance. Watch how the gravitational pull changes."];
+  }
+  if (/\b(compounds?|molecules?|chemical bonds?|elements? combine)\b/.test(text)) {
+    return ["compound-bonding.v1", "Build a Compound", "Change the atom counts, then see whether they can form a molecule."];
+  }
+  if (/\b(motion|force|acceleration|speed|velocity|inertia)\b/.test(text)) {
+    return ["force-motion.v1", "Force and Motion Lab", "Change the force or mass and watch the object's acceleration and motion change."];
+  }
+  return null;
+}
+
 function isSimulationRelevant(simulation: string, context: string): boolean {
   const text = context.toLowerCase();
   const patterns: Record<string, RegExp> = {
@@ -606,6 +662,8 @@ function isSimulationRelevant(simulation: string, context: string): boolean {
     "ph-indicator.v1": /\b(ph|acid|base|alkali|indicator)\b/,
     "mass-balance.v1": /\b(conservation of mass|mass balance|closed container|reaction mass)\b/,
     "force-motion.v1": /\b(force|motion|acceleration|newton|inertia|push|pull|velocity|speed)\b/,
+    "gravity-field.v1": /\b(gravity|gravitation|gravitational|weight on (?:the )?(?:moon|planet))\b/,
+    "compound-bonding.v1": /\b(compounds?|molecules?|chemical bonds?|elements? combine)\b/,
     "battery-circuit.v1": /\b(batter(?:y|ies)|electric cell|voltage|electric circuit|current|bulb)\b/,
     "cell-explorer.v1": /\b(cell|organelle|nucleus|mitochond|membrane|ribosome)\b/,
     "food-chain.v1": /\b(food chain|food web|ecosystem|producer|consumer|predator|energy transfer)\b/,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type { ExtractedGeniusBlock } from "@/components/genius/types";
 
 type SimulationBlock = ExtractedGeniusBlock<"simulation">;
@@ -223,6 +223,57 @@ function ForceMotionSimulation() {
   );
 }
 
+function GravityFieldSimulation() {
+  const id = useId().replace(/:/g, "");
+  const [mass, setMass] = useState(6);
+  const [distance, setDistance] = useState(3);
+  const relativePull = mass / (distance * distance);
+  const arrowLength = Math.max(20, Math.min(150, relativePull * 12));
+  return (
+    <LabShell modelNote="This simplified model shows the direction and relative strength of gravity. It does not calculate a real planet's gravitational field.">
+      <div className="grid sm:grid-cols-[1fr_1fr] gap-5 items-center">
+        <div className="space-y-4 text-sm font-bold">
+          <label className="block">Planet mass: {mass} model units<input aria-label="Planet mass" type="range" min="1" max="10" value={mass} onChange={(event) => setMass(Number(event.target.value))} className="block w-full mt-2 accent-cyan-400" /></label>
+          <label className="block">Object distance: {distance} model units<input aria-label="Object distance" type="range" min="1" max="6" value={distance} onChange={(event) => setDistance(Number(event.target.value))} className="block w-full mt-2 accent-amber-400" /></label>
+          <p aria-live="polite" className="rounded-xl bg-white/10 p-3">Relative pull: {relativePull.toFixed(2)} model units. More mass strengthens gravity; more distance weakens it.</p>
+        </div>
+        <svg viewBox="0 0 360 220" className="w-full rounded-2xl bg-indigo-950" role="img" aria-label={`Planet with mass ${mass} and object at distance ${distance}; gravitational pull ${relativePull.toFixed(2)} model units`}>
+          <defs><marker id={`${id}-gravity-sim-arrow`} markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9z" fill="#facc15" /></marker></defs>
+          <circle cx="92" cy="110" r={35 + mass * 3} fill="#38bdf8" className="transition-all duration-300" />
+          <text x="92" y="115" fill="#082f49" textAnchor="middle" fontWeight="900">PLANET</text>
+          <circle cx={130 + distance * 34} cy="110" r="13" fill="#fb923c" className="transition-all duration-300" /><text x={130 + distance * 34} y="115" textAnchor="middle" fontSize="13">●</text>
+          <line x1={130 + distance * 34 - 18} y1="110" x2={Math.max(132, 130 + distance * 34 - arrowLength)} y2="110" stroke="#facc15" strokeWidth="5" markerEnd={`url(#${id}-gravity-sim-arrow)`} className="transition-all duration-300" />
+          <text x="180" y="195" textAnchor="middle" fill="#bae6fd" fontSize="12">Arrow points toward the planet; length changes with the controls.</text>
+        </svg>
+      </div>
+    </LabShell>
+  );
+}
+
+function CompoundBondingSimulation() {
+  const [hydrogen, setHydrogen] = useState(2);
+  const [oxygen, setOxygen] = useState(1);
+  const [bonded, setBonded] = useState(false);
+  const canFormWater = hydrogen === 2 && oxygen === 1;
+  return (
+    <LabShell modelNote="This simplified model shows atom counts in one water molecule. Atoms are not to scale, and real bonding involves electrons.">
+      <div className="grid sm:grid-cols-[1fr_1.2fr] gap-5 items-center">
+        <div className="space-y-4 text-sm font-bold">
+          <label className="block">Hydrogen atoms: {hydrogen}<input aria-label="Hydrogen atoms" type="range" min="0" max="4" value={hydrogen} onChange={(event) => { setHydrogen(Number(event.target.value)); setBonded(false); }} className="block w-full mt-2 accent-sky-400" /></label>
+          <label className="block">Oxygen atoms: {oxygen}<input aria-label="Oxygen atoms" type="range" min="0" max="3" value={oxygen} onChange={(event) => { setOxygen(Number(event.target.value)); setBonded(false); }} className="block w-full mt-2 accent-rose-400" /></label>
+          <button type="button" onClick={() => setBonded(true)} disabled={!canFormWater} className="rounded-xl bg-cyan-300 px-4 py-2 font-black text-slate-950 disabled:opacity-40">Join atoms</button>
+          <p aria-live="polite" className="rounded-xl bg-white/10 p-3">{!canFormWater ? "Use exactly two hydrogen atoms and one oxygen atom to make water (H₂O)." : bonded ? "These atoms form one water molecule: H₂O." : "The atom count is right for water. Join them to see the molecule."}</p>
+        </div>
+        <div className="rounded-2xl bg-indigo-950 p-5 min-h-48 flex flex-wrap items-center justify-center gap-3" aria-label="Atom and molecule model">
+          {Array.from({ length: hydrogen }, (_, index) => <span key={`h-${index}`} className={`grid place-items-center w-14 h-14 rounded-full bg-sky-400 text-slate-950 font-black transition-all ${bonded && canFormWater ? "ring-4 ring-yellow-300 scale-90" : ""}`}>H</span>)}
+          {Array.from({ length: oxygen }, (_, index) => <span key={`o-${index}`} className={`grid place-items-center w-16 h-16 rounded-full bg-rose-400 text-slate-950 font-black transition-all ${bonded && canFormWater ? "ring-4 ring-yellow-300 scale-90" : ""}`}>O</span>)}
+          {bonded && canFormWater && <span className="basis-full text-center text-xl font-black text-cyan-200">H — O — H</span>}
+        </div>
+      </div>
+    </LabShell>
+  );
+}
+
 function BatteryCircuitSimulation() {
   const [closed, setClosed] = useState(false);
   const [cells, setCells] = useState<1 | 2>(1);
@@ -305,6 +356,8 @@ export default function ChemistrySimulation({ block }: { block: SimulationBlock 
       {block.simulation === "ph-indicator.v1" && <PhSimulation />}
       {block.simulation === "mass-balance.v1" && <MassBalanceSimulation />}
       {block.simulation === "force-motion.v1" && <ForceMotionSimulation />}
+      {block.simulation === "gravity-field.v1" && <GravityFieldSimulation />}
+      {block.simulation === "compound-bonding.v1" && <CompoundBondingSimulation />}
       {block.simulation === "battery-circuit.v1" && <BatteryCircuitSimulation />}
       {block.simulation === "cell-explorer.v1" && <CellExplorerSimulation />}
       {block.simulation === "food-chain.v1" && <FoodChainSimulation />}

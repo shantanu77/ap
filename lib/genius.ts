@@ -56,19 +56,21 @@ Use only these blocks:
 - {"type":"vocabulary","terms":[{"term":"...","definition":"...","example":"..."}]}
 - {"type":"analogy","title":"...","text":"...","limit":"where the analogy stops"}
 - {"type":"diagram","diagram":"rusting|particle-states|atom|dissolving|reaction|concept-map|process|before-after|particle-scene|scale|coordinate-grid","title":"...","caption":"...","labels":["3-6 short, topic-specific labels"]}
-- {"type":"simulation","simulation":"rust-conditions.v1|particle-states.v1|dissolving.v1|atom-builder.v1|ph-indicator.v1|mass-balance.v1|force-motion.v1|battery-circuit.v1|cell-explorer.v1|food-chain.v1","title":"...","prompt":"..."}
+- {"type":"simulation","simulation":"rust-conditions.v1|particle-states.v1|dissolving.v1|atom-builder.v1|ph-indicator.v1|mass-balance.v1|force-motion.v1|gravity-field.v1|compound-bonding.v1|battery-circuit.v1|cell-explorer.v1|food-chain.v1","title":"...","prompt":"..."}
 - {"type":"quick_check","question":"...","options":["..."],"correctIndex":0,"explanation":"..."}
 - {"type":"remember","points":["..."]}
 - {"type":"safety_note","text":"..."}
 - {"type":"math_worked_example","title":"...","problem":"...","steps":[{"label":"Step 1","working":"...","explanation":"why this step is valid"}],"answer":"..."}
 - {"type":"math_practice","title":"...","problem":"...","steps":[{"prompt":"one intermediate question","acceptedAnswers":["exact answer","equivalent answer"],"hint":"specific hint","explanation":"why"}],"finalAnswer":"..."}
 VISUAL RULES:
-- Every safe learning node must include an interactive visual: choose an approved simulation whenever one directly fits;
-  otherwise include a diagram, whose labels become interactive exploration controls in the interface.
+- Every safe learning node must include an interactive visual. For gravity or gravitation use gravity-field.v1; for compounds, molecules, or chemical bonds use compound-bonding.v1; for motion use force-motion.v1.
+- Prefer an approved interactive simulation whenever one fits. Do not substitute a static diagram for one of these topic-specific simulations.
+- If using a diagram, provide 3-6 short labels naming distinct visible parts; selecting a label must visibly highlight that part in the illustration.
 - Prefer an approved simulation over a static diagram when the learner can understand the concept by changing a variable,
   making a prediction, or observing cause and effect. Never invent a simulation ID just to satisfy this preference.
 - Include one diagram unless a simulation already explains the central idea.
 - Use battery-circuit.v1 only for batteries, electric cells, voltage, current, bulbs, or simple circuits. Use force-motion.v1 only for force, mass, acceleration, speed, or motion.
+- Use gravity-field.v1 only for gravity, gravitation, gravitational pull, or weight on another planet. Use compound-bonding.v1 only for compounds, molecules, or chemical bonds.
 - The diagram must explain the exact topic in this node, not decorate it.
 - Use rusting, particle-states, or atom only when that exact scientific model fits.
 - Use dissolving only for a solute separating and spreading through a solvent; soap surrounding grease is a particle-scene.
