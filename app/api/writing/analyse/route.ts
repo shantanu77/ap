@@ -16,6 +16,7 @@ interface VisionResult {
   legibility?: unknown;
   effort?: unknown;
   contentAccuracyScore?: unknown;
+  topicRelevanceScore?: unknown;
   spellingScore?: unknown;
   grammarStructureScore?: unknown;
   legibilityScore?: unknown;
@@ -93,11 +94,11 @@ export async function POST(req: Request) {
 
 First validate the submission. The main answer must be genuine handwriting made with a pen or pencil on paper. Set isHandwritten=false for typed or printed answers, screenshots, text displayed on a screen, blank pages, non-writing images, or handwriting-style fonts. A printed source or page ruling may be visible, but Aashvath's paragraph itself must be handwritten. Do not reject neat handwriting merely because it is consistent. Look for multiple concrete signals such as natural variation in letter shapes, pressure or stroke texture, imperfect baselines, spacing variation, joins, corrections, and interaction with paper lines. State what is actually visible; never invent evidence. submissionType must be one of handwritten, typed_or_printed, blank, non_writing, or uncertain. handwritingConfidence is 0-100.
 
-Only when isHandwritten=true, assess the student's original paragraph against the supplied writing topic. Do not expect exact copying. Use [unclear] rather than inventing an unreadable word. The paragraph may contain up to 100 words.
+Only when isHandwritten=true, assess the student's original paragraph against the supplied writing topic. Do not expect exact copying; give the student the benefit of the doubt when a genuine attempt has a mistaken detail. Identify clearly unrelated writing, deliberate nonsense, or junk text as off-topic. Use [unclear] rather than inventing an unreadable word. Count words in the paragraph and report the count through transcript (do not include the topic in the transcript). Fewer than 70 words is incomplete and requires a rewrite. Score topic relevance from 0 to 10: 0-3 for unrelated/junk or no meaningful response, 4-10 for a relevant attempt. A score below 4 requires a rewrite. Do not treat ordinary factual mistakes or imperfect expression as deliberate junk.
 
-Evaluation priorities are spelling, grammar and sentence structure, punctuation, and legibility. Find every visible mistake in the paragraph, including capitalization, punctuation, agreement, word order, incomplete sentences, and spelling. Do not count the same issue twice. For EACH mistake, quote the exact written fragment, give the exact correction, then explain the applicable rule, why the original is wrong in this sentence, and why the correction works. Never give vague feedback such as "improve grammar". Separate true language mistakes from handwriting that is merely hard to read. Do not demand or recommend a rewrite.
+Evaluation priorities are spelling, grammar and sentence structure, punctuation, legibility, and relevance to the assigned topic. Find every visible mistake in the paragraph, including capitalization, punctuation, agreement, word order, incomplete sentences, and spelling. Do not count the same issue twice. For EACH mistake, quote the exact written fragment, give the exact correction, then explain the applicable rule, why the original is wrong in this sentence, and why the correction works. Never give vague feedback such as "improve grammar". Separate true language mistakes from handwriting that is merely hard to read. Apply the rewrite rules above consistently.
 
-Return JSON only with: isHandwritten:boolean, submissionType:string, handwritingConfidence:integer 0-100, handwritingEvidence:string[], transcript:string preserving line breaks (use [unclear] where necessary), linesWritten:integer, legibility:integer 1-5, effort:integer 1-5, contentAccuracyScore:integer 0-20, spellingScore:integer 0-25, grammarStructureScore:integer 0-30, legibilityScore:integer 0-25, spellingMistakes:array of {written,correction,explanation}, grammarMistakes:array of {written,correction,explanation}, structureFeedback:string[], legibilityFeedback:string[], strengths:string[], summary:string. Legibility feedback must cite specific observed letter formation, spacing, alignment, size consistency, or ambiguous words and explain its reading impact. Scores total 100 before any separate time deduction. Be evidence-based, thorough, and supportive.`
+Return JSON only with: isHandwritten:boolean, submissionType:string, handwritingConfidence:integer 0-100, handwritingEvidence:string[], transcript:string preserving line breaks (use [unclear] where necessary), linesWritten:integer, legibility:integer 1-5, effort:integer 1-5, topicRelevanceScore:integer 0-10, contentAccuracyScore:integer 0-20, spellingScore:integer 0-25, grammarStructureScore:integer 0-30, legibilityScore:integer 0-25, spellingMistakes:array of {written,correction,explanation}, grammarMistakes:array of {written,correction,explanation}, structureFeedback:string[], legibilityFeedback:string[], strengths:string[], summary:string. Legibility feedback must cite specific observed letter formation, spacing, alignment, size consistency, or ambiguous words and explain its reading impact. Scores total 100 before any separate time deduction. Be evidence-based, thorough, and supportive.`
         },
         {
           role: "user",
@@ -135,6 +136,13 @@ Return JSON only with: isHandwritten:boolean, submissionType:string, handwriting
       clamp(result.legibilityScore, 0, 25);
     const overtimeSec = Math.max(0, timeSpentSec - timeLimitSec);
     const timeDeduction = Math.min(20, Math.ceil(overtimeSec / 60));
+    const transcript = String(result.transcript ?? "").trim();
+    const wordCount = transcript.split(/\s+/u).filter(Boolean).length;
+    const topicRelevanceScore = clamp(result.topicRelevanceScore, 0, 10);
+    const rewriteReasons = [
+      ...(wordCount < 70 ? [`Your paragraph has ${wordCount} words; write at least 70 words.`] : []),
+      ...(topicRelevanceScore < 4 ? ["Your writing does not meaningfully answer the topic. Please try again with a relevant paragraph."] : []),
+    ];
     const rating: WritingRating = {
       isHandwritten: true,
       handwritingConfidence,
@@ -143,12 +151,17 @@ Return JSON only with: isHandwritten:boolean, submissionType:string, handwriting
       legibility: clamp(result.legibility, 1, 5) as WritingRating["legibility"],
       effort: clamp(result.effort, 1, 5) as WritingRating["effort"],
       score: Math.max(0, baseScore - timeDeduction),
+      scoreOutOf10: Math.min(topicRelevanceScore, Math.round((Math.max(0, baseScore - timeDeduction) / 10) * 10) / 10),
+      wordCount,
+      topicRelevanceScore,
+      requiresRewrite: rewriteReasons.length > 0,
+      rewriteReason: rewriteReasons.join(" "),
       baseScore,
       timeLimitSec,
       timeSpentSec,
       overtimeSec,
       timeDeduction,
-      transcript: String(result.transcript ?? "").trim(),
+      transcript,
       summary: String(result.summary ?? "Writing assessed from the uploaded page.").trim(),
       spellingMistakes: mistakes(result.spellingMistakes),
       grammarMistakes: mistakes(result.grammarMistakes),

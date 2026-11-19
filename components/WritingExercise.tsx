@@ -113,15 +113,22 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
     setCameraError(null);
     try {
       const canvas = document.createElement("canvas");
-      const scale = Math.min(1, 2400 / Math.max(video.videoWidth, video.videoHeight));
+      // 1800px is enough detail for handwriting while avoiding oversized camera frames.
+      const scale = Math.min(1, 1800 / Math.max(video.videoWidth, video.videoHeight));
       canvas.width = Math.round(video.videoWidth * scale);
       canvas.height = Math.round(video.videoHeight * scale);
       const context = canvas.getContext("2d");
       if (!context) throw new Error("Camera capture is unavailable.");
+      // Use the canvas' native image pipeline instead of a JavaScript pixel loop.
+      context.filter = "grayscale(1) contrast(1.12)";
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const blob = await canvasToBlob(canvas, 0.9);
-      const source = new File([blob], "writing-page-camera.jpg", { type: "image/jpeg", lastModified: Date.now() });
-      setPhoto(await optimiseWritingPhoto(source));
+      let quality = 0.82;
+      let blob = await canvasToBlob(canvas, quality);
+      while (blob.size > 1_500_000 && quality > 0.5) {
+        quality = Math.max(0.5, quality - 0.1);
+        blob = await canvasToBlob(canvas, quality);
+      }
+      setPhoto(new File([blob], "writing-page.jpg", { type: "image/jpeg", lastModified: Date.now() }));
       setCameraStream(null);
     } catch (error) {
       setCameraError(error instanceof Error ? error.message : "Could not capture this photo. Please try again.");
@@ -168,10 +175,18 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
         {review.strengths.length > 0 && (
           <div><p className="text-sm font-bold text-green-700">What went well</p><ul className="list-disc pl-5 text-sm text-gray-600">{review.strengths.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
         )}
-        <p className="text-xs text-gray-500">This score will be saved for progress tracking. There is no rewrite requirement.</p>
-        <button onClick={() => onSave(review, elapsedSec)} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700">
+        <p className={`text-sm ${review.requiresRewrite ? "font-semibold text-red-700" : "text-gray-600"}`}>
+          {review.requiresRewrite
+            ? `Rewrite required: ${review.rewriteReason}`
+            : `Assessment: ${review.scoreOutOf10}/10 · ${review.wordCount} words · topic relevance ${review.topicRelevanceScore}/10.`}
+        </p>
+        {review.requiresRewrite ? (
+          <button onClick={() => { setReview(null); setPhoto(null); setDoneWriting(false); setElapsedSec(0); startedAt.current = Date.now(); }} className="w-full py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700">
+            Rewrite the task ↻
+          </button>
+        ) : <button onClick={() => onSave(review, elapsedSec)} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700">
           Save score &amp; continue →
-        </button>
+        </button>}
       </div>
     );
   }
@@ -209,39 +224,6 @@ export default function WritingExercise({ writing, durationMin, onSave }: Writin
       )}
     </div>
   );
-}
-
-async function optimiseWritingPhoto(source: File): Promise<File> {
-  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
-  const maxDimension = 1800;
-  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) throw new Error("Canvas is unavailable.");
-  context.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-
-  const pixels = context.getImageData(0, 0, width, height);
-  for (let index = 0; index < pixels.data.length; index += 4) {
-    const gray = 0.2126 * pixels.data[index] + 0.7152 * pixels.data[index + 1] + 0.0722 * pixels.data[index + 2];
-    const contrasted = Math.max(0, Math.min(255, (gray - 128) * 1.12 + 128));
-    pixels.data[index] = contrasted;
-    pixels.data[index + 1] = contrasted;
-    pixels.data[index + 2] = contrasted;
-  }
-  context.putImageData(pixels, 0, 0);
-
-  let quality = 0.82;
-  let blob = await canvasToBlob(canvas, quality);
-  while (blob.size > 1_500_000 && quality > 0.5) {
-    quality -= 0.1;
-    blob = await canvasToBlob(canvas, quality);
-  }
-  return new File([blob], "writing-page.jpg", { type: "image/jpeg", lastModified: Date.now() });
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {

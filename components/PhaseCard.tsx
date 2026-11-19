@@ -41,9 +41,12 @@ function WritingResult({ rating }: { rating: Record<string, unknown> }) {
     <div className="mt-3 rounded-lg border border-green-100 bg-white p-3 space-y-2 text-sm">
       <div className="flex justify-between items-center">
         <p className="font-bold text-green-800">Saved writing assessment</p>
-        {score !== null && <span className="rounded-full bg-green-100 px-3 py-1 font-black text-green-800">{score}/100</span>}
+        {typeof rating.scoreOutOf10 === "number"
+          ? <span className="rounded-full bg-green-100 px-3 py-1 font-black text-green-800">{rating.scoreOutOf10}/10</span>
+          : score !== null && <span className="rounded-full bg-green-100 px-3 py-1 font-black text-green-800">{score}/100</span>}
       </div>
       {typeof rating.summary === "string" && <p className="text-gray-600">{rating.summary}</p>}
+      {typeof rating.wordCount === "number" && <p className="text-xs text-gray-500">{rating.wordCount} words · topic relevance {String(rating.topicRelevanceScore ?? "—")}/10</p>}
       <p className="text-xs text-gray-500">Spelling mistakes: {spelling.length} · Grammar &amp; punctuation: {grammar.length}</p>
       {typeof rating.timeDeduction === "number" && rating.timeDeduction > 0 && (
         <p className="text-xs text-amber-700">Time deduction: −{rating.timeDeduction} points</p>

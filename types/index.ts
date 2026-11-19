@@ -117,6 +117,11 @@ export interface WritingRating {
   legibility: 1 | 2 | 3 | 4 | 5;
   effort: 1 | 2 | 3 | 4 | 5;
   score: number;
+  scoreOutOf10: number;
+  wordCount: number;
+  topicRelevanceScore: number;
+  requiresRewrite: boolean;
+  rewriteReason: string;
   baseScore: number;
   timeLimitSec: number;
   timeSpentSec: number;

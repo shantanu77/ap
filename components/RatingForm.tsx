@@ -153,6 +153,7 @@ export default function RatingForm({
           const form = new FormData();
           form.append("audio", new Blob(chunks, { type: recorder.mimeType }), `language-${index + 1}.webm`);
           form.append("sentence", languageSentences[index].sentence);
+          form.append("language", language.type);
           form.append("englishSentence", languageSentences[index].english_sentence);
           form.append("meaning", languageSentences[index].meaning);
           const response = await fetch("/api/language/verify", { method: "POST", body: form });
