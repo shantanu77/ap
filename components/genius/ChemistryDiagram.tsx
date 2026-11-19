@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ExtractedGeniusBlock } from "@/components/genius/types";
 
 type DiagramBlock = ExtractedGeniusBlock<"diagram">;
@@ -127,20 +127,21 @@ function ReactionDiagram() {
   );
 }
 
-function ConceptMap({ labels }: { labels: string[] }) {
+function ConceptMap({ labels, activeIndex, onSelect }: { labels: string[]; activeIndex: number | null; onSelect: (index: number) => void }) {
   const [center = "Chemistry idea", ...branches] = labels;
   const visibleBranches = branches.slice(0, 5);
   return (
-    <div className="relative min-h-72 grid place-items-center py-3" role="img" aria-label={`Concept map: ${labels.join(", ")}`}>
+    <div className="relative min-h-72 grid place-items-center py-3" role="group" aria-label={`Interactive concept map: ${labels.join(", ")}`}>
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 600 300" preserveAspectRatio="none" aria-hidden>
         {visibleBranches.map((_, index) => {
           const angle = (Math.PI * 2 * index) / Math.max(1, visibleBranches.length) - Math.PI / 2;
           const x = 300 + Math.cos(angle) * 215;
           const y = 150 + Math.sin(angle) * 105;
-          return <line key={index} x1="300" y1="150" x2={x} y2={y} stroke="#a78bfa" strokeWidth="3" strokeDasharray="7 6" />;
+          const active = activeIndex === index + 1;
+          return <line key={index} x1="300" y1="150" x2={x} y2={y} stroke={active ? "#7c3aed" : "#a78bfa"} strokeWidth={active ? 7 : 3} strokeDasharray={active ? undefined : "7 6"} className="transition-all duration-300" />;
         })}
       </svg>
-      <div className="relative z-10 rounded-3xl bg-violet-700 text-white p-5 max-w-52 text-center shadow-xl border-4 border-white">
+      <div className={`relative z-10 rounded-3xl text-white p-5 max-w-52 text-center shadow-xl border-4 border-white transition-all duration-300 ${activeIndex === 0 ? "bg-cyan-600 scale-110 ring-4 ring-cyan-200" : "bg-violet-700"}`}>
         <span className="text-2xl">⚗️</span>
         <p className="font-black leading-tight mt-1">{center}</p>
       </div>
@@ -148,16 +149,55 @@ function ConceptMap({ labels }: { labels: string[] }) {
         const angle = (Math.PI * 2 * index) / Math.max(1, visibleBranches.length) - Math.PI / 2;
         const left = 50 + Math.cos(angle) * 38;
         const top = 50 + Math.sin(angle) * 37;
+        const active = activeIndex === index + 1;
         return (
-          <div
+          <button
             key={`${label}-${index}`}
-            className="absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white border-2 border-violet-200 px-3 py-2 text-center text-xs sm:text-sm font-bold text-violet-950 shadow-sm max-w-40"
+            type="button"
+            onClick={() => onSelect(index + 1)}
+            className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 px-3 py-2 text-center text-xs sm:text-sm font-bold shadow-sm max-w-40 transition-all duration-300 ${active ? "bg-cyan-100 border-cyan-500 text-cyan-950 scale-110 ring-2 ring-cyan-200" : "bg-white border-violet-200 text-violet-950"}`}
             style={{ left: `${left}%`, top: `${top}%` }}
           >
             {["👀", "⚛️", "🔍", "🌍", "💡"][index]} {label}
-          </div>
+          </button>
         );
       })}
+    </div>
+  );
+}
+
+function GravityDiagram() {
+  const [mode, setMode] = useState<"drop" | "moon" | "distance">("drop");
+  const id = useId().replace(/:/g, "");
+  const isMoon = mode === "moon";
+  const objectX = mode === "distance" ? 278 : 210;
+  const earthRadius = isMoon ? 46 : 76;
+  const pullLength = mode === "distance" ? 33 : isMoon ? 58 : 95;
+  const description = mode === "drop"
+    ? "Release the object: gravity pulls it toward Earth."
+    : mode === "moon"
+      ? "The Moon has less mass than Earth, so its surface gravity is weaker."
+      : "Move farther away: the gravitational pull becomes weaker.";
+  return (
+    <div className="rounded-3xl bg-slate-950 p-4 sm:p-6 text-white" aria-label="Interactive gravity model">
+      <div className="flex flex-wrap gap-2 justify-center mb-5">
+        <button type="button" onClick={() => setMode("drop")} aria-pressed={mode === "drop"} className={`rounded-full px-4 py-2 text-sm font-black ${mode === "drop" ? "bg-cyan-300 text-slate-950" : "bg-white/10 hover:bg-white/20"}`}>🍎 Drop an object</button>
+        <button type="button" onClick={() => setMode("moon")} aria-pressed={mode === "moon"} className={`rounded-full px-4 py-2 text-sm font-black ${mode === "moon" ? "bg-cyan-300 text-slate-950" : "bg-white/10 hover:bg-white/20"}`}>🌙 Compare with the Moon</button>
+        <button type="button" onClick={() => setMode("distance")} aria-pressed={mode === "distance"} className={`rounded-full px-4 py-2 text-sm font-black ${mode === "distance" ? "bg-cyan-300 text-slate-950" : "bg-white/10 hover:bg-white/20"}`}>↔️ Move farther away</button>
+      </div>
+      <svg viewBox="0 0 420 250" className="w-full h-auto" role="img" aria-label={`${isMoon ? "Moon" : "Earth"} gravity model; ${mode === "distance" ? "object farther away with weaker pull" : "object pulled toward the planet"}`}>
+        <defs><radialGradient id={`${id}-planet`}><stop stopColor={isMoon ? "#cbd5e1" : "#67e8f9"} /><stop offset="1" stopColor={isMoon ? "#475569" : "#1d4ed8"} /></radialGradient><marker id={`${id}-arrow`} markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#fbbf24" /></marker></defs>
+        <ellipse cx="170" cy="145" rx="130" ry="75" fill="none" stroke="#64748b" strokeDasharray="5 7" opacity=".65" />
+        <circle cx="170" cy="145" r={earthRadius} fill={`url(#${id}-planet)`} className="transition-all duration-500" />
+        <text x="170" y="150" textAnchor="middle" fill="#082f49" fontSize="14" fontWeight="900">{isMoon ? "MOON" : "EARTH"}</text>
+        <g className="transition-all duration-500" transform={`translate(${objectX} ${mode === "drop" ? 54 : 80})`}><circle r="17" fill="#fb923c" /><text y="5" textAnchor="middle" fontSize="17">🍎</text></g>
+        <line x1={objectX} y1={mode === "drop" ? 78 : 103} x2={objectX} y2={Math.max(110, 145 - earthRadius)} stroke="#fbbf24" strokeWidth="4" markerEnd={`url(#${id}-arrow)`} className="transition-all duration-500" />
+        <text x="335" y="53" textAnchor="middle" fill="#67e8f9" fontSize="13" fontWeight="800">GRAVITY PULL</text>
+        <line x1="405" y1="68" x2={405 - pullLength} y2="68" stroke="#fbbf24" strokeWidth="6" markerEnd={`url(#${id}-arrow)`} className="transition-all duration-500" />
+        <text x="335" y="103" textAnchor="middle" fill="#cbd5e1" fontSize="12">{mode === "distance" ? "weaker" : isMoon ? "weaker here" : "stronger here"}</text>
+      </svg>
+      <p className="mt-2 rounded-xl bg-white/10 p-3 text-center text-sm font-semibold" aria-live="polite">{description}</p>
+      <p className="mt-2 text-center text-[11px] text-slate-400">Illustration only; arrow length shows relative pull, not a measured value.</p>
     </div>
   );
 }
@@ -270,8 +310,10 @@ function CoordinateGrid({ labels }: { labels: string[] }) {
 
 export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
   const labels = block.labels?.filter(Boolean).slice(0, 7) ?? [];
-  const [activeLabel, setActiveLabel] = useState<string | null>(null);
-  useEffect(() => setActiveLabel(null), [block.title, block.diagram]);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const activeLabel = activeIndex === null ? null : labels[activeIndex] ?? null;
+  const gravityTopic = /gravity/i.test(`${block.title} ${block.caption} ${labels.join(" ")}`);
+  useEffect(() => setActiveIndex(null), [block.title, block.diagram]);
   return (
     <figure className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-4 sm:p-6 overflow-hidden">
       <div className="flex items-center gap-2 mb-4">
@@ -287,21 +329,23 @@ export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
       {block.diagram === "reaction" && (
         labels.length >= 2 ? <ProcessDiagram labels={labels} /> : <ReactionDiagram />
       )}
-      {block.diagram === "concept-map" && <ConceptMap labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
+      {block.diagram === "concept-map" && (gravityTopic
+        ? <GravityDiagram />
+        : <ConceptMap labels={labels.length >= 2 ? labels : [block.title, block.caption]} activeIndex={activeIndex} onSelect={setActiveIndex} />)}
       {block.diagram === "process" && <ProcessDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
       {block.diagram === "before-after" && <BeforeAfterDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} />}
       {block.diagram === "particle-scene" && <ParticleScene labels={labels.length >= 2 ? labels : [block.title, "Surrounding particles"]} />}
       {block.diagram === "scale" && <ScaleDiagram labels={labels.length >= 2 ? labels : ["Low", block.title, "High"]} />}
       {block.diagram === "coordinate-grid" && <CoordinateGrid labels={labels} />}
-      {labels.length > 0 && (
+      {labels.length > 0 && !gravityTopic && (
         <div className="mt-4 rounded-2xl border border-violet-100 bg-white/80 p-3">
-          <p className="text-[11px] font-black uppercase tracking-widest text-violet-700">Tap to explore the illustration</p>
+          <p className="text-[11px] font-black uppercase tracking-widest text-violet-700">Choose a label to highlight it in the illustration</p>
           <div className="flex flex-wrap gap-2 mt-2">
             {labels.map((label) => (
               <button
                 key={label}
                 type="button"
-                onClick={() => setActiveLabel(label)}
+                onClick={() => setActiveIndex(labels.indexOf(label))}
                 className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${activeLabel === label ? "bg-violet-600 text-white shadow" : "bg-violet-100 text-violet-800 hover:bg-violet-200"}`}
               >
                 {label}
