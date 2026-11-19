@@ -26,6 +26,7 @@ export type GeniusBlock =
       title: string;
       caption: string;
       labels?: string[];
+      details?: string[];
     }
   | {
       type: "simulation";

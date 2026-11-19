@@ -550,6 +550,51 @@ function stringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value.trim().slice(0, 1200) : fallback;
 }
 
+function contentText(block: GeniusBlock): string[] {
+  if (block.type === "hero") return [block.hook];
+  if (block.type === "paragraph") return [`${block.heading ? `${block.heading}: ` : ""}${block.text}`];
+  if (block.type === "key_fact") return [`${block.title}: ${block.text}`];
+  if (block.type === "analogy") return [`${block.title}: ${block.text}`, block.limit ?? ""];
+  if (block.type === "steps") return [`${block.title}: ${block.items.map((item) => `${item.title}: ${item.text}`).join(" ")}`];
+  if (block.type === "comparison") return [`${block.title}: ${block.columns.map((column) => `${column.heading}: ${column.text}`).join(" ")}`];
+  if (block.type === "vocabulary") return block.terms.flatMap((term) => [term.term, term.definition, term.example ?? ""]);
+  if (block.type === "simulation") return [block.title, block.prompt];
+  if (block.type === "remember") return block.points;
+  if (block.type === "safety_note") return [block.text];
+  return [];
+}
+
+export function detailsForDiagram(block: Extract<GeniusBlock, { type: "diagram" }>, contextBlocks: GeniusBlock[]): string[] {
+  const labels = block.labels ?? [];
+  const explicit = block.details ?? [];
+  const knowledge = contextBlocks
+    .filter((item) => item !== block && item.type !== "diagram")
+    .flatMap(contentText)
+    .map((text) => text.trim())
+    .filter((text) => text.length > 25);
+  return labels.map((label, index) => {
+    const detail = explicit[index]?.trim();
+    if (detail && detail.length > 25 && detail.toLowerCase() !== label.toLowerCase() && !/look at (?:the )?(?:picture|diagram)|see above/i.test(detail)) return detail;
+
+    const name = label.toLowerCase();
+    let candidates = knowledge;
+    if (/real.?life|everyday|example|connection/.test(name)) {
+      candidates = knowledge.filter((text) => /\b(imagine|everyday|real.life|example|when you|for instance|think of)\b/i.test(text));
+    } else if (/particle|electron|atom|mechanism|how it works/.test(name)) {
+      candidates = knowledge.filter((text) => /\b(particle|electron|atom|force|energy|mechanism|flows?)\b/i.test(text));
+    } else if (/cause|effect|change|why|result|consequence/.test(name)) {
+      candidates = knowledge.filter((text) => /\b(if|because|when|so |therefore|causes?|makes?|turns? into|results? in)\b/i.test(text));
+    } else if (/observe|visible|evidence|notice|what we see/.test(name)) {
+      candidates = knowledge.filter((text) => /\b(see|notice|observe|visible|light|move|flow|change|turns? on|turns? off)\b/i.test(text));
+    } else {
+      const terms = name.split(/[^\p{L}\p{N}]+/u).filter((word) => word.length > 3 && !/^(this|that|with|from|what|when|where|about|main|part|idea|show|focus|understanding)$/i.test(word));
+      if (terms.length) candidates = knowledge.filter((text) => terms.some((term) => text.toLowerCase().includes(term)));
+    }
+    const selected = candidates[0] ?? knowledge[index % Math.max(1, knowledge.length)] ?? `${block.title}: ${block.caption}`;
+    return selected.length > 420 ? `${selected.slice(0, 417).trimEnd()}…` : selected;
+  });
+}
+
 export function normalizeGeneratedNode(
   raw: unknown,
   fallback: GeniusNode,
@@ -588,13 +633,17 @@ export function normalizeGeneratedNode(
       && !(record.diagram === "coordinate-grid" && !labels.some((label) => /\(-?\d+(?:\.\d+)?,\s*-?\d+(?:\.\d+)?\)/.test(label)))
       ? block.diagram
       : "concept-map";
-    return {
+    const normalized = {
       ...block,
       diagram,
       title,
       caption: stringValue(record.caption, `Select a label to focus on that part of ${title}.`),
       labels: interactiveLabels,
+      details: Array.isArray(record.details)
+        ? record.details.filter((detail): detail is string => typeof detail === "string").map((detail) => detail.trim().slice(0, 500))
+        : [],
     };
+    return { ...normalized, details: detailsForDiagram(normalized, parsedBlocks) };
   });
   const requiredSimulation = requiredInteractiveSimulation(relevanceText);
   let generatedBlocks = controlledBlocks;
@@ -646,6 +695,9 @@ function requiredInteractiveSimulation(context: string): [Extract<GeniusBlock, {
   if (/\b(compounds?|molecules?|chemical bonds?|elements? combine)\b/.test(text)) {
     return ["compound-bonding.v1", "Build a Compound", "Change the atom counts, then see whether they can form a molecule."];
   }
+  if (/\b(electrical? circuits?|batter(?:y|ies)|electric current|voltage|bulbs?|circuit components?)\b/.test(text)) {
+    return ["battery-circuit.v1", "Circuit Builder", "Open and close the switch, then compare one cell with two. Watch the bulb and current path respond."];
+  }
   if (/\b(motion|force|acceleration|speed|velocity|inertia)\b/.test(text)) {
     return ["force-motion.v1", "Force and Motion Lab", "Change the force or mass and watch the object's acceleration and motion change."];
   }
@@ -664,7 +716,7 @@ function isSimulationRelevant(simulation: string, context: string): boolean {
     "force-motion.v1": /\b(force|motion|acceleration|newton|inertia|push|pull|velocity|speed)\b/,
     "gravity-field.v1": /\b(gravity|gravitation|gravitational|weight on (?:the )?(?:moon|planet))\b/,
     "compound-bonding.v1": /\b(compounds?|molecules?|chemical bonds?|elements? combine)\b/,
-    "battery-circuit.v1": /\b(batter(?:y|ies)|electric cell|voltage|electric circuit|current|bulb)\b/,
+    "battery-circuit.v1": /\b(batter(?:y|ies)|electric(?:al)? cells?|voltage|electric(?:al)? circuits?|current|bulbs?)\b/,
     "cell-explorer.v1": /\b(cell|organelle|nucleus|mitochond|membrane|ribosome)\b/,
     "food-chain.v1": /\b(food chain|food web|ecosystem|producer|consumer|predator|energy transfer)\b/,
   };

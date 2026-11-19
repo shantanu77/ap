@@ -5,6 +5,7 @@ import ChemistryDiagram from "@/components/genius/ChemistryDiagram";
 import ChemistrySimulation from "@/components/genius/ChemistrySimulation";
 import SpeechPlayer from "@/components/genius/SpeechPlayer";
 import { narrationForNode } from "@/lib/geniusNarration";
+import { detailsForDiagram } from "@/lib/geniusContent";
 import type { GeniusBlock, GeniusNode } from "@/types/genius";
 
 function WorkedExample({ block }: { block: Extract<GeniusBlock, { type: "math_worked_example" }> }) {
@@ -86,7 +87,7 @@ function ReadAloudButton({ node }: { node: GeniusNode }) {
   return <SpeechPlayer text={narrationForNode(node)} label="Listen to explanation" />;
 }
 
-function BlockRenderer({ block }: { block: GeniusBlock }) {
+function BlockRenderer({ block, contextBlocks, topicTitle }: { block: GeniusBlock; contextBlocks: GeniusBlock[]; topicTitle: string }) {
   if (block.type === "hero") {
     return (
       <div className="rounded-3xl bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-600 text-white p-6 sm:p-8 shadow-lg overflow-hidden relative">
@@ -169,7 +170,13 @@ function BlockRenderer({ block }: { block: GeniusBlock }) {
       </section>
     );
   }
-  if (block.type === "diagram") return <ChemistryDiagram block={block} />;
+  if (block.type === "diagram") {
+    const circuitTopic = /\b(electrical? circuits?|batter(?:y|ies)|electric current|voltage|bulbs?|series circuit|parallel circuit)\b/i.test(`${topicTitle} ${block.title} ${block.labels?.join(" ") ?? ""}`);
+    if (circuitTopic) {
+      return <ChemistrySimulation block={{ type: "simulation", simulation: "battery-circuit.v1", title: "Circuit Builder", prompt: "Open and close the switch, then compare one cell with two. Watch the bulb and current path respond." }} />;
+    }
+    return <ChemistryDiagram block={block} details={detailsForDiagram(block, contextBlocks)} />;
+  }
   if (block.type === "simulation") return <ChemistrySimulation block={block} />;
   if (block.type === "math_worked_example") return <WorkedExample block={block} />;
   if (block.type === "math_practice") return <MathPractice block={block} />;
@@ -201,7 +208,7 @@ export default function LessonRenderer({ node }: { node: GeniusNode }) {
         </div>
         <ReadAloudButton node={node} />
       </header>
-      {node.blocks.map((block, index) => <BlockRenderer key={`${block.type}-${index}`} block={block} />)}
+      {node.blocks.map((block, index) => <BlockRenderer key={`${block.type}-${index}`} block={block} contextBlocks={node.blocks} topicTitle={node.title} />)}
     </article>
   );
 }

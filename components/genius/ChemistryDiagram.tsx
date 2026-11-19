@@ -355,7 +355,7 @@ function CoordinateGrid({ labels, activeLabel }: { labels: string[]; activeLabel
   );
 }
 
-export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
+export default function ChemistryDiagram({ block, details = [] }: { block: DiagramBlock; details?: string[] }) {
   const labels = block.labels?.filter(Boolean).slice(0, 7) ?? [];
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const activeLabel = activeIndex === null ? null : labels[activeIndex] ?? null;
@@ -403,7 +403,8 @@ export default function ChemistryDiagram({ block }: { block: DiagramBlock }) {
           </div>
           {activeLabel && (
             <p className="mt-3 rounded-xl bg-cyan-50 p-3 text-sm text-cyan-950" aria-live="polite">
-              <strong>Now focus on “{activeLabel}”.</strong> Find where it appears in the model, then connect it to the caption: {block.caption}
+              <strong className="block">{activeLabel}</strong>
+              <span>{details[activeIndex ?? -1] || block.caption}</span>
             </p>
           )}
         </div>
