@@ -87,7 +87,13 @@ function ReadAloudButton({ node }: { node: GeniusNode }) {
   return <SpeechPlayer text={narrationForNode(node)} label="Listen to explanation" />;
 }
 
-function BlockRenderer({ block, contextBlocks, topicTitle }: { block: GeniusBlock; contextBlocks: GeniusBlock[]; topicTitle: string }) {
+function BlockRenderer({ block, contextBlocks, topicTitle, exploringLabel, onExploreLabel }: {
+  block: GeniusBlock;
+  contextBlocks: GeniusBlock[];
+  topicTitle: string;
+  exploringLabel: string;
+  onExploreLabel?: (label: string, detail: string) => void;
+}) {
   if (block.type === "hero") {
     return (
       <div className="rounded-3xl bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-600 text-white p-6 sm:p-8 shadow-lg overflow-hidden relative">
@@ -175,7 +181,7 @@ function BlockRenderer({ block, contextBlocks, topicTitle }: { block: GeniusBloc
     if (circuitTopic) {
       return <ChemistrySimulation block={{ type: "simulation", simulation: "battery-circuit.v1", title: "Circuit Builder", prompt: "Open and close the switch, then compare one cell with two. Watch the bulb and current path respond." }} />;
     }
-    return <ChemistryDiagram block={block} details={detailsForDiagram(block, contextBlocks)} />;
+    return <ChemistryDiagram block={block} details={detailsForDiagram(block, contextBlocks)} exploringLabel={exploringLabel} onExploreLabel={onExploreLabel} />;
   }
   if (block.type === "simulation") return <ChemistrySimulation block={block} />;
   if (block.type === "math_worked_example") return <WorkedExample block={block} />;
@@ -197,7 +203,15 @@ function BlockRenderer({ block, contextBlocks, topicTitle }: { block: GeniusBloc
   return null;
 }
 
-export default function LessonRenderer({ node }: { node: GeniusNode }) {
+export default function LessonRenderer({
+  node,
+  exploringLabel = "",
+  onExploreLabel,
+}: {
+  node: GeniusNode;
+  exploringLabel?: string;
+  onExploreLabel?: (label: string, detail: string) => void;
+}) {
   return (
     <article className="space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -208,7 +222,7 @@ export default function LessonRenderer({ node }: { node: GeniusNode }) {
         </div>
         <ReadAloudButton node={node} />
       </header>
-      {node.blocks.map((block, index) => <BlockRenderer key={`${block.type}-${index}`} block={block} contextBlocks={node.blocks} topicTitle={node.title} />)}
+      {node.blocks.map((block, index) => <BlockRenderer key={`${block.type}-${index}`} block={block} contextBlocks={node.blocks} topicTitle={node.title} exploringLabel={exploringLabel} onExploreLabel={onExploreLabel} />)}
     </article>
   );
 }

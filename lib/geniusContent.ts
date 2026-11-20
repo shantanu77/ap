@@ -574,14 +574,15 @@ export function detailsForDiagram(block: Extract<GeniusBlock, { type: "diagram" 
     .filter((text) => text.length > 25);
   return labels.map((label, index) => {
     const detail = explicit[index]?.trim();
-    if (detail && detail.length > 25 && detail.toLowerCase() !== label.toLowerCase() && !/look at (?:the )?(?:picture|diagram)|see above/i.test(detail)) return detail;
+    const detailWordCount = detail?.split(/\s+/u).filter(Boolean).length ?? 0;
+    if (detail && detailWordCount >= 45 && detail.toLowerCase() !== label.toLowerCase() && !/look at (?:the )?(?:picture|diagram)|see above/i.test(detail)) return detail;
 
     const name = label.toLowerCase();
     let candidates = knowledge;
     if (/real.?life|everyday|example|connection/.test(name)) {
       candidates = knowledge.filter((text) => /\b(imagine|everyday|real.life|example|when you|for instance|think of)\b/i.test(text));
     } else if (/particle|electron|atom|mechanism|how it works/.test(name)) {
-      candidates = knowledge.filter((text) => /\b(particle|electron|atom|force|energy|mechanism|flows?)\b/i.test(text));
+      candidates = knowledge.filter((text) => /\b(particles?|electrons?|atoms?|force|energy|mechanism|flows?)\b/i.test(text));
     } else if (/cause|effect|change|why|result|consequence/.test(name)) {
       candidates = knowledge.filter((text) => /\b(if|because|when|so |therefore|causes?|makes?|turns? into|results? in)\b/i.test(text));
     } else if (/observe|visible|evidence|notice|what we see/.test(name)) {
@@ -590,8 +591,21 @@ export function detailsForDiagram(block: Extract<GeniusBlock, { type: "diagram" 
       const terms = name.split(/[^\p{L}\p{N}]+/u).filter((word) => word.length > 3 && !/^(this|that|with|from|what|when|where|about|main|part|idea|show|focus|understanding)$/i.test(word));
       if (terms.length) candidates = knowledge.filter((text) => terms.some((term) => text.toLowerCase().includes(term)));
     }
-    const selected = candidates[0] ?? knowledge[index % Math.max(1, knowledge.length)] ?? `${block.title}: ${block.caption}`;
-    return selected.length > 420 ? `${selected.slice(0, 417).trimEnd()}…` : selected;
+    const sources = [...candidates, ...knowledge.filter((text) => !candidates.includes(text))];
+    const chosen: string[] = [];
+    const seen = new Set<string>();
+    let words = 0;
+    for (const source of sources) {
+      const normalized = source.toLowerCase();
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      chosen.push(source);
+      words += source.split(/\s+/u).filter(Boolean).length;
+      if (words >= 70 || chosen.length >= 3) break;
+    }
+    const selected = chosen.join(" ") || `${block.title}: ${block.caption}`;
+    const selectedWords = selected.split(/\s+/u).filter(Boolean);
+    return selectedWords.length > 110 ? `${selectedWords.slice(0, 110).join(" ")}…` : selected;
   });
 }
 

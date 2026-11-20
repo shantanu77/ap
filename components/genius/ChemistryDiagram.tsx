@@ -136,7 +136,7 @@ function ReactionDiagram({ activeIndex }: { activeIndex: number | null }) {
   );
 }
 
-function ConceptMap({ labels, activeIndex, onSelect }: { labels: string[]; activeIndex: number | null; onSelect: (index: number) => void }) {
+function ConceptMap({ labels, activeIndex, disabled = false, onSelect }: { labels: string[]; activeIndex: number | null; disabled?: boolean; onSelect: (index: number) => void }) {
   const [center = "Chemistry idea", ...branches] = labels;
   const visibleBranches = branches.slice(0, 5);
   return (
@@ -164,6 +164,7 @@ function ConceptMap({ labels, activeIndex, onSelect }: { labels: string[]; activ
             key={`${label}-${index}`}
             type="button"
             onClick={() => onSelect(index + 1)}
+            disabled={disabled}
             className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 px-3 py-2 text-center text-xs sm:text-sm font-bold shadow-sm max-w-40 transition-all duration-300 ${active ? "bg-cyan-100 border-cyan-500 text-cyan-950 scale-110 ring-2 ring-cyan-200" : "bg-white border-violet-200 text-violet-950"}`}
             style={{ left: `${left}%`, top: `${top}%` }}
           >
@@ -355,11 +356,25 @@ function CoordinateGrid({ labels, activeLabel }: { labels: string[]; activeLabel
   );
 }
 
-export default function ChemistryDiagram({ block, details = [] }: { block: DiagramBlock; details?: string[] }) {
+export default function ChemistryDiagram({
+  block,
+  details = [],
+  exploringLabel = "",
+  onExploreLabel,
+}: {
+  block: DiagramBlock;
+  details?: string[];
+  exploringLabel?: string;
+  onExploreLabel?: (label: string, detail: string) => void;
+}) {
   const labels = block.labels?.filter(Boolean).slice(0, 7) ?? [];
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const activeLabel = activeIndex === null ? null : labels[activeIndex] ?? null;
   const gravityTopic = /gravity/i.test(`${block.title} ${block.caption} ${labels.join(" ")}`);
+  const selectLabel = (label: string, index: number) => {
+    setActiveIndex(index);
+    onExploreLabel?.(label, details[index] ?? block.caption);
+  };
   useEffect(() => setActiveIndex(null), [block.title, block.diagram]);
   return (
     <figure className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-4 sm:p-6 overflow-hidden">
@@ -378,7 +393,7 @@ export default function ChemistryDiagram({ block, details = [] }: { block: Diagr
       )}
       {block.diagram === "concept-map" && (gravityTopic
         ? <GravityDiagram />
-        : <ConceptMap labels={labels.length >= 2 ? labels : [block.title, block.caption]} activeIndex={activeIndex} onSelect={setActiveIndex} />)}
+        : <ConceptMap labels={labels.length >= 2 ? labels : [block.title, block.caption]} activeIndex={activeIndex} disabled={Boolean(exploringLabel)} onSelect={(index) => selectLabel(labels[index] ?? block.title, index)} />)}
       {block.diagram === "process" && <ProcessDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} activeIndex={activeIndex} activeLabel={activeLabel} />}
       {block.diagram === "before-after" && <BeforeAfterDiagram labels={labels.length >= 2 ? labels : [block.title, block.caption]} activeIndex={activeIndex} />}
       {block.diagram === "particle-scene" && (/compound|molecule|element|chemical bond/i.test(`${block.title} ${labels.join(" ")}`)
@@ -388,14 +403,15 @@ export default function ChemistryDiagram({ block, details = [] }: { block: Diagr
       {block.diagram === "coordinate-grid" && <CoordinateGrid labels={labels} activeLabel={activeLabel} />}
       {labels.length > 0 && !gravityTopic && !(/compound|molecule|element|chemical bond/i.test(`${block.title} ${labels.join(" ")}`) && block.diagram === "particle-scene") && (
         <div className="mt-4 rounded-2xl border border-violet-100 bg-white/80 p-3">
-          <p className="text-[11px] font-black uppercase tracking-widest text-violet-700">Choose a label to highlight it in the illustration</p>
+          <p className="text-[11px] font-black uppercase tracking-widest text-violet-700">Choose a label to open a deeper explanation</p>
           <div className="flex flex-wrap gap-2 mt-2">
             {labels.map((label, index) => (
               <button
                 key={`${label}-${index}`}
                 type="button"
-                onClick={() => setActiveIndex(index)}
-                className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${activeLabel === label ? "bg-violet-600 text-white shadow" : "bg-violet-100 text-violet-800 hover:bg-violet-200"}`}
+                onClick={() => selectLabel(label, index)}
+                disabled={Boolean(exploringLabel)}
+                className={`rounded-full px-3 py-1.5 text-xs font-bold transition disabled:cursor-wait disabled:opacity-60 ${activeLabel === label ? "bg-violet-600 text-white shadow" : "bg-violet-100 text-violet-800 hover:bg-violet-200"}`}
               >
                 {label}
               </button>
@@ -404,7 +420,7 @@ export default function ChemistryDiagram({ block, details = [] }: { block: Diagr
           {activeLabel && (
             <p className="mt-3 rounded-xl bg-cyan-50 p-3 text-sm text-cyan-950" aria-live="polite">
               <strong className="block">{activeLabel}</strong>
-              <span>{details[activeIndex ?? -1] || block.caption}</span>
+              <span>{exploringLabel === `Explore: ${activeLabel}` ? "Building a detailed explanation with examples…" : details[activeIndex ?? -1] || block.caption}</span>
             </p>
           )}
         </div>

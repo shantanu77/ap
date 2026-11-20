@@ -34,7 +34,7 @@ export async function POST(request: Request, context: Context) {
 
     const question = cleanQuestion(body.question);
     const subject = toGeniusSubject(exploration.subject);
-    const label = question || cleanTopic(body.label) || "Explore further";
+    const label = cleanTopic(body.label) || question || "Explore further";
     const intent = question
       ? `Answer this ${subject} question in context: ${question}`
       : cleanTopic(body.intent) || `Explain ${label}`;

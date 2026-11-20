@@ -180,7 +180,14 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
         {nodes.map((node, nodeIndex) => (
           <div key={node.id} id={`node-${node.id}`} ref={nodeIndex === nodes.length - 1 ? newestNodeRef : undefined} className="scroll-mt-40">
             {nodeIndex > 0 && <div className="h-px bg-gradient-to-r from-transparent via-violet-200 to-transparent mb-10" />}
-            <LessonRenderer node={node} />
+            <LessonRenderer
+              node={node}
+              exploringLabel={!saved && action.startsWith("Explore: ") ? action : ""}
+              onExploreLabel={saved ? undefined : (label, detail) => {
+                const question = `Explain ${label} in ${node.title} in more depth. Use this lesson detail as context: ${detail}. Give a thorough Grade 6 explanation of how it works, why it matters, one concrete example, and one common misconception.`;
+                void expand(node, `Explore: ${label}`, question, question);
+              }}
+            />
 
             {!saved && nodeIndex === nodes.length - 1 && (
               <section className="mt-6 rounded-3xl bg-violet-950 text-white p-5 sm:p-6">

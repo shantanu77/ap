@@ -65,7 +65,7 @@ Use only these blocks:
 VISUAL RULES:
 - Every safe learning node must include an interactive visual. For gravity or gravitation use gravity-field.v1; for compounds, molecules, or chemical bonds use compound-bonding.v1; for motion use force-motion.v1; for electrical circuits, batteries, bulbs, or current use battery-circuit.v1.
 - Prefer an approved interactive simulation whenever one fits. Do not substitute a static diagram for one of these topic-specific simulations.
-- If using a diagram, provide 3-6 short labels naming distinct visible parts and a details entry for every label, in the same order. Each detail must reveal useful topic-specific information, a mechanism, or a consequence about that exact part; never repeat the label or use generic directions such as "look at the picture". Selecting a label visibly highlights it and displays its matching detail.
+- If using a diagram, provide 3-6 short labels naming distinct visible parts and a details entry for every label, in the same order. Each detail must be 50-80 words in 3-5 clear sentences: explain the part, how or why it works in this topic, and a concrete consequence or example. Keep every detail specific to its label; never repeat the label, pad with generic facts, or use directions such as "look at the picture". Selecting a label visibly highlights it and displays its matching explanation.
 - Prefer an approved simulation over a static diagram when the learner can understand the concept by changing a variable,
   making a prediction, or observing cause and effect. Never invent a simulation ID just to satisfy this preference.
 - Include one diagram unless a simulation already explains the central idea.
@@ -161,7 +161,7 @@ LEARNER CHOSE/ASKED="${args.label}"
 INTENT="${args.intent}"
 ALREADY VISITED=${JSON.stringify(args.ancestorTitles)}
 Create only the next learning node. Build on earlier ideas without repeating them. Explain simply but thoroughly,
-and make the central idea memorable with a new dramatic, scientifically accurate example.`
+and make the central idea memorable with a new dramatic, scientifically accurate example. Make this a substantial but focused mini-lesson of about 180-280 words across 4-7 blocks. Include 2-3 explanatory paragraphs of roughly 45-75 words each, then a concrete example or analogy, one useful stretch insight, and a short remember list. Explain the mechanism and why it matters for the exact selected idea; correct likely misconceptions. Do not inflate the answer with repeated facts or generic filler.`
     , args.subject);
     return normalizeGeneratedNode(
       raw,
