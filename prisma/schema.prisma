@@ -91,9 +91,10 @@ model GeniusLessonCache {
   canonicalTopic String
   displayTitle   String
   content        Json
+  contentVersion Int      @default(1)
   createdAt      DateTime @default(now())
 
-  @@unique([subject, canonicalTopic])
+  @@unique([subject, canonicalTopic, contentVersion])
   @@map("genius_lesson_cache")
 }
 
@@ -105,6 +106,7 @@ model GeniusDeepDiveCache {
   queryText      String   @db.VarChar(1000)
   embedding      Json
   node           Json
+  contentVersion Int      @default(1)
   createdAt      DateTime @default(now())
 
   @@index([subject, canonicalTopic, studyLevel, createdAt])

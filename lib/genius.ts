@@ -17,6 +17,8 @@ import type {
 } from "@/types/genius";
 import type { GeniusCurriculumResearch } from "@/lib/geniusResearch";
 
+const GENIUS_CACHE_VERSION = 2;
+
 function openAIClient(): OpenAI | null {
   if (!process.env.OPENAI_API_KEY) return null;
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -113,16 +115,45 @@ async function requestGeneratedNode(prompt: string, subject: GeniusSubject, maxT
   return value ? JSON.parse(value) : null;
 }
 
+function generatedNodeWordCount(value: unknown): number {
+  if (!value || typeof value !== "object") return 0;
+  const object = value as Record<string, unknown>;
+  const blocks = Array.isArray(object.blocks) ? object.blocks : [];
+  const visible: string[] = [];
+  const collect = (part: unknown, key = "") => {
+    if (typeof part === "string") {
+      if (!new Set(["type", "emoji", "simulation", "diagram", "id", "level"]).has(key)) visible.push(part);
+      return;
+    }
+    if (Array.isArray(part)) {
+      part.forEach((item) => collect(item, key));
+      return;
+    }
+    if (part && typeof part === "object") {
+      for (const [childKey, child] of Object.entries(part as Record<string, unknown>)) collect(child, childKey);
+    }
+  };
+  blocks.forEach((block) => collect(block));
+  const words = visible.join(" ").match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu);
+  return words?.length ?? 0;
+}
+
 export async function generateIntroduction(topic: string, level: StudyLevel, subject: GeniusSubject = "chemistry", research?: GeniusCurriculumResearch, focus = topic): Promise<GeniusNode> {
   const fallback = createFallbackIntroduction(topic, level, subject);
   if (subject === "chemistry" && isUnsafeChemistryRequest(topic)) return fallback;
 
   try {
-    const raw = await requestGeneratedNode(
-      `STUDY_BAND=Grades 6-8 (learner selected Grade ${level} as a starting point)\nSUBJECT=${subject}\nCHAPTER=${topic}\nSTUDENT_FOCUS=${focus}\nCURRICULUM_RESEARCH=${JSON.stringify(research ?? {})}\nCreate the opening to a comprehensive 500-700 word chapter lesson, not a short answer. Use 8-12 concise, distinct cards so the chapter is detailed but scannable. Answer the exact student focus explicitly near the beginning, then cover related chapter foundations so common questions can be answered from this lesson. Establish Grade 6 foundations, build to Grade 7 reasoning, and include a clearly labelled Grade 8 extension. Cover key subtopics, vocabulary, examples, misconceptions, and a useful visual. If the requested concept exceeds NCERT Grade 8 scope, state that boundary gently and make further depth choice-based.`, subject, 3800
-    );
+    const prompt = `STUDY_BAND=Grades 6-8 (learner selected Grade ${level} as a starting point)\nSUBJECT=${subject}\nCHAPTER=${topic}\nSTUDENT_FOCUS=${focus}\nRESEARCHED_LESSON_PLAN=${JSON.stringify(research ?? {})}\nCreate the opening to a comprehensive chapter lesson of at least 500 useful visible words. Use 8-10 concise, distinct cards so the lesson is detailed but scannable. Answer the exact student focus explicitly near the beginning, then cover related chapter foundations so common questions can be answered from this lesson. Follow the researched lesson plan. Establish Grade 6 foundations, build to Grade 7 reasoning, and include a clearly labelled Grade 8 extension. Cover key subtopics, vocabulary, examples, misconceptions, and a useful visual. If the requested concept exceeds NCERT Grade 8 scope, state that boundary gently and make further depth choice-based. Do not count labels or source metadata toward the minimum.`;
+    let raw = await requestGeneratedNode(prompt, subject, 4200);
+    const initialWords = generatedNodeWordCount(raw);
+    if (research && initialWords < 450) {
+      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft contained only ${initialWords} visible words and was too short. Expand the explanations, examples, and comparisons to at least 500 visible words. Do not add filler or repeat an idea.`, subject, 4600);
+    }
+    const finalWords = generatedNodeWordCount(raw);
+    if (research && finalWords < 400) throw new Error(`The researched chapter draft was too short (${finalWords} words); refusing to cache it.`);
     return normalizeGeneratedNode(raw, fallback, null, "INTRO", level, `${topic} ${subject}`);
   } catch (error) {
+    if (research) throw error;
     console.error("Genius Corner introduction generation failed; using reviewed fallback:", error);
     return fallback;
   }
@@ -151,8 +182,7 @@ export async function generateExpansion(args: {
   if (args.subject === "chemistry" && isUnsafeChemistryRequest(`${args.label} ${args.intent}`)) return fallback;
 
   try {
-    const raw = await requestGeneratedNode(
-      `STUDY_LEVEL=${args.level}
+    const prompt = `STUDY_LEVEL=${args.level}
 SUBJECT=${args.subject}
 TOPIC="${args.topic}"
 CURRICULUM_RESEARCH="${JSON.stringify(args.curriculumResearch ?? {})}"
@@ -160,8 +190,14 @@ CURRENT NODE="${args.parentNode.title}"
 LEARNER CHOSE/ASKED="${args.label}"
 INTENT="${args.intent}"
 ALREADY VISITED=${JSON.stringify(args.ancestorTitles)}
-Create only the next learning node. Interpret the query carefully and answer the exact requested idea first. Build on earlier ideas without repeating them. Match the explicit target level, which may extend beyond Grade 8 when the learner chooses a deep dive, while supplying any essential Grade 6-7 foundation. Use the researched curriculum where relevant and say when the explanation goes beyond NCERT Grade 8. Make this a substantial focused mini-lesson of about 220-350 words across 5-8 blocks. Include 2-3 explanatory paragraphs of roughly 50-85 words, a concrete example or analogy, a misconception correction, a useful visual and concise takeaways. Explain the mechanism and why it matters for this exact question. Avoid repeated facts, generic filler, or inappropriate oversimplification.`
-    , args.subject);
+Create only the next learning node. Interpret the query carefully and answer the exact requested idea first. Build on earlier ideas without repeating them. Match the explicit target level, which may extend beyond Grade 8 when the learner chooses a deep dive, while supplying any essential Grade 6-7 foundation. Use the researched curriculum where relevant and say when the explanation goes beyond NCERT Grade 8. Make this a substantial focused mini-lesson of at least 220 words across 5-8 blocks. Include 2-3 explanatory paragraphs of roughly 50-85 words, a concrete example or analogy, a misconception correction, a useful visual and concise takeaways. Explain the mechanism and why it matters for this exact question. Avoid repeated facts, generic filler, or inappropriate oversimplification.`;
+    let raw = await requestGeneratedNode(prompt, args.subject, 3000);
+    const initialWords = generatedNodeWordCount(raw);
+    if (args.curriculumResearch && initialWords < 210) {
+      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft had only ${initialWords} visible words. Expand the specific explanation and example to at least 220 useful words; do not pad with repetition.`, args.subject, 3400);
+    }
+    const finalWords = generatedNodeWordCount(raw);
+    if (args.curriculumResearch && finalWords < 180) throw new Error(`The researched deep dive was too short (${finalWords} words).`);
     return normalizeGeneratedNode(
       raw,
       fallback,
@@ -171,6 +207,7 @@ Create only the next learning node. Interpret the query carefully and answer the
       `${args.topic} ${args.parentNode.title} ${args.label} ${args.intent} ${args.subject}`
     );
   } catch (error) {
+    if (args.curriculumResearch) throw error;
     console.error("Genius Corner expansion generation failed; using reviewed fallback:", error);
     return fallback;
   }
@@ -246,7 +283,7 @@ export async function findCachedLesson(subject: GeniusSubject, canonicalTopic: s
   const rows = await prisma.$queryRaw<LessonCacheRecord[]>`
     SELECT canonicalTopic, displayTitle, content, createdAt
     FROM genius_lesson_cache
-    WHERE subject = ${subject} AND canonicalTopic = ${canonicalTopic}
+    WHERE subject = ${subject} AND canonicalTopic = ${canonicalTopic} AND contentVersion = ${GENIUS_CACHE_VERSION}
     LIMIT 1
   `;
   return rows[0] ?? null;
@@ -260,8 +297,8 @@ export async function cacheLesson(args: {
 }) {
   await prisma.$executeRaw`
     INSERT IGNORE INTO genius_lesson_cache
-      (id, subject, canonicalTopic, displayTitle, content, createdAt)
-    VALUES (${crypto.randomUUID()}, ${args.subject}, ${args.canonicalTopic}, ${args.displayTitle}, ${JSON.stringify(args.content)}, ${new Date()})
+      (id, subject, canonicalTopic, displayTitle, content, contentVersion, createdAt)
+    VALUES (${crypto.randomUUID()}, ${args.subject}, ${args.canonicalTopic}, ${args.displayTitle}, ${JSON.stringify(args.content)}, ${GENIUS_CACHE_VERSION}, ${new Date()})
   `;
 }
 
@@ -298,7 +335,7 @@ export async function findSimilarDeepDive(args: {
   const rows = await prisma.$queryRaw<DeepDiveCacheRecord[]>`
     SELECT queryText, embedding, node
     FROM genius_deep_dive_cache
-    WHERE subject = ${args.subject} AND canonicalTopic = ${args.canonicalTopic} AND studyLevel = ${args.level}
+    WHERE subject = ${args.subject} AND canonicalTopic = ${args.canonicalTopic} AND studyLevel = ${args.level} AND contentVersion = ${GENIUS_CACHE_VERSION}
     ORDER BY createdAt DESC
     LIMIT 150
   `;
@@ -322,9 +359,9 @@ export async function cacheDeepDive(args: {
 }) {
   await prisma.$executeRaw`
     INSERT INTO genius_deep_dive_cache
-      (id, subject, canonicalTopic, studyLevel, queryText, embedding, node, createdAt)
+      (id, subject, canonicalTopic, studyLevel, queryText, embedding, node, contentVersion, createdAt)
     VALUES (${crypto.randomUUID()}, ${args.subject}, ${args.canonicalTopic}, ${args.level}, ${args.queryText},
-      ${JSON.stringify(args.embedding)}, ${JSON.stringify(args.node)}, ${new Date()})
+      ${JSON.stringify(args.embedding)}, ${JSON.stringify(args.node)}, ${GENIUS_CACHE_VERSION}, ${new Date()})
   `;
 }
 
