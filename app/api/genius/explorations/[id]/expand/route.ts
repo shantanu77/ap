@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import {
   contentFromJson,
+  cacheDeepDive,
+  embedDeepDive,
+  findSimilarDeepDive,
   findExploration,
   generateExpansion,
   toExplorationDTO,
   updateExplorationContent,
 } from "@/lib/genius";
-import { cleanQuestion, cleanTopic, toGeniusSubject, toStudyLevel } from "@/lib/geniusContent";
+import { cleanQuestion, cleanTopic, toDeepDiveLevel, toGeniusSubject, toStudyLevel } from "@/lib/geniusContent";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -38,18 +41,39 @@ export async function POST(request: Request, context: Context) {
     const intent = question
       ? `Answer this ${subject} question in context: ${question}`
       : cleanTopic(body.intent) || `Explain ${label}`;
-    const level = toStudyLevel(body.level ?? exploration.defaultLevel);
-
-    const nextNode = await generateExpansion({
-      topic: exploration.displayTitle,
-      level,
-      parentNode,
-      label,
-      intent,
-      nodeType: question ? "QUESTION" : "READ_MORE",
-      ancestorTitles: content.nodes.map((node) => node.title).slice(-8),
-      subject,
+    const baseLevel = toStudyLevel(body.level ?? exploration.defaultLevel);
+    const level = toDeepDiveLevel(body.level ?? baseLevel, baseLevel);
+    const queryText = `${label}. ${question || intent}`.slice(0, 1000);
+    const embedding = await embedDeepDive(subject, exploration.canonicalTopic, queryText).catch((error) => {
+      console.error("Genius deep-dive embedding failed; generating without cache:", error);
+      return null;
     });
+    const similar = embedding
+      ? await findSimilarDeepDive({ subject, canonicalTopic: exploration.canonicalTopic, level, embedding })
+      : null;
+    const nextNode = similar
+      ? {
+          ...(similar.record.node as Awaited<ReturnType<typeof generateExpansion>>),
+          id: crypto.randomUUID(),
+          parentNodeId: parentNode.id,
+          promptLabel: label,
+          studyLevel: level,
+          createdAt: new Date().toISOString(),
+        }
+      : await generateExpansion({
+          topic: exploration.displayTitle,
+          level,
+          parentNode,
+          label,
+          intent,
+          nodeType: question ? "QUESTION" : "READ_MORE",
+          ancestorTitles: content.nodes.map((node) => node.title).slice(-8),
+          subject,
+          curriculumResearch: content.curriculumResearch,
+        });
+    if (!similar && embedding) {
+      await cacheDeepDive({ subject, canonicalTopic: exploration.canonicalTopic, level, queryText, embedding, node: nextNode });
+    }
     const updatedContent = {
       ...content,
       activeNodeId: nextNode.id,

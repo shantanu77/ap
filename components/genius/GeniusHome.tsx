@@ -71,7 +71,7 @@ export default function GeniusHome() {
 
   useEffect(() => {
     const savedLevel = Number(localStorage.getItem("genius-study-level"));
-    if ([5, 6, 7, 8].includes(savedLevel)) setLevel(savedLevel as StudyLevel);
+    if ([6, 7, 8].includes(savedLevel)) setLevel(savedLevel as StudyLevel);
     fetch("/api/genius/saved")
       .then((response) => response.ok ? response.json() : [])
       .then((items: SavedTopicSummary[]) => setRecent(items.slice(0, 3)))
@@ -113,7 +113,7 @@ export default function GeniusHome() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-6 max-w-xl">
             {(Object.keys(SUBJECTS) as GeniusSubject[]).map((item) => (
-              <button key={item} type="button" onClick={() => { setSubject(item); if (item === "math" && level === 5) setLevel(6); setTopic(""); }} className={`rounded-xl px-3 py-3 text-sm font-black transition ${subject === item ? "bg-cyan-400 text-slate-950" : "bg-white/10 hover:bg-white/20"}`}>
+              <button key={item} type="button" onClick={() => { setSubject(item); setTopic(""); }} className={`rounded-xl px-3 py-3 text-sm font-black transition ${subject === item ? "bg-cyan-400 text-slate-950" : "bg-white/10 hover:bg-white/20"}`}>
                 {SUBJECTS[item].emoji} {SUBJECTS[item].name}
               </button>
             ))}
@@ -130,7 +130,7 @@ export default function GeniusHome() {
 
           <div className="flex flex-wrap items-center gap-2 mt-5">
             <span className="text-xs text-slate-400 mr-1">Study level</span>
-            {((subject === "math" ? [6, 7, 8] : [5, 6, 7, 8]) as StudyLevel[]).map((item) => (
+            {([6, 7, 8] as StudyLevel[]).map((item) => (
               <button key={item} type="button" onClick={() => setLevel(item)} className={`w-10 h-10 rounded-xl text-sm font-black transition ${level === item ? "bg-cyan-400 text-slate-950 scale-105" : "bg-white/10 hover:bg-white/20"}`} aria-pressed={level === item}>
                 {item}
               </button>

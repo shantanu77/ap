@@ -39,7 +39,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
       .finally(() => setLoading(false));
   }, [id, saved]);
 
-  const expand = async (node: GeniusNode, label: string, intent: string, askedQuestion?: string) => {
+  const expand = async (node: GeniusNode, label: string, intent: string, askedQuestion?: string, targetLevel?: StudyLevel) => {
     if (saved || action) return;
     setAction(label);
     setError("");
@@ -52,7 +52,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
           parentNodeId: node.id,
           label,
           intent,
-          level,
+          level: targetLevel ?? level,
           question: askedQuestion,
         }),
       });
@@ -139,7 +139,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
                 <label className="rounded-xl bg-white border border-slate-200 px-2 py-1.5 text-xs text-slate-500">
                   Grade{" "}
                   <select value={level} onChange={(event) => setLevel(Number(event.target.value) as StudyLevel)} className="font-black text-slate-900 bg-transparent">
-                    {(exploration.subject === "math" ? [6, 7, 8] : [5, 6, 7, 8]).map((item) => <option key={item}>{item}</option>)}
+                    {[6, 7, 8].map((item) => <option key={item}>{item}</option>)}
                   </select>
                 </label>
                 <button onClick={saveTopic} disabled={Boolean(action)} className="rounded-xl bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white px-3 py-2 text-xs font-black">
@@ -175,6 +175,18 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
       )}
       {savedNotice && <div className="mb-7 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-900">{savedNotice}</div>}
       {error && <div className="mb-7 rounded-2xl bg-rose-50 border border-rose-200 p-4 text-sm text-rose-900">{error}</div>}
+      {exploration.content.curriculumResearch && (
+        <details className="mb-7 rounded-2xl bg-white border border-slate-200 p-4 text-sm text-slate-700">
+          <summary className="cursor-pointer font-black text-slate-900">📚 Curriculum basis and research sources</summary>
+          <p className="mt-3">{exploration.content.curriculumResearch.summary}</p>
+          <p className="mt-2 text-xs text-slate-500">{exploration.content.curriculumResearch.scopeNote}</p>
+          <ul className="mt-3 list-disc pl-5 space-y-1">
+            {exploration.content.curriculumResearch.sources.map((source) => (
+              <li key={`${source.url}-${source.title}`}><a className="font-bold text-violet-700 underline" href={source.url} target="_blank" rel="noreferrer">{source.title}</a> <span className="text-slate-500">— {source.relevance}</span></li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <div className="space-y-12">
         {nodes.map((node, nodeIndex) => (
@@ -184,7 +196,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
               node={node}
               exploringLabel={!saved && action.startsWith("Explore: ") ? action : ""}
               onExploreLabel={saved ? undefined : (label, detail) => {
-                const question = `Explain ${label} in ${node.title} in more depth. Use this lesson detail as context: ${detail}. Give a thorough Grade 6 explanation of how it works, why it matters, one concrete example, and one common misconception.`;
+                const question = `Explain ${label} in ${node.title} in more depth. Use this lesson detail as context: ${detail}. Build from the Grade 6-7 foundation, add a clear Grade 8 extension, explain why it matters, give one concrete example, and correct one common misconception.`;
                 void expand(node, `Explore: ${label}`, question, question);
               }}
             />
@@ -195,7 +207,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
                 <h3 className="text-xl font-black mt-1">What should we uncover next? 🧠</h3>
                 <div className="grid sm:grid-cols-2 gap-3 mt-4">
                   {node.exploreChoices.map((item) => (
-                    <button key={item.id} onClick={() => expand(node, item.label, item.intent)} disabled={Boolean(action)} className="rounded-2xl bg-white/10 border border-white/10 hover:bg-white/20 disabled:opacity-50 p-4 text-left transition">
+                    <button key={item.id} onClick={() => expand(node, item.label, item.intent, undefined, item.level)} disabled={Boolean(action)} className="rounded-2xl bg-white/10 border border-white/10 hover:bg-white/20 disabled:opacity-50 p-4 text-left transition">
                       <span className="text-2xl">{item.emoji}</span>
                       <span className="block text-sm font-black mt-2">{item.label}</span>
                       {action === item.label && <span className="block text-xs text-cyan-200 mt-1">Growing this idea… ⚛️</span>}

@@ -1,4 +1,4 @@
-export type StudyLevel = 5 | 6 | 7 | 8;
+export type StudyLevel = 6 | 7 | 8 | 9 | 10 | 11 | 12;
 export type GeniusSubject = "chemistry" | "physics" | "biology" | "math";
 
 export type GeniusBlock =
@@ -69,6 +69,7 @@ export interface ExploreChoice {
   emoji: string;
   label: string;
   intent: string;
+  level?: StudyLevel;
 }
 
 export interface GeniusNode {
@@ -88,6 +89,16 @@ export interface GeniusContent {
   schemaVersion: "genius-exploration.v1";
   activeNodeId: string;
   nodes: GeniusNode[];
+  curriculumResearch?: {
+    canonicalTopic: string;
+    resolvedTitle: string;
+    summary: string;
+    grade6to7: string[];
+    grade8Extension: string[];
+    scopeNote: string;
+    sources: Array<{ title: string; url: string; relevance: string }>;
+    researchedAt: string;
+  };
 }
 
 export interface GeniusExplorationDTO {

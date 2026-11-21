@@ -42,7 +42,12 @@ const BLOCK_TYPES = new Set([
 
 export function toStudyLevel(value: unknown): StudyLevel {
   const number = Number(value);
-  return number === 5 || number === 6 || number === 7 || number === 8 ? number : 6;
+  return number === 7 || number === 8 ? number : 6;
+}
+
+export function toDeepDiveLevel(value: unknown, fallback: StudyLevel): StudyLevel {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 6 && number <= 12 ? number as StudyLevel : fallback;
 }
 
 export function cleanTopic(value: unknown): string {
@@ -684,6 +689,9 @@ export function normalizeGeneratedNode(
       emoji: stringValue(item.emoji, "🔍").slice(0, 4),
       label: stringValue(item.label, "Explore further").slice(0, 100),
       intent: stringValue(item.intent, "Explain this idea more deeply.").slice(0, 300),
+      ...(Number.isInteger(Number(item.level)) && Number(item.level) >= 6 && Number(item.level) <= 12
+        ? { level: Number(item.level) as StudyLevel }
+        : {}),
     }))
     .slice(0, 4);
 
@@ -737,11 +745,12 @@ function isSimulationRelevant(simulation: string, context: string): boolean {
   return patterns[simulation]?.test(text) ?? false;
 }
 
-export function createContent(introduction: GeniusNode): GeniusContent {
+export function createContent(introduction: GeniusNode, curriculumResearch?: GeniusContent["curriculumResearch"]): GeniusContent {
   return {
     schemaVersion: "genius-exploration.v1",
     activeNodeId: introduction.id,
     nodes: [introduction],
+    ...(curriculumResearch ? { curriculumResearch } : {}),
   };
 }
 

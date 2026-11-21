@@ -15,6 +15,7 @@ import type {
   GeniusSubject,
   StudyLevel,
 } from "@/types/genius";
+import type { GeniusCurriculumResearch } from "@/lib/geniusResearch";
 
 function openAIClient(): OpenAI | null {
   if (!process.env.OPENAI_API_KEY) return null;
@@ -31,7 +32,7 @@ function contentRules(subject: GeniusSubject): string {
         ? "Teach NCERT-aligned mathematics for the selected grade. Explain why each method works, not only the rule. Use exact mathematical notation in plain text, verify every calculation, and distinguish the reasoning step from the arithmetic step."
         : "Connect observations to particles, substances, energy, and reactions as appropriate.";
   return `Return one child-friendly ${subjectName} learning node as strict JSON.
-The learner is Aashvath. Adapt precisely to Grade STUDY_LEVEL (between 5 and 8).
+The learner is Aashvath. Teach a Grade 6-8 band: establish Grade 6 foundations, build them into Grade 7 understanding, and add a clearly labelled Grade 8 extension. A student's selected grade is a starting point, not a reason to omit the rest of the core chapter.
 Never return Markdown, HTML, URLs, or JavaScript. Keep paragraphs short and use relevant emoji.
 ${modelGuidance} Define new vocabulary. Do not encourage tasting, direct smelling,
 mixing cleaners, flames, sealed reactions, strong chemicals, drug synthesis, explosives, or unsupervised experiments.
@@ -43,8 +44,8 @@ TEACHING RULES:
   contrast, or an everyday story a child can picture. Make it memorable without using fear, gore, or a false claim.
 - Put that memory scene in an analogy or paragraph block. If it is an analogy, the limit must precisely explain where
   the comparison stops being scientifically accurate; never return placeholder text such as "where the analogy stops".
-- Include one clearly scaffolded stretch insight that goes 1-2 grades beyond STUDY_LEVEL. Explain it in familiar words
-  so the learner exceeds grade expectations without being overwhelmed.
+- Include a clearly marked "Grade 8 extension" without replacing the Grade 6-7 foundation.
+- If the requested idea goes beyond Grade 8 curriculum, label it as an optional advanced extension and state the boundary honestly.
 - Prefer concrete examples over generic statements. Explain every technical word when it first appears.
 - Finish with 2-4 concise remember points that capture the causal idea, the memory scene, and the stretch insight.
 Use only these blocks:
@@ -88,12 +89,12 @@ MATH RULES:
 - Check all arithmetic internally before returning JSON. Never reveal the practice final answer before its steps are attempted.
 Return:
 {"title":"...","estimated_read_minutes":3,"blocks":[...],"explore_choices":[
-{"id":"short-kebab-id","emoji":"...","label":"specific next question","intent":"precise generation intent"}
+{"id":"short-kebab-id","emoji":"...","label":"specific next question","intent":"precise generation intent","level":6}
 ]}
-Include 4-7 blocks and 2-4 specific explore choices.`;
+For an INTRO chapter, create 8-10 concise, distinct blocks and aim for 500-700 useful words across the lesson. For an expansion, create 5-8 blocks and aim for 220-350 useful words. Do not count diagram label details as a substitute for the visible explanation. Include 2-4 specific explore choices. The level is the learner's requested depth (6-8 for the core band, or 9-12 for an optional advanced deep dive). Include at least one clearly optional advanced deep-dive choice when useful, set its level to 9-12, and keep that material out of the required Grade 6-8 lesson.`;
 }
 
-async function requestGeneratedNode(prompt: string, subject: GeniusSubject): Promise<unknown> {
+async function requestGeneratedNode(prompt: string, subject: GeniusSubject, maxTokens = 3000): Promise<unknown> {
   const client = openAIClient();
   if (!client) return null;
 
@@ -104,7 +105,7 @@ async function requestGeneratedNode(prompt: string, subject: GeniusSubject): Pro
       { role: "user", content: prompt },
     ],
     temperature: 0.65,
-    max_tokens: 2200,
+    max_tokens: maxTokens,
     response_format: { type: "json_object" },
   });
 
@@ -112,16 +113,13 @@ async function requestGeneratedNode(prompt: string, subject: GeniusSubject): Pro
   return value ? JSON.parse(value) : null;
 }
 
-export async function generateIntroduction(topic: string, level: StudyLevel, subject: GeniusSubject = "chemistry"): Promise<GeniusNode> {
+export async function generateIntroduction(topic: string, level: StudyLevel, subject: GeniusSubject = "chemistry", research?: GeniusCurriculumResearch, focus = topic): Promise<GeniusNode> {
   const fallback = createFallbackIntroduction(topic, level, subject);
   if (subject === "chemistry" && isUnsafeChemistryRequest(topic)) return fallback;
 
   try {
     const raw = await requestGeneratedNode(
-      `STUDY_LEVEL=${level}\nSUBJECT=${subject}\nCreate the introduction to this ${subject} topic: "${topic}".
-Start with a surprising hook, a simple explanation, an everyday connection, one useful visual block,
-a vivid dramatic memory scene, one carefully explained stretch insight beyond Grade ${level},
-a remember block, and specific directions for Read More. Prefer an interactive simulation when an approved simulation directly fits.`, subject
+      `STUDY_BAND=Grades 6-8 (learner selected Grade ${level} as a starting point)\nSUBJECT=${subject}\nCHAPTER=${topic}\nSTUDENT_FOCUS=${focus}\nCURRICULUM_RESEARCH=${JSON.stringify(research ?? {})}\nCreate the opening to a comprehensive 500-700 word chapter lesson, not a short answer. Use 8-12 concise, distinct cards so the chapter is detailed but scannable. Answer the exact student focus explicitly near the beginning, then cover related chapter foundations so common questions can be answered from this lesson. Establish Grade 6 foundations, build to Grade 7 reasoning, and include a clearly labelled Grade 8 extension. Cover key subtopics, vocabulary, examples, misconceptions, and a useful visual. If the requested concept exceeds NCERT Grade 8 scope, state that boundary gently and make further depth choice-based.`, subject, 3800
     );
     return normalizeGeneratedNode(raw, fallback, null, "INTRO", level, `${topic} ${subject}`);
   } catch (error) {
@@ -139,6 +137,7 @@ export async function generateExpansion(args: {
   nodeType?: GeniusNode["nodeType"];
   ancestorTitles: string[];
   subject: GeniusSubject;
+  curriculumResearch?: GeniusCurriculumResearch;
 }): Promise<GeniusNode> {
   const fallback = createFallbackExpansion({
     topic: args.topic,
@@ -156,12 +155,12 @@ export async function generateExpansion(args: {
       `STUDY_LEVEL=${args.level}
 SUBJECT=${args.subject}
 TOPIC="${args.topic}"
+CURRICULUM_RESEARCH="${JSON.stringify(args.curriculumResearch ?? {})}"
 CURRENT NODE="${args.parentNode.title}"
 LEARNER CHOSE/ASKED="${args.label}"
 INTENT="${args.intent}"
 ALREADY VISITED=${JSON.stringify(args.ancestorTitles)}
-Create only the next learning node. Build on earlier ideas without repeating them. Explain simply but thoroughly,
-and make the central idea memorable with a new dramatic, scientifically accurate example. Make this a substantial but focused mini-lesson of about 180-280 words across 4-7 blocks. Include 2-3 explanatory paragraphs of roughly 45-75 words each, then a concrete example or analogy, one useful stretch insight, and a short remember list. Explain the mechanism and why it matters for the exact selected idea; correct likely misconceptions. Do not inflate the answer with repeated facts or generic filler.`
+Create only the next learning node. Interpret the query carefully and answer the exact requested idea first. Build on earlier ideas without repeating them. Match the explicit target level, which may extend beyond Grade 8 when the learner chooses a deep dive, while supplying any essential Grade 6-7 foundation. Use the researched curriculum where relevant and say when the explanation goes beyond NCERT Grade 8. Make this a substantial focused mini-lesson of about 220-350 words across 5-8 blocks. Include 2-3 explanatory paragraphs of roughly 50-85 words, a concrete example or analogy, a misconception correction, a useful visual and concise takeaways. Explain the mechanism and why it matters for this exact question. Avoid repeated facts, generic filler, or inappropriate oversimplification.`
     , args.subject);
     return normalizeGeneratedNode(
       raw,
@@ -211,7 +210,7 @@ export function toExplorationDTO(record: GeniusExplorationRecord): GeniusExplora
     subject: record.subject === "physics" || record.subject === "biology" || record.subject === "math" ? record.subject : "chemistry",
     canonicalTopic: record.canonicalTopic,
     displayTitle: record.displayTitle,
-    defaultLevel: (record.defaultLevel >= 5 && record.defaultLevel <= 8
+    defaultLevel: (record.defaultLevel >= 6 && record.defaultLevel <= 8
       ? record.defaultLevel
       : 6) as StudyLevel,
     content: contentFromJson(record.content),
@@ -232,6 +231,101 @@ export async function findExploration(id: string) {
     LIMIT 1
   `;
   return records[0] ?? null;
+}
+
+type LessonCacheRecord = {
+  canonicalTopic: string;
+  displayTitle: string;
+  content: unknown;
+  createdAt: Date;
+};
+
+type DeepDiveCacheRecord = { queryText: string; embedding: unknown; node: unknown };
+
+export async function findCachedLesson(subject: GeniusSubject, canonicalTopic: string) {
+  const rows = await prisma.$queryRaw<LessonCacheRecord[]>`
+    SELECT canonicalTopic, displayTitle, content, createdAt
+    FROM genius_lesson_cache
+    WHERE subject = ${subject} AND canonicalTopic = ${canonicalTopic}
+    LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function cacheLesson(args: {
+  subject: GeniusSubject;
+  canonicalTopic: string;
+  displayTitle: string;
+  content: GeniusContent;
+}) {
+  await prisma.$executeRaw`
+    INSERT IGNORE INTO genius_lesson_cache
+      (id, subject, canonicalTopic, displayTitle, content, createdAt)
+    VALUES (${crypto.randomUUID()}, ${args.subject}, ${args.canonicalTopic}, ${args.displayTitle}, ${JSON.stringify(args.content)}, ${new Date()})
+  `;
+}
+
+export async function embedDeepDive(subject: GeniusSubject, canonicalTopic: string, query: string): Promise<number[] | null> {
+  const client = openAIClient();
+  if (!client) return null;
+  const response = await client.embeddings.create({
+    model: process.env.GENIUS_EMBEDDING_MODEL || "text-embedding-3-small",
+    input: `${subject} | ${canonicalTopic} | ${query}`.slice(0, 2000),
+  });
+  return response.data[0]?.embedding ?? null;
+}
+
+function cosineSimilarity(left: number[], right: number[]): number {
+  if (!left.length || left.length !== right.length) return 0;
+  let dot = 0;
+  let leftSize = 0;
+  let rightSize = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    dot += left[index] * right[index];
+    leftSize += left[index] ** 2;
+    rightSize += right[index] ** 2;
+  }
+  return leftSize && rightSize ? dot / Math.sqrt(leftSize * rightSize) : 0;
+}
+
+export async function findSimilarDeepDive(args: {
+  subject: GeniusSubject;
+  canonicalTopic: string;
+  level: StudyLevel;
+  embedding: number[];
+  threshold?: number;
+}) {
+  const rows = await prisma.$queryRaw<DeepDiveCacheRecord[]>`
+    SELECT queryText, embedding, node
+    FROM genius_deep_dive_cache
+    WHERE subject = ${args.subject} AND canonicalTopic = ${args.canonicalTopic} AND studyLevel = ${args.level}
+    ORDER BY createdAt DESC
+    LIMIT 150
+  `;
+  const threshold = args.threshold ?? Number(process.env.GENIUS_DEEP_DIVE_SIMILARITY || 0.9);
+  let best: { record: DeepDiveCacheRecord; score: number } | null = null;
+  for (const record of rows) {
+    const candidate = Array.isArray(record.embedding) ? record.embedding.map(Number) : [];
+    const score = cosineSimilarity(args.embedding, candidate);
+    if (score >= threshold && (!best || score > best.score)) best = { record, score };
+  }
+  return best;
+}
+
+export async function cacheDeepDive(args: {
+  subject: GeniusSubject;
+  canonicalTopic: string;
+  level: StudyLevel;
+  queryText: string;
+  embedding: number[];
+  node: GeniusNode;
+}) {
+  await prisma.$executeRaw`
+    INSERT INTO genius_deep_dive_cache
+      (id, subject, canonicalTopic, studyLevel, queryText, embedding, node, createdAt)
+    VALUES (${crypto.randomUUID()}, ${args.subject}, ${args.canonicalTopic}, ${args.level}, ${args.queryText},
+      ${JSON.stringify(args.embedding)}, ${JSON.stringify(args.node)}, ${new Date()})
+  `;
 }
 
 export async function createExplorationRecord(args: {

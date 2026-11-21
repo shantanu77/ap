@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       subject: toGeniusSubject(record.subject),
       canonicalTopic: record.canonicalTopic,
       displayTitle: record.displayTitle,
-      defaultLevel: (record.defaultLevel >= 5 && record.defaultLevel <= 8 ? record.defaultLevel : 6) as 5 | 6 | 7 | 8,
+      defaultLevel: (record.defaultLevel >= 6 && record.defaultLevel <= 8 ? record.defaultLevel : 6) as 6 | 7 | 8,
       nodeCount: content.nodes.length,
       savedAt: record.savedAt.toISOString(),
       lastOpenedAt: record.lastOpenedAt.toISOString(),

@@ -85,6 +85,32 @@ model GeniusExploration {
   @@map("genius_explorations")
 }
 
+model GeniusLessonCache {
+  id             String   @id
+  subject        String
+  canonicalTopic String
+  displayTitle   String
+  content        Json
+  createdAt      DateTime @default(now())
+
+  @@unique([subject, canonicalTopic])
+  @@map("genius_lesson_cache")
+}
+
+model GeniusDeepDiveCache {
+  id             String   @id
+  subject        String
+  canonicalTopic String
+  studyLevel     Int
+  queryText      String   @db.VarChar(1000)
+  embedding      Json
+  node           Json
+  createdAt      DateTime @default(now())
+
+  @@index([subject, canonicalTopic, studyLevel, createdAt])
+  @@map("genius_deep_dive_cache")
+}
+
 model BoardSettings {
   id               String   @id @default("board")
   activeDays       Json
