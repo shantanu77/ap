@@ -4,13 +4,42 @@ import { useEffect, useState } from "react";
 
 type NarrationStatus = "idle" | "speaking" | "paused";
 
+function preferredEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const englishVoices = voices.filter((voice) => /^en(?:-|$)/i.test(voice.lang));
+  if (englishVoices.length === 0) return null;
+
+  const score = (voice: SpeechSynthesisVoice) => {
+    const language = voice.lang.toLowerCase().replaceAll("_", "-");
+    const name = voice.name.toLowerCase();
+    let value = language === "en-in" ? 1000 : 300;
+    if (/neural|natural|premium|online/.test(name)) value += 100;
+    if (/google|microsoft/.test(name)) value += 20;
+    if (!voice.localService) value += 10;
+    if (voice.default) value += 1;
+    return value;
+  };
+
+  return englishVoices.sort((first, second) => score(second) - score(first))[0];
+}
+
 export default function SpeechPlayer({ text, label = "Listen to explanation" }: { text: string; label?: string }) {
   const [status, setStatus] = useState<NarrationStatus>("idle");
   const [supported, setSupported] = useState(true);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
-    setSupported("speechSynthesis" in window && "SpeechSynthesisUtterance" in window);
-    return () => window.speechSynthesis?.cancel();
+    const available = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+    setSupported(available);
+    if (!available) return;
+
+    const synthesis = window.speechSynthesis;
+    const updateVoices = () => setVoices(synthesis.getVoices());
+    updateVoices();
+    synthesis.addEventListener("voiceschanged", updateVoices);
+    return () => {
+      synthesis.removeEventListener("voiceschanged", updateVoices);
+      synthesis.cancel();
+    };
   }, [text]);
 
   const start = () => {
@@ -20,6 +49,13 @@ export default function SpeechPlayer({ text, label = "Listen to explanation" }: 
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
+    const availableVoices = window.speechSynthesis.getVoices();
+    const selectedVoice = preferredEnglishVoice(availableVoices.length ? availableVoices : voices);
+    if (selectedVoice) utterance.voice = selectedVoice;
+    else {
+      // With no English voice installed, explicitly retain the browser's default.
+      utterance.voice = availableVoices.find((voice) => voice.default) ?? null;
+    }
     utterance.rate = 0.92;
     utterance.pitch = 1;
     utterance.onend = () => setStatus("idle");
