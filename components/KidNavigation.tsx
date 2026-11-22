@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { todayString } from "@/lib/utils";
 
 type Profile = { name: string; emoji: string };
 
@@ -27,13 +28,13 @@ export default function KidNavigation() {
 
   return (
     <nav className="bg-indigo-700 text-white px-3 sm:px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-md">
-      <Link href="/" className="flex min-w-0 items-center gap-2 font-bold text-lg">
+      <Link href={`/session/${todayString()}`} className="flex min-w-0 items-center gap-2 font-bold text-lg">
         <span>{profile?.emoji ?? "⭐"}</span>
         <span className="hidden sm:inline max-w-36 truncate">{profile?.name ?? "AllShare"}</span>
         <span className="text-indigo-300 text-sm font-normal hidden sm:inline">· Learning Companion</span>
       </Link>
       <div className="flex items-center gap-0.5 sm:gap-1 text-sm overflow-x-auto">
-        <Link href="/" className="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition-colors">📅 <span className="hidden md:inline">Today</span></Link>
+        <Link href={`/session/${todayString()}`} className="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition-colors">📅 <span className="hidden md:inline">Today</span></Link>
         <Link href="/genius-corner" className="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition-colors whitespace-nowrap">🧠 <span className="hidden md:inline">Genius Corner</span></Link>
         <Link href="/genius-corner/saved" className="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition-colors whitespace-nowrap">🔖 <span className="hidden md:inline">Saved Topics</span></Link>
         <Link href="/history" className="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition-colors">📜 <span className="hidden md:inline">History</span></Link>

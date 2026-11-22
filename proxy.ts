@@ -10,7 +10,7 @@ const publicApiPaths = new Set([
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (pathname === "/login" || pathname.startsWith("/login/") || publicApiPaths.has(pathname)) {
+  if (pathname === "/" || pathname === "/login" || pathname.startsWith("/login/") || publicApiPaths.has(pathname)) {
     return NextResponse.next();
   }
 
