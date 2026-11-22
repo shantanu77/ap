@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { KID_AVATARS } from "@/lib/kidProfile";
 import { todayString } from "@/lib/utils";
 import type { StudyLevel } from "@/types/genius";
@@ -9,9 +9,8 @@ import type { StudyLevel } from "@/types/genius";
 type Mode = "signin" | "register";
 type Stage = "details" | "code";
 
-export default function LoginForm() {
+export default function LoginForm({ nextPath }: { nextPath?: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("signin");
   const [stage, setStage] = useState<Stage>("details");
   const [name, setName] = useState("");
@@ -71,7 +70,7 @@ export default function LoginForm() {
       }
       if (!response.ok) throw new Error(data.error || "That code did not work.");
       localStorage.setItem("genius-study-level", String(data.profile.grade));
-      const next = searchParams.get("next") || `/session/${todayString()}`;
+      const next = nextPath || `/session/${todayString()}`;
       router.replace(next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : `/session/${todayString()}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "That code did not work.");

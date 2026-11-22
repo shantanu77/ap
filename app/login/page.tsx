@@ -1,10 +1,11 @@
-import { Suspense } from "react";
 import LoginForm from "@/app/login/LoginForm";
 
 export const metadata = {
-  title: "Sign in · AllShare Learning Companion",
+  title: "Sign in · BrightKids.Space",
 };
 
-export default function LoginPage() {
-  return <Suspense fallback={<div className="p-12 text-center text-slate-500">Opening your sign-in…</div>}><LoginForm /></Suspense>;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
+  const params = await searchParams;
+  const nextPath = Array.isArray(params.next) ? params.next[0] : params.next;
+  return <LoginForm nextPath={nextPath} />;
 }
