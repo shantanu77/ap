@@ -18,8 +18,8 @@ import type {
 } from "@/types/genius";
 import type { GeniusCurriculumResearch } from "@/lib/geniusResearch";
 
-const GENIUS_LESSON_CACHE_VERSION = 4;
-const GENIUS_DEEP_DIVE_CACHE_VERSION = 5;
+const GENIUS_LESSON_CACHE_VERSION = 5;
+const GENIUS_DEEP_DIVE_CACHE_VERSION = 6;
 
 function openAIClient(): OpenAI | null {
   if (!process.env.OPENAI_API_KEY) return null;
@@ -33,11 +33,12 @@ function contentRules(subject: GeniusSubject): string {
     : subject === "biology"
       ? "Connect visible traits and processes to cells, organs, body systems, ecosystems, inheritance, or evolution as appropriate. Explain structure and function without giving medical diagnosis or treatment."
       : subject === "math"
-        ? "Teach NCERT-aligned mathematics for the selected grade. Explain why each method works, not only the rule. Use exact mathematical notation in plain text, verify every calculation, and distinguish the reasoning step from the arithmetic step."
+        ? "Teach NCERT-aligned mathematics for the selected grade. Explain why each method works, not only the rule. Use LaTeX notation for mathematical expressions, verify every calculation, and distinguish the reasoning step from the arithmetic step."
         : "Connect observations to particles, substances, energy, and reactions as appropriate.";
   return `Return one child-friendly ${subjectName} learning node as strict JSON.
 The learner is Aashvath. Teach a Grade 6-8 band: establish Grade 6 foundations, build them into Grade 7 understanding, and add a clearly labelled Grade 8 extension. A student's selected grade is a starting point, not a reason to omit the rest of the core chapter.
 Never return Markdown, HTML, URLs, or JavaScript. Keep paragraphs short and use relevant emoji.
+NOTATION RULES: Use LaTeX delimiters for every mathematical expression that benefits from typesetting: inline as \\( ... \\), displayed on its own line as \\[ ... \\]. Write fractions with \\frac{numerator}{denominator}, powers with ^{...}, roots with \\sqrt{...}, and equations with standard LaTeX. For chemical formulae and reactions use mhchem inside math delimiters, for example \\(\\ce{H2O}\\), \\[\\ce{2H2 + O2 -> 2H2O}\\]. Use this for formulas in Math, Chemistry, Physics, and Biology. In strict JSON, escape each LaTeX backslash as \\\\ in the serialized JSON string. Do not use Unicode approximations when a clear formula is appropriate.
 ${modelGuidance} Define new vocabulary. Do not encourage tasting, direct smelling,
 mixing cleaners, flames, sealed reactions, strong chemicals, drug synthesis, explosives, or unsupervised experiments.
 For Physics, avoid mains electricity, dangerous projectiles, lasers, heights, fire, or high-pressure builds.
@@ -136,7 +137,7 @@ async function requestSupplementalParagraphs(args: {
     messages: [
       {
         role: "system",
-        content: `You expand a child-safe, research-grounded ${args.subject} lesson for Grades 6-8. Return strict JSON with a blocks array containing exactly two supported paragraph blocks {type:"paragraph",heading:"...",text:"..."}. Each paragraph should be 100-160 words, add a distinct missing lesson-plan section, and avoid repeating any existing section. Keep vocabulary defined, explanations scientifically correct, and any beyond-Grade-8 idea clearly labelled as an extension. No Markdown, HTML, URLs, experiments, or unsafe directions.`,
+        content: `You expand a child-safe, research-grounded ${args.subject} lesson for Grades 6-8. Return strict JSON with a blocks array containing exactly two supported paragraph blocks {type:"paragraph",heading:"...",text:"..."}. Each paragraph should be 100-160 words, add a distinct missing lesson-plan section, and avoid repeating any existing section. Keep vocabulary defined, explanations scientifically correct, and any beyond-Grade-8 idea clearly labelled as an extension. Use LaTeX delimited by \\( ... \\) or \\[ ... \\] for mathematics, and mhchem \\ce{...} inside math delimiters for chemical formulae and reactions; JSON strings must escape backslashes. No Markdown, HTML, URLs, experiments, or unsafe directions.`,
       },
       {
         role: "user",
@@ -242,7 +243,7 @@ CURRENT NODE="${args.parentNode.title}"
 LEARNER CHOSE/ASKED="${args.label}"
 INTENT="${args.intent}"
 ALREADY VISITED=${JSON.stringify(args.ancestorTitles)}
-Create only the next learning node. Interpret the query carefully and answer the exact requested idea first. Build on earlier ideas without repeating them. Match the explicit target level, which may extend beyond Grade 8 when the learner chooses a deep dive, while supplying any essential Grade 6-7 foundation. Use the researched curriculum where relevant and say when the explanation goes beyond NCERT Grade 8. Make this a substantial focused mini-lesson of at least 220 words across 5-8 blocks. Include 2-3 explanatory paragraphs of roughly 50-85 words, a concrete example or analogy, a misconception correction, a useful visual and concise takeaways. Explain the mechanism and why it matters for this exact question. Avoid repeated facts, generic filler, or inappropriate oversimplification.`;
+Create only the next learning node. Interpret the query carefully and answer the exact requested idea first. Build on earlier ideas without repeating them. Match the explicit target level, which may extend beyond Grade 8 when the learner chooses a deep dive, while supplying any essential Grade 6-7 foundation. Use the researched curriculum where relevant and say when the explanation goes beyond NCERT Grade 8. Use LaTeX delimited by \\( ... \\) or \\[ ... \\] for math, and mhchem \\ce{...} inside math delimiters for chemical formulas and reactions; escape backslashes in JSON strings. Make this a substantial focused mini-lesson of at least 220 words across 5-8 blocks. Include 2-3 explanatory paragraphs of roughly 50-85 words, a concrete example or analogy, a misconception correction, a useful visual and concise takeaways. Explain the mechanism and why it matters for this exact question. Avoid repeated facts, generic filler, or inappropriate oversimplification.`;
     let raw = await requestGeneratedNode(prompt, args.subject, 3000);
     const initialWords = generatedNodeWordCount(raw);
     if (args.curriculumResearch && initialWords < 220) {

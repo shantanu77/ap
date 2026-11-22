@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import MathText from "@/components/genius/MathText";
 import type { ExtractedGeniusBlock } from "@/components/genius/types";
 
 type DiagramBlock = ExtractedGeniusBlock<"diagram">;
@@ -380,7 +381,7 @@ export default function ChemistryDiagram({
     <figure className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-4 sm:p-6 overflow-hidden">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-xl">🎨</span>
-        <h3 className="font-black text-violet-950">{block.title}</h3>
+        <h3 className="font-black text-violet-950"><MathText text={block.title} /></h3>
       </div>
       {block.diagram === "atom" && <AtomDiagram activeLabel={activeLabel} activeIndex={activeIndex} />}
       {block.diagram === "particle-states" && <ParticleStatesDiagram activeLabel={activeLabel} activeIndex={activeIndex} />}
@@ -413,20 +414,20 @@ export default function ChemistryDiagram({
                 disabled={Boolean(exploringLabel)}
                 className={`rounded-full px-3 py-1.5 text-xs font-bold transition disabled:cursor-wait disabled:opacity-60 ${activeLabel === label ? "bg-violet-600 text-white shadow" : "bg-violet-100 text-violet-800 hover:bg-violet-200"}`}
               >
-                {label}
+              <MathText text={label} />
               </button>
             ))}
           </div>
           {activeLabel && (
             <p className="mt-3 rounded-xl bg-cyan-50 p-3 text-sm text-cyan-950" aria-live="polite">
               <strong className="block">{activeLabel}</strong>
-              <span>{exploringLabel === `Explore: ${activeLabel}` ? "Building a detailed explanation with examples…" : details[activeIndex ?? -1] || block.caption}</span>
+              <span><MathText text={exploringLabel === `Explore: ${activeLabel}` ? "Building a detailed explanation with examples…" : details[activeIndex ?? -1] || block.caption} /></span>
             </p>
           )}
         </div>
       )}
       <figcaption className="mt-4 text-xs text-slate-500 text-center">
-        {block.caption} <span className="font-bold">Model • not to scale</span>
+        <MathText text={block.caption} /> <span className="font-bold">Model • not to scale</span>
       </figcaption>
     </figure>
   );

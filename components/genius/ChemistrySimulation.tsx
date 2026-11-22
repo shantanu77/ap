@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import MathText from "@/components/genius/MathText";
 import type { ExtractedGeniusBlock } from "@/components/genius/types";
 
 type SimulationBlock = ExtractedGeniusBlock<"simulation">;
@@ -10,7 +11,7 @@ function LabShell({ children, modelNote }: { children: React.ReactNode; modelNot
     <div className="rounded-3xl bg-slate-950 text-white p-4 sm:p-6 shadow-xl overflow-hidden">
       {children}
       <p className="mt-5 text-[11px] leading-relaxed text-slate-400 border-t border-slate-700 pt-3">
-        🔎 <strong>Model note:</strong> {modelNote}
+        🔎 <strong>Model note:</strong> <MathText text={modelNote} />
       </p>
     </div>
   );
@@ -208,7 +209,7 @@ function ForceMotionSimulation() {
   const [mass, setMass] = useState(5);
   const acceleration = force / mass;
   return (
-    <LabShell modelNote="This model uses acceleration = force ÷ mass and leaves out friction and air resistance.">
+    <LabShell modelNote="This model uses \\(a = \\frac{F}{m}\\) (acceleration = force divided by mass) and leaves out friction and air resistance.">
       <div className="grid sm:grid-cols-2 gap-5 items-center">
         <div className="space-y-4 text-sm font-bold">
           <label>Push force: {force} N<input type="range" min="0" max="100" value={force} onChange={(event) => setForce(Number(event.target.value))} className="block w-full mt-2 accent-cyan-400" /></label>
@@ -235,7 +236,7 @@ function GravityFieldSimulation() {
         <div className="space-y-4 text-sm font-bold">
           <label className="block">Planet mass: {mass} model units<input aria-label="Planet mass" type="range" min="1" max="10" value={mass} onChange={(event) => setMass(Number(event.target.value))} className="block w-full mt-2 accent-cyan-400" /></label>
           <label className="block">Object distance: {distance} model units<input aria-label="Object distance" type="range" min="1" max="6" value={distance} onChange={(event) => setDistance(Number(event.target.value))} className="block w-full mt-2 accent-amber-400" /></label>
-          <p aria-live="polite" className="rounded-xl bg-white/10 p-3">Relative pull: {relativePull.toFixed(2)} model units. More mass strengthens gravity; more distance weakens it.</p>
+          <p aria-live="polite" className="rounded-xl bg-white/10 p-3">Relative pull: <MathText text={relativePull.toFixed(2)} /> model units. More mass strengthens gravity; more distance weakens it.</p>
         </div>
         <svg viewBox="0 0 360 220" className="w-full rounded-2xl bg-indigo-950" role="img" aria-label={`Planet with mass ${mass} and object at distance ${distance}; gravitational pull ${relativePull.toFixed(2)} model units`}>
           <defs><marker id={`${id}-gravity-sim-arrow`} markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9z" fill="#facc15" /></marker></defs>
@@ -262,7 +263,7 @@ function CompoundBondingSimulation() {
           <label className="block">Hydrogen atoms: {hydrogen}<input aria-label="Hydrogen atoms" type="range" min="0" max="4" value={hydrogen} onChange={(event) => { setHydrogen(Number(event.target.value)); setBonded(false); }} className="block w-full mt-2 accent-sky-400" /></label>
           <label className="block">Oxygen atoms: {oxygen}<input aria-label="Oxygen atoms" type="range" min="0" max="3" value={oxygen} onChange={(event) => { setOxygen(Number(event.target.value)); setBonded(false); }} className="block w-full mt-2 accent-rose-400" /></label>
           <button type="button" onClick={() => setBonded(true)} disabled={!canFormWater} className="rounded-xl bg-cyan-300 px-4 py-2 font-black text-slate-950 disabled:opacity-40">Join atoms</button>
-          <p aria-live="polite" className="rounded-xl bg-white/10 p-3">{!canFormWater ? "Use exactly two hydrogen atoms and one oxygen atom to make water (H₂O)." : bonded ? "These atoms form one water molecule: H₂O." : "The atom count is right for water. Join them to see the molecule."}</p>
+          <p aria-live="polite" className="rounded-xl bg-white/10 p-3"><MathText text={!canFormWater ? "Use exactly two hydrogen atoms and one oxygen atom to make water \\(\\ce{H2O}\\)." : bonded ? "These atoms form one water molecule: \\(\\ce{H2O}\\)." : "The atom count is right for water. Join them to see the molecule."} /></p>
         </div>
         <div className="rounded-2xl bg-indigo-950 p-5 min-h-48 flex flex-wrap items-center justify-center gap-3" aria-label="Atom and molecule model">
           {Array.from({ length: hydrogen }, (_, index) => <span key={`h-${index}`} className={`grid place-items-center w-14 h-14 rounded-full bg-sky-400 text-slate-950 font-black transition-all ${bonded && canFormWater ? "ring-4 ring-yellow-300 scale-90" : ""}`}>H</span>)}
@@ -346,8 +347,8 @@ export default function ChemistrySimulation({ block }: { block: SimulationBlock 
     <section aria-label={block.title} className="space-y-3">
       <div>
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Interactive lab 🧪</p>
-        <h3 className="text-xl font-black text-slate-900">{block.title}</h3>
-        <p className="text-sm text-slate-600 mt-1">🤔 {block.prompt}</p>
+        <h3 className="text-xl font-black text-slate-900"><MathText text={block.title} /></h3>
+        <p className="text-sm text-slate-600 mt-1">🤔 <MathText text={block.prompt} /></p>
       </div>
       {block.simulation === "rust-conditions.v1" && <RustSimulation />}
       {block.simulation === "particle-states.v1" && <ParticleStatesSimulation />}

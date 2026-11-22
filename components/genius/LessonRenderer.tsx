@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ChemistryDiagram from "@/components/genius/ChemistryDiagram";
 import ChemistrySimulation from "@/components/genius/ChemistrySimulation";
+import MathText from "@/components/genius/MathText";
 import SpeechPlayer from "@/components/genius/SpeechPlayer";
 import { narrationForNode } from "@/lib/geniusNarration";
 import { detailsForDiagram } from "@/lib/geniusContent";
@@ -14,12 +15,12 @@ function WorkedExample({ block }: { block: Extract<GeniusBlock, { type: "math_wo
   return (
     <section className="rounded-3xl bg-blue-50 border-2 border-blue-200 p-5 sm:p-6">
       <p className="text-xs font-black uppercase tracking-widest text-blue-700">Watch the method 👀</p>
-      <h3 className="text-xl font-black text-slate-950 mt-1">{block.title}</h3>
-      <p className="rounded-xl bg-white p-4 mt-3 font-bold text-slate-800">{block.problem}</p>
+      <h3 className="text-xl font-black text-slate-950 mt-1"><MathText text={block.title} /></h3>
+      <p className="rounded-xl bg-white p-4 mt-3 font-bold text-slate-800"><MathText text={block.problem} /></p>
       <div className="space-y-3 mt-4">
-        {steps.slice(0, revealed).map((step, index) => <div key={index} className="rounded-xl bg-white border border-blue-100 p-4"><p className="font-black text-blue-900">{step.label}</p><p className="font-mono text-slate-900 mt-1">{step.working}</p><p className="text-sm text-slate-600 mt-2"><strong>Why?</strong> {step.explanation}</p></div>)}
+        {steps.slice(0, revealed).map((step, index) => <div key={index} className="rounded-xl bg-white border border-blue-100 p-4"><p className="font-black text-blue-900"><MathText text={step.label} /></p><p className="font-mono text-slate-900 mt-1"><MathText text={step.working} /></p><p className="text-sm text-slate-600 mt-2"><strong>Why?</strong> <MathText text={step.explanation} /></p></div>)}
       </div>
-      {revealed < steps.length ? <button onClick={() => setRevealed((value) => value + 1)} className="mt-4 rounded-xl bg-blue-600 text-white px-4 py-2 font-black">Reveal next step →</button> : <p className="mt-4 rounded-xl bg-emerald-100 text-emerald-900 p-3 font-black">Answer: {block.answer} ✓</p>}
+      {revealed < steps.length ? <button onClick={() => setRevealed((value) => value + 1)} className="mt-4 rounded-xl bg-blue-600 text-white px-4 py-2 font-black">Reveal next step →</button> : <p className="mt-4 rounded-xl bg-emerald-100 text-emerald-900 p-3 font-black">Answer: <MathText text={block.answer} /> ✓</p>}
     </section>
   );
 }
@@ -43,9 +44,9 @@ function MathPractice({ block }: { block: Extract<GeniusBlock, { type: "math_pra
   return (
     <section className="rounded-3xl bg-emerald-950 text-white p-5 sm:p-6">
       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Solve it step by step ✏️</p>
-      <h3 className="text-xl font-black mt-1">{block.title}</h3>
-      <p className="rounded-xl bg-white/10 p-4 mt-3 font-bold">{block.problem}</p>
-      {complete ? <div className="mt-4 rounded-xl bg-emerald-400 text-emerald-950 p-4"><p className="font-black">Solved! 🌟</p><p className="text-sm mt-1">Final answer: {block.finalAnswer}</p></div> : step && <div className="mt-4"><p className="text-sm font-bold">Step {stepIndex + 1} of {steps.length}: {step.prompt}</p><div className="flex flex-col sm:flex-row gap-2 mt-2"><input value={answer} onChange={(event) => setAnswer(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") check(); }} className="flex-1 rounded-xl bg-white text-slate-950 px-4 py-3" placeholder="Enter this step's answer" /><button onClick={check} disabled={!answer.trim()} className="rounded-xl bg-cyan-400 text-slate-950 px-5 py-3 font-black disabled:opacity-50">Check step</button></div>{message && <p className="mt-3 rounded-xl bg-white/10 p-3 text-sm" aria-live="polite">{message}</p>}</div>}
+      <h3 className="text-xl font-black mt-1"><MathText text={block.title} /></h3>
+      <p className="rounded-xl bg-white/10 p-4 mt-3 font-bold"><MathText text={block.problem} /></p>
+      {complete ? <div className="mt-4 rounded-xl bg-emerald-400 text-emerald-950 p-4"><p className="font-black">Solved! 🌟</p><p className="text-sm mt-1">Final answer: <MathText text={block.finalAnswer} /></p></div> : step && <div className="mt-4"><p className="text-sm font-bold">Step {stepIndex + 1} of {steps.length}: <MathText text={step.prompt} /></p><div className="flex flex-col sm:flex-row gap-2 mt-2"><input value={answer} onChange={(event) => setAnswer(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") check(); }} className="flex-1 rounded-xl bg-white text-slate-950 px-4 py-3" placeholder="Enter this step's answer" /><button onClick={check} disabled={!answer.trim()} className="rounded-xl bg-cyan-400 text-slate-950 px-5 py-3 font-black disabled:opacity-50">Check step</button></div>{message && <p className="mt-3 rounded-xl bg-white/10 p-3 text-sm" aria-live="polite"><MathText text={message} /></p>}</div>}
     </section>
   );
 }
@@ -56,7 +57,7 @@ function QuickCheck({ block }: { block: Extract<GeniusBlock, { type: "quick_chec
   return (
     <div className="rounded-3xl bg-amber-50 border-2 border-amber-200 p-5">
       <p className="text-xs font-black uppercase tracking-widest text-amber-700">Quick check 🤔</p>
-      <h3 className="font-black text-slate-900 mt-1">{block.question}</h3>
+      <h3 className="font-black text-slate-900 mt-1"><MathText text={block.question} /></h3>
       <div className="grid gap-2 mt-4">
         {block.options.map((option, index) => (
           <button
@@ -69,14 +70,14 @@ function QuickCheck({ block }: { block: Extract<GeniusBlock, { type: "quick_chec
             }`}
           >
             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-800 mr-2 text-xs">{String.fromCharCode(65 + index)}</span>
-            {option}
+            <MathText text={option} />
           </button>
         ))}
       </div>
       {answer !== null && (
         <p className={`mt-4 rounded-xl p-3 text-sm ${correct ? "bg-emerald-100 text-emerald-900" : "bg-white text-slate-700"}`}>
           <strong>{correct ? "You got it! 🌟" : "Good try—follow the clue 💡"}</strong>{" "}
-          {block.explanation}
+          <MathText text={block.explanation} />
         </p>
       )}
     </div>
@@ -99,15 +100,15 @@ function BlockRenderer({ block, contextBlocks, topicTitle, exploringLabel, onExp
       <div className="rounded-3xl bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-600 text-white p-6 sm:p-8 shadow-lg overflow-hidden relative">
         <div className="absolute -right-8 -top-10 text-[9rem] opacity-10 rotate-12" aria-hidden>{block.emoji}</div>
         <p className="text-5xl relative">{block.emoji}</p>
-        <p className="text-lg sm:text-xl font-black leading-snug mt-3 max-w-2xl relative">{block.hook}</p>
+        <p className="text-lg sm:text-xl font-black leading-snug mt-3 max-w-2xl relative"><MathText text={block.hook} /></p>
       </div>
     );
   }
   if (block.type === "paragraph") {
     return (
       <section className="rounded-3xl bg-white border border-slate-100 p-5 sm:p-6 shadow-sm">
-        {block.heading && <h3 className="text-lg font-black text-slate-900 mb-2">{block.heading}</h3>}
-        <p className="text-[15px] sm:text-base leading-7 text-slate-700">{block.text}</p>
+        {block.heading && <h3 className="text-lg font-black text-slate-900 mb-2"><MathText text={block.heading} /></h3>}
+        <p className="text-[15px] sm:text-base leading-7 text-slate-700"><MathText text={block.text} /></p>
       </section>
     );
   }
@@ -115,20 +116,20 @@ function BlockRenderer({ block, contextBlocks, topicTitle, exploringLabel, onExp
     return (
       <section className="rounded-3xl bg-cyan-50 border-2 border-cyan-200 p-5 flex gap-4">
         <span className="text-3xl">{block.emoji || "💡"}</span>
-        <div><h3 className="font-black text-cyan-950">{block.title}</h3><p className="text-sm leading-6 text-cyan-900 mt-1">{block.text}</p></div>
+        <div><h3 className="font-black text-cyan-950"><MathText text={block.title} /></h3><p className="text-sm leading-6 text-cyan-900 mt-1"><MathText text={block.text} /></p></div>
       </section>
     );
   }
   if (block.type === "steps") {
     return (
       <section className="rounded-3xl bg-white border border-violet-100 p-5 sm:p-6">
-        <h3 className="font-black text-slate-900">{block.title}</h3>
+        <h3 className="font-black text-slate-900"><MathText text={block.title} /></h3>
         <div className="grid sm:grid-cols-3 gap-3 mt-4">
           {block.items?.map((item, index) => (
             <div key={`${item.title}-${index}`} className="rounded-2xl bg-violet-50 p-4">
               <span className="text-2xl">{item.emoji}</span>
-              <h4 className="font-black text-violet-950 mt-2">{item.title}</h4>
-              <p className="text-sm text-violet-800 mt-1">{item.text}</p>
+              <h4 className="font-black text-violet-950 mt-2"><MathText text={item.title} /></h4>
+              <p className="text-sm text-violet-800 mt-1"><MathText text={item.text} /></p>
             </div>
           ))}
         </div>
@@ -138,13 +139,13 @@ function BlockRenderer({ block, contextBlocks, topicTitle, exploringLabel, onExp
   if (block.type === "comparison") {
     return (
       <section>
-        <h3 className="font-black text-slate-900 mb-3">{block.title}</h3>
+        <h3 className="font-black text-slate-900 mb-3"><MathText text={block.title} /></h3>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {block.columns?.map((column, index) => (
             <div key={`${column.heading}-${index}`} className="rounded-2xl bg-white border border-indigo-100 p-4 shadow-sm">
               {column.emoji && <p className="text-2xl">{column.emoji}</p>}
-              <h4 className="font-black text-indigo-950 mt-1">{column.heading}</h4>
-              <p className="text-sm text-slate-600 mt-1 leading-5">{column.text}</p>
+              <h4 className="font-black text-indigo-950 mt-1"><MathText text={column.heading} /></h4>
+              <p className="text-sm text-slate-600 mt-1 leading-5"><MathText text={column.text} /></p>
             </div>
           ))}
         </div>
@@ -158,9 +159,9 @@ function BlockRenderer({ block, contextBlocks, topicTitle, exploringLabel, onExp
         <dl className="grid sm:grid-cols-2 gap-3 mt-3">
           {block.terms?.map((term, index) => (
             <div key={`${term.term}-${index}`} className="rounded-xl bg-white p-3">
-              <dt className="font-black text-fuchsia-800">{term.term}</dt>
-              <dd className="text-sm text-slate-600 mt-1">{term.definition}</dd>
-              {term.example && <dd className="text-xs text-slate-400 italic mt-1">{term.example}</dd>}
+              <dt className="font-black text-fuchsia-800"><MathText text={term.term} /></dt>
+              <dd className="text-sm text-slate-600 mt-1"><MathText text={term.definition} /></dd>
+              {term.example && <dd className="text-xs text-slate-400 italic mt-1"><MathText text={term.example} /></dd>}
             </div>
           ))}
         </dl>
@@ -170,9 +171,9 @@ function BlockRenderer({ block, contextBlocks, topicTitle, exploringLabel, onExp
   if (block.type === "analogy") {
     return (
       <section className="rounded-3xl bg-amber-50 border border-amber-200 p-5">
-        <h3 className="font-black text-amber-950">{block.title}</h3>
-        <p className="text-sm leading-6 text-amber-900 mt-2">{block.text}</p>
-        {block.limit && <p className="rounded-xl bg-white/80 p-3 text-xs text-slate-600 mt-3"><strong>Where this analogy stops 🛑</strong> {block.limit}</p>}
+        <h3 className="font-black text-amber-950"><MathText text={block.title} /></h3>
+        <p className="text-sm leading-6 text-amber-900 mt-2"><MathText text={block.text} /></p>
+        {block.limit && <p className="rounded-xl bg-white/80 p-3 text-xs text-slate-600 mt-3"><strong>Where this analogy stops 🛑</strong> <MathText text={block.limit} /></p>}
       </section>
     );
   }
@@ -192,13 +193,13 @@ function BlockRenderer({ block, contextBlocks, topicTitle, exploringLabel, onExp
       <section className="rounded-3xl bg-emerald-50 border-2 border-emerald-200 p-5">
         <h3 className="font-black text-emerald-950">💡 Remember this</h3>
         <ul className="mt-3 space-y-2">
-          {block.points?.map((point, index) => <li key={`${point}-${index}`} className="flex gap-2 text-sm text-emerald-900"><span>⭐</span><span>{point}</span></li>)}
+          {block.points?.map((point, index) => <li key={`${point}-${index}`} className="flex gap-2 text-sm text-emerald-900"><span>⭐</span><span><MathText text={point} /></span></li>)}
         </ul>
       </section>
     );
   }
   if (block.type === "safety_note") {
-    return <section className="rounded-3xl bg-rose-50 border-2 border-rose-200 p-5 text-sm text-rose-900"><strong>Safety shield 🛡️</strong><p className="mt-1">{block.text}</p></section>;
+    return <section className="rounded-3xl bg-rose-50 border-2 border-rose-200 p-5 text-sm text-rose-900"><strong>Safety shield 🛡️</strong><p className="mt-1"><MathText text={block.text} /></p></section>;
   }
   return null;
 }

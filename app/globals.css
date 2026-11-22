@@ -22,6 +22,21 @@ select {
   -webkit-tap-highlight-color: transparent;
 }
 
+.genius-inline-math {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+.genius-display-math {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2rem 0;
+  text-align: center;
+}
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
