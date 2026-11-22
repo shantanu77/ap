@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -51,6 +52,8 @@ function parseVerification(raw: string | null): VerificationResult {
 }
 
 export async function POST(req: Request) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: "OpenAI API key is not configured" }, { status: 500 });
   }
@@ -73,7 +76,7 @@ export async function POST(req: Request) {
       model: "whisper-1",
       language: "en",
       response_format: "json",
-      prompt: "A grade 6 student named Ashvath is answering a reading comprehension question.",
+      prompt: `A Grade ${kid.grade} student named ${kid.name} is answering a reading comprehension question.`,
     });
     const transcript = transcription.text.trim();
 
@@ -97,8 +100,8 @@ export async function POST(req: Request) {
         },
         {
           role: "user",
-          content: JSON.stringify({
-            learner: "Ashvath",
+        content: JSON.stringify({
+            learner: kid.name,
             rule: "No guesswork: an answer counts as correct only when the spoken transcript gives a relevant fact or justified inference from the passage. The child must speak the answer.",
             passage,
             question,

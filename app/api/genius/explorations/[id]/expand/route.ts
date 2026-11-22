@@ -10,13 +10,16 @@ import {
   updateExplorationContent,
 } from "@/lib/genius";
 import { cleanQuestion, cleanTopic, toDeepDiveLevel, toGeniusSubject, toStudyLevel } from "@/lib/geniusContent";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 type Context = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, context: Context) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   try {
     const { id } = await context.params;
-    const exploration = await findExploration(id);
+    const exploration = await findExploration(id, kid.id);
     if (!exploration) {
       return NextResponse.json({ error: "Exploration not found." }, { status: 404 });
     }
@@ -80,7 +83,7 @@ export async function POST(request: Request, context: Context) {
       nodes: [...content.nodes, nextNode],
     };
 
-    const updated = await updateExplorationContent(id, updatedContent);
+    const updated = await updateExplorationContent(id, kid.id, updatedContent);
     return NextResponse.json(toExplorationDTO(updated));
   } catch (error) {
     console.error("Could not expand Genius Corner topic:", error);

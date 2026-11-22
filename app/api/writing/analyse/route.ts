@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import type { WritingMistake, WritingRating } from "@/types";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -60,6 +61,8 @@ function parseVisionResult(raw: string | null): VisionResult {
 }
 
 export async function POST(req: Request) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: "OpenAI API key is not configured" }, { status: 500 });
   }
@@ -90,9 +93,9 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "system",
-          content: `You are a meticulous, encouraging handwriting assessor for a Grade 6 CBSE student with dysgraphia. Inspect only what is visibly written in the uploaded page. The image has been converted to high-contrast grayscale to make handwriting easier to inspect.
+          content: `You are a meticulous, encouraging handwriting assessor for a Grade ${kid.grade} student${kid.id === "legacy-aashvath" ? " with a family-provided handwriting accommodation" : ""}. Inspect only what is visibly written in the uploaded page. The image has been converted to high-contrast grayscale to make handwriting easier to inspect.
 
-First validate the submission. The main answer must be genuine handwriting made with a pen or pencil on paper. Set isHandwritten=false for typed or printed answers, screenshots, text displayed on a screen, blank pages, non-writing images, or handwriting-style fonts. A printed source or page ruling may be visible, but Aashvath's paragraph itself must be handwritten. Do not reject neat handwriting merely because it is consistent. Look for multiple concrete signals such as natural variation in letter shapes, pressure or stroke texture, imperfect baselines, spacing variation, joins, corrections, and interaction with paper lines. State what is actually visible; never invent evidence. submissionType must be one of handwritten, typed_or_printed, blank, non_writing, or uncertain. handwritingConfidence is 0-100.
+First validate the submission. The main answer must be genuine handwriting made with a pen or pencil on paper. Set isHandwritten=false for typed or printed answers, screenshots, text displayed on a screen, blank pages, non-writing images, or handwriting-style fonts. The student's paragraph itself must be handwritten. Do not reject neat handwriting merely because it is consistent. Look for multiple concrete signals such as natural variation in letter shapes, pressure or stroke texture, imperfect baselines, spacing variation, joins, corrections, and interaction with paper lines. State what is actually visible; never invent evidence. submissionType must be one of handwritten, typed_or_printed, blank, non_writing, or uncertain. handwritingConfidence is 0-100.
 
 Only when isHandwritten=true, assess the student's original paragraph against the supplied writing topic. Do not expect exact copying; give the student the benefit of the doubt when a genuine attempt has a mistaken detail. Identify clearly unrelated writing, deliberate nonsense, or junk text as off-topic. Use [unclear] rather than inventing an unreadable word. Count words in the paragraph and report the count through transcript (do not include the topic in the transcript). Fewer than 70 words is incomplete and requires a rewrite. Score topic relevance from 0 to 10: 0-3 for unrelated/junk or no meaningful response, 4-10 for a relevant attempt. A score below 4 requires a rewrite. Do not treat ordinary factual mistakes or imperfect expression as deliberate junk.
 
@@ -120,7 +123,7 @@ Return JSON only with: isHandwritten:boolean, submissionType:string, handwriting
           code: "HANDWRITING_REQUIRED",
           error:
             submissionType === "typed_or_printed"
-              ? "This looks typed or printed. Please upload Aashvath's handwritten page."
+              ? "This looks typed or printed. Please upload the learner's handwritten page."
               : "I could not verify genuine handwriting. Retake a clear photo of the handwritten page.",
           submissionType,
           handwritingConfidence,

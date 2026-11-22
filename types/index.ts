@@ -31,7 +31,7 @@ export interface WritingContent {
 export interface TargetedPracticeContent {
   subject: string;
   skill: string;
-  report_level: "S" | "P" | "M" | "E";
+  report_level: "N" | "S" | "P" | "M" | "E";
   meeting_target: string;
   task: string;
   success_criteria: string[];

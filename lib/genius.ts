@@ -289,6 +289,7 @@ export function contentFromJson(value: unknown): GeniusContent {
 
 export type GeniusExplorationRecord = {
   id: string;
+  kidId: string;
   subject: string;
   canonicalTopic: string;
   displayTitle: string;
@@ -319,12 +320,12 @@ export function toExplorationDTO(record: GeniusExplorationRecord): GeniusExplora
   };
 }
 
-export async function findExploration(id: string) {
+export async function findExploration(id: string, kidId: string) {
   const records = await prisma.$queryRaw<GeniusExplorationRecord[]>`
-    SELECT id, subject, canonicalTopic, displayTitle, defaultLevel, content,
+    SELECT id, kidId, subject, canonicalTopic, displayTitle, defaultLevel, content,
            savedSnapshot, savedAt, createdAt, updatedAt, lastOpenedAt
     FROM genius_explorations
-    WHERE id = ${id} AND deletedAt IS NULL
+    WHERE id = ${id} AND kidId = ${kidId} AND deletedAt IS NULL
     LIMIT 1
   `;
   return records[0] ?? null;
@@ -426,6 +427,7 @@ export async function cacheDeepDive(args: {
 }
 
 export async function createExplorationRecord(args: {
+  kidId: string;
   subject: string;
   canonicalTopic: string;
   displayTitle: string;
@@ -436,74 +438,74 @@ export async function createExplorationRecord(args: {
   const now = new Date();
   await prisma.$executeRaw`
     INSERT INTO genius_explorations
-      (id, subject, canonicalTopic, displayTitle, defaultLevel, content, createdAt, updatedAt, lastOpenedAt)
+      (id, kidId, subject, canonicalTopic, displayTitle, defaultLevel, content, createdAt, updatedAt, lastOpenedAt)
     VALUES
-      (${id}, ${args.subject}, ${args.canonicalTopic}, ${args.displayTitle}, ${args.defaultLevel},
+      (${id}, ${args.kidId}, ${args.subject}, ${args.canonicalTopic}, ${args.displayTitle}, ${args.defaultLevel},
        ${JSON.stringify(args.content)}, ${now}, ${now}, ${now})
   `;
-  const record = await findExploration(id);
+  const record = await findExploration(id, args.kidId);
   if (!record) throw new Error("Exploration was not created.");
   return record;
 }
 
-export async function updateExplorationContent(id: string, content: GeniusContent) {
+export async function updateExplorationContent(id: string, kidId: string, content: GeniusContent) {
   const now = new Date();
   await prisma.$executeRaw`
     UPDATE genius_explorations
     SET content = ${JSON.stringify(content)}, updatedAt = ${now}, lastOpenedAt = ${now}
-    WHERE id = ${id} AND deletedAt IS NULL
+    WHERE id = ${id} AND kidId = ${kidId} AND deletedAt IS NULL
   `;
-  const record = await findExploration(id);
+  const record = await findExploration(id, kidId);
   if (!record) throw new Error("Exploration was not found after update.");
   return record;
 }
 
-export async function touchExploration(id: string) {
+export async function touchExploration(id: string, kidId: string) {
   await prisma.$executeRaw`
     UPDATE genius_explorations SET lastOpenedAt = ${new Date()}
-    WHERE id = ${id} AND deletedAt IS NULL
+    WHERE id = ${id} AND kidId = ${kidId} AND deletedAt IS NULL
   `;
-  const record = await findExploration(id);
+  const record = await findExploration(id, kidId);
   if (!record) throw new Error("Exploration was not found after update.");
   return record;
 }
 
-export async function renameExploration(id: string, title: string) {
+export async function renameExploration(id: string, kidId: string, title: string) {
   await prisma.$executeRaw`
     UPDATE genius_explorations SET displayTitle = ${title}, updatedAt = ${new Date()}
-    WHERE id = ${id} AND deletedAt IS NULL
+    WHERE id = ${id} AND kidId = ${kidId} AND deletedAt IS NULL
   `;
-  const record = await findExploration(id);
+  const record = await findExploration(id, kidId);
   if (!record) throw new Error("Exploration was not found after update.");
   return record;
 }
 
-export async function saveExplorationSnapshot(id: string, content: GeniusContent) {
+export async function saveExplorationSnapshot(id: string, kidId: string, content: GeniusContent) {
   const now = new Date();
   await prisma.$executeRaw`
     UPDATE genius_explorations
     SET savedSnapshot = ${JSON.stringify(content)}, savedAt = ${now}, updatedAt = ${now}, lastOpenedAt = ${now}
-    WHERE id = ${id} AND deletedAt IS NULL
+    WHERE id = ${id} AND kidId = ${kidId} AND deletedAt IS NULL
   `;
-  const record = await findExploration(id);
+  const record = await findExploration(id, kidId);
   if (!record) throw new Error("Exploration was not found after save.");
   return record;
 }
 
-export async function softDeleteExploration(id: string) {
+export async function softDeleteExploration(id: string, kidId: string) {
   await prisma.$executeRaw`
     UPDATE genius_explorations SET deletedAt = ${new Date()}, updatedAt = ${new Date()}
-    WHERE id = ${id} AND deletedAt IS NULL
+    WHERE id = ${id} AND kidId = ${kidId} AND deletedAt IS NULL
   `;
 }
 
-export async function listSavedExplorations(search: string) {
+export async function listSavedExplorations(kidId: string, search: string) {
   const pattern = `%${search}%`;
   return prisma.$queryRaw<GeniusExplorationRecord[]>`
-    SELECT id, subject, canonicalTopic, displayTitle, defaultLevel, content,
+    SELECT id, kidId, subject, canonicalTopic, displayTitle, defaultLevel, content,
            savedSnapshot, savedAt, createdAt, updatedAt, lastOpenedAt
     FROM genius_explorations
-    WHERE deletedAt IS NULL
+    WHERE kidId = ${kidId} AND deletedAt IS NULL
       AND savedAt IS NOT NULL
       AND (${search} = '' OR displayTitle LIKE ${pattern} OR canonicalTopic LIKE ${pattern})
     ORDER BY savedAt DESC

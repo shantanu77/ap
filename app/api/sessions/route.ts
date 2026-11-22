@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseDate, toDateString, todayString } from "@/lib/utils";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 export async function GET(req: Request) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   const url = new URL(req.url);
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
@@ -10,6 +13,7 @@ export async function GET(req: Request) {
   try {
     const plans = await prisma.dailyPlan.findMany({
       where: {
+        kidId: kid.id,
         ...(from || to
           ? {
               date: {

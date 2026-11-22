@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { prisma } from "./prisma";
 import { formatDisplayDate, getTopicForDate, getLanguageForDate, parseDate, todayString } from "./utils";
 import type { DailyContent } from "@/types";
+import type { KidProfile } from "@prisma/client";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const READING_WORDS_MIN = 450;
@@ -397,19 +398,28 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
   };
 }
 
-async function buildPrompt(dateStr: string): Promise<string> {
+async function buildPrompt(dateStr: string, learner: Pick<KidProfile, "id" | "name" | "grade">): Promise<string> {
   const topic = getTopicForDate(dateStr);
   const language = getLanguageForDate(dateStr);
   const fullDate = formatDisplayDate(dateStr);
   const readingSource = readingSourceForDate(dateStr);
   const focusCoachingTheme = focusCoachingThemeForDate(dateStr);
-  const academicFocus = academicFocusForDate(dateStr);
   const next = nextDayContext(dateStr);
-  const nextAcademicFocus = academicFocusForDate(next.date);
   const dayOfWeek = parseDate(dateStr).getUTCDay();
+  const isAashvath = learner.id === "legacy-aashvath";
+  const academicFocus = isAashvath ? academicFocusForDate(dateStr) : {
+    ...ACADEMIC_FOCUS_ROTATION[dayOfWeek % ACADEMIC_FOCUS_ROTATION.length],
+    reportLevel: "N" as const,
+    taskGuidance: "Create an age-appropriate short practice task with one concrete accuracy check and one brief explanation or worked example.",
+  };
+  const nextAcademicFocus = isAashvath ? academicFocusForDate(next.date) : academicFocus;
+  const learnerGuidance = isAashvath
+    ? "Use the existing family-provided learning preferences: keep handwriting demands short, allow oral rehearsal, and use science, space, or technology examples when they fit. Do not mention diagnoses, school, age, or ability labels in the lesson."
+    : "Do not assume a diagnosis, ability level, school, interests, or past performance. Offer varied examples and age-appropriate choices for this grade.";
   const isWeeklyWordFormationDeepDive = language === "hindi" && dayOfWeek === 3;
   const recentPlans = await prisma.dailyPlan.findMany({
     where: {
+      kidId: learner.id,
       date: {
         lt: parseDate(dateStr),
       },
@@ -427,32 +437,19 @@ async function buildPrompt(dateStr: string): Promise<string> {
     language === "review"
       ? `Language focus: Sunday review day. Give a focused retrieval review covering 4 Hindi words, 4 Sanskrit words, and 4 sentence-level recall questions from this week's language work. The lesson_title should say "Weekly Review".`
       : language === "hindi"
-      ? `Language focus: Hindi. The report places overall Hindi at Progressing, with some grammar and vocabulary-identification standards at Starting. Teach 6-8 useful words and one sentence pattern with Devanagari, transliteration, English meaning, and examples. Include exactly 5 oral practice sentences in Devanagari, each a natural complete sentence of 9-14 Hindi words with a useful detail, reason, time, or linked action; do not use tiny one-clause examples. Include a 6-item practice task weighted toward recognition and speaking, with no more than two short written items. Keep it Grade 6 appropriate and never use baby talk.${
+      ? `Language focus: Hindi. Teach 6-8 useful words and one sentence pattern with Devanagari, transliteration, English meaning, and examples. Include exactly 5 oral practice sentences in Devanagari, each a natural complete sentence of 9-14 Hindi words with a useful detail, reason, time, or linked action; do not use tiny one-clause examples. Include a 6-item practice task weighted toward recognition and speaking, with no more than two short written items. Keep it Grade ${learner.grade} appropriate and never use baby talk.${
           isWeeklyWordFormationDeepDive
             ? " This is the weekly Wednesday WORD FORMATION DEEP DIVE: take one useful Hindi word apart carefully (root/base, prefix or suffix where genuinely applicable, related word family, sound/spelling change, meaning logic, and 3 examples). Accuracy matters: do not invent a root or false etymology."
             : " Set word_formation_deep_dive to null today; the full deep dive happens once each week on Wednesday."
         }`
-      : `Language focus: Sanskrit. The report places Sanskrit at Progressing across listening, speaking, reading and writing. Teach 5-6 common words OR one short line plus 3 grammar/vocabulary items. Include exactly 5 oral practice sentences in Devanagari, each a natural complete sentence of 8-12 Sanskrit words with a useful detail, reason, time, or linked action; avoid isolated two- or three-word examples. Include transliteration, word meanings, and a 5-item oral/recognition practice task with one short ordered-writing item. Aim for accurate, age-appropriate sentences with enough context to practise meaning and pronunciation.`;
+      : `Language focus: Sanskrit. Teach 5-6 common words OR one short line plus 3 grammar/vocabulary items. Include exactly 5 oral practice sentences in Devanagari, each a natural complete sentence of 8-12 Sanskrit words with a useful detail, reason, time, or linked action; avoid isolated two- or three-word examples. Include transliteration, word meanings, and a 5-item oral/recognition practice task with one short ordered-writing item. Aim for accurate, age-appropriate sentences with enough context to practise meaning and pronunciation.`;
 
-  return `You are a content creator for a daily learning session for Aashvath, a Grade 6 CBSE student in India.
+  return `You are a content creator for a daily learning session for ${learner.name}, a Grade ${learner.grade} student in India.
 
 STUDENT PROFILE:
-- Age: 11 years
-- IQ: ~130 (gifted)
-- Has dysgraphia — writing is physically hard for him; keep all writing tasks short (max 5 lines)
-- Loves science, non-fiction, space, technology
-- Learns by watching YouTube videos, not reading books
-- Hindi and Sanskrit are both currently Progressing; some Hindi language-identification skills are Starting
-- His verbal explanations often show stronger understanding than his written work
-- Session is supervised by his father and must remain achievable on a school night
-- School: Heritage Experiential School, CBSE curriculum
-
-TERM 1 REPORT-BASED PRIORITIES:
-- Strengths to preserve: oral interpretation, inference and text analysis, large-number arithmetic, magnet and electricity investigations, charting, and algorithms are already Meeting.
-- Highest gaps: literal reading comprehension and fractions are Starting.
-- Progressing areas to move toward Meeting: English discussion/presentation, narrative writing and conventions; Hindi and Sanskrit; factors/multiples and data handling; scientific classification and cause/effect explanations; spreadsheet functions and flowcharts.
-- Work Ethics is Progressing in every reported academic subject. The teacher's key next step is organisation: plan tasks, manage resources, and follow through independently.
-- Do not reteach a Meeting skill as if it were a weakness. Use it as a confidence-building bridge into today's target.
+- Grade: ${learner.grade}
+- ${learnerGuidance}
+- Keep the workload achievable and use clear, age-appropriate explanations.
 
 TODAY: ${fullDate}
 READING TOPIC THIS WEEK: ${topic}
@@ -479,9 +476,9 @@ NEXT-DAY CONTEXT:
 - Carry forward today's ${academicFocus.skill} discipline target.
 - ${next.isSchoolDay ? `Use the real diary/timetable for preparation and include a short ${nextAcademicFocus.skill} review. Never invent a timetable, class, book, or special material.` : "Do not say school is tomorrow and do not ask him to pack for tomorrow. Focus on closing unfinished work, organisation, a short review, and checking the next actual school day."}
 
-Generate a school-term daily learning package. It should be engaging, rigorous, and achievable for a gifted Grade 6 student who avoids reading and finds handwriting physically demanding.
+Generate a school-term daily learning package. It should be engaging, rigorous, and achievable for a Grade ${learner.grade} student.
 Reading must be ${READING_WORDS_MIN}-${READING_WORDS_MAX} words, split into short paragraphs. Use the public-domain reading anchor above as the source/theme, but create a self-contained original passage or adapted public-domain-style chapter page suitable for this learner. Do not quote modern copyrighted books.
-After the main passage, include a separate 130-180 word read-aloud coaching paragraph about ${focusCoachingTheme}. It must show Aashvath a realistic school/home moment, explain why the habit matters, and give a tiny action sequence he can use immediately. Sound like a smart coach, not a lecture; avoid shame, labels, threats, and vague advice such as merely saying "focus more". Vary the scenario and wording from day to day.
+After the main passage, include a separate 130-180 word read-aloud coaching paragraph about ${focusCoachingTheme}. It must show ${learner.name} a realistic school/home moment, explain why the habit matters, and give a tiny action sequence the learner can use immediately. Sound like a smart coach, not a lecture; avoid shame, labels, threats, and vague advice such as merely saying "focus more". Vary the scenario and wording from day to day.
 Make the five comprehension questions clearly different from one another. Never repeat a question or ask the same thing with changed wording. First question: literal retrieval; second: main idea; later ones: vocabulary, evidence and a fresh real-life connection.
 Include one 10-15 minute targeted-practice task that follows today's subject booster exactly. It must have a small, observable finish line and no more than five handwritten lines.
 The science content should feel like a smart YouTube hook, but the work itself should require focus.
@@ -498,14 +495,14 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     "source_title": "${readingSource.title}",
     "source_author": "${readingSource.author}",
     "source_note": "Free/public-domain reading anchor used for today's school-term reading.",
-    "passage": "${READING_WORDS_MIN}-${READING_WORDS_MAX} word reading for a curious 11-year-old. Short paragraphs. Use the mood/theme of ${readingSource.title} by ${readingSource.author}, connect it naturally to ${topic}, and include clearly retrievable details, inference opportunities, and one surprising science/history comparison.",
-    "focus_work_ethic_coaching": "A separate 130-180 word read-aloud coaching paragraph focused on ${focusCoachingTheme}. Use a realistic scenario, explain the value, and end with a memorable 3-step action Aashvath can try tomorrow.",
+    "passage": "${READING_WORDS_MIN}-${READING_WORDS_MAX} word reading for a curious Grade ${learner.grade} student. Short paragraphs. Use the mood/theme of ${readingSource.title} by ${readingSource.author}, connect it naturally to ${topic}, and include clearly retrievable details, inference opportunities, and one surprising science/history comparison.",
+    "focus_work_ethic_coaching": "A separate 130-180 word read-aloud coaching paragraph focused on ${focusCoachingTheme}. Use a realistic scenario, explain the value, and end with a memorable 3-step action ${learner.name} can try tomorrow.",
     "comprehension_questions": [
       "Question 1 (literal retrieval: require two accurate details from the passage)",
       "Question 2 (state the main idea in one complete sentence)",
       "Question 3 (vocabulary or phrase meaning from context)",
       "Question 4 (evidence-based explanation using two details)",
-      "Question 5 (connect to real life, science, or Aashvath's interests)"
+      "Question 5 (connect to real life, science, or the learner's interests)"
     ]
   },
   "language": {
@@ -519,14 +516,14 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
       {"sentence":"Fourth sentence","transliteration":"...","meaning":"...","word_explanation":"...","english_sentence":"..."},
       {"sentence":"Fifth sentence","transliteration":"...","meaning":"...","word_explanation":"...","english_sentence":"..."}
     ],
-    "practice_task": "Five complete listen, explain, and speak sentences. Explain one focus word, give its English meaning, then use the same word in an English sentence. Aashvath speaks each target sentence for recording and evaluation.",
+    "practice_task": "Five complete listen, explain, and speak sentences. Explain one focus word, give its English meaning, then use the same word in an English sentence. ${learner.name} speaks each target sentence for recording and evaluation.",
     "remember_tip": "One clever memory trick, story, or visual association to help remember the lesson.",
     "humour_hook": "For Hindi, one witty meme-style joke/caption using today's words correctly, followed by a one-sentence explanation of the language joke. For Sanskrit/review, use null unless genuinely useful.",
     "word_formation_deep_dive": ${isWeeklyWordFormationDeepDive ? '"A structured, accurate deep dive with headings: BUILD IT, WORD FAMILY, MEANING LOGIC, TRY IT. Explain one Hindi word formation in detail and give 3 examples."' : "null"}
   },
   "writing": {
     "type": "copy",
-    "prompt": "Give Aashvath an engaging topic and clear writing prompt for an original complete paragraph of up to 100 words. Connect it to today's reading, science, responsibility, or observation. Do not provide the paragraph for him to copy.",
+    "prompt": "Give ${learner.name} an engaging topic and clear writing prompt for an original complete paragraph of up to 100 words. Connect it to today's reading, science, responsibility, or observation. Do not provide the paragraph for the learner to copy.",
     "lines_required": 10,
     "success_criteria": ["Write one complete paragraph up to 100 words", "Use capitals and punctuation", "Check grammar and spelling", "Write legibly"]
   },
@@ -539,9 +536,9 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     "success_criteria": [
       "One concrete accuracy check specific to this task",
       "One check that requires working, evidence, or a complete explanation",
-      "One check Aashvath can perform independently before finishing"
+      "One check ${learner.name} can perform independently before finishing"
     ],
-    "self_check": "One short question Aashvath answers before marking the task complete."
+    "self_check": "One short question ${learner.name} answers before marking the task complete."
   },
   "next_day_prep": {
     "date": "${next.date}",
@@ -557,13 +554,13 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
       "Action 5: one independent follow-through action"
     ]
   },
-  "ethics_reflection": "One thought (2-3 sentences) about the value of discipline, effort, or honesty. Connect it to Aashvath's world — school, sports, video games, science experiments. Not preachy. More like a coach talking to a player.",
+  "ethics_reflection": "One thought (2-3 sentences) about the value of discipline, effort, or honesty. Connect it to ${learner.name}'s world — school, sports, hobbies, or science. Not preachy. More like a coach talking to a player.",
   "next_day_tip": "A specific, actionable reminder for ${next.label}. Respect whether it is a school day and never invent a timetable."
 }`;
 }
 
-export async function generateContentForDate(dateStr: string): Promise<DailyContent> {
-  const prompt = await buildPrompt(dateStr);
+export async function generateContentForDate(dateStr: string, learner: Pick<KidProfile, "id" | "name" | "grade">): Promise<DailyContent> {
+  const prompt = await buildPrompt(dateStr, learner);
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -579,44 +576,46 @@ export async function generateContentForDate(dateStr: string): Promise<DailyCont
   return normalizeDailyContent(dateStr, JSON.parse(raw) as DailyContent);
 }
 
-export async function getOrCreatePlan(dateStr: string) {
+export async function getOrCreatePlan(dateStr: string, learner: Pick<KidProfile, "id" | "name" | "grade">) {
   const date = parseDate(dateStr);
 
   const existing = await prisma.dailyPlan.findUnique({
-    where: { date },
+    where: { kidId_date: { kidId: learner.id, date } },
   });
 
   if (existing) return existing;
 
-  const content = await generateContentForDate(dateStr);
+  const content = await generateContentForDate(dateStr, learner);
 
   return prisma.dailyPlan.create({
     data: {
       date,
+      kidId: learner.id,
       content: content as object,
     },
   });
 }
 
-export async function regeneratePlanForDate(dateStr: string) {
+export async function regeneratePlanForDate(dateStr: string, learner: Pick<KidProfile, "id" | "name" | "grade">) {
   const date = parseDate(dateStr);
-  const content = await generateContentForDate(dateStr);
+  const content = await generateContentForDate(dateStr, learner);
 
   return prisma.dailyPlan.upsert({
-    where: { date },
+    where: { kidId_date: { kidId: learner.id, date } },
     update: {
       content: content as object,
       generatedAt: new Date(),
     },
     create: {
       date,
+      kidId: learner.id,
       content: content as object,
     },
   });
 }
 
 // Generate plans for a range of dates (used for bulk pre-generation)
-export async function generatePlansUpTo(untilDateStr: string) {
+export async function generatePlansUpTo(untilDateStr: string, learner: Pick<KidProfile, "id" | "name" | "grade">) {
   const until = parseDate(untilDateStr);
   const results: string[] = [];
 
@@ -624,11 +623,9 @@ export async function generatePlansUpTo(untilDateStr: string) {
   while (current <= until) {
     const dateStr = current.toISOString().split("T")[0];
     try {
-      const existing = await prisma.dailyPlan.findUnique({
-        where: { date: parseDate(dateStr) },
-      });
+      const existing = await prisma.dailyPlan.findUnique({ where: { kidId_date: { kidId: learner.id, date: parseDate(dateStr) } } });
       if (!existing) {
-        await getOrCreatePlan(dateStr);
+        await getOrCreatePlan(dateStr, learner);
         results.push(`✓ Generated ${dateStr}`);
       } else {
         results.push(`- Skipped ${dateStr} (exists)`);

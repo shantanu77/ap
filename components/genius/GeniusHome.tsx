@@ -176,7 +176,7 @@ export default function GeniusHome() {
           <div className="flex flex-wrap items-center gap-2 mt-5">
             <span className="text-xs text-slate-400 mr-1">Study level</span>
             {([6, 7, 8] as StudyLevel[]).map((item) => (
-              <button key={item} type="button" onClick={() => setLevel(item)} className={`w-10 h-10 rounded-xl text-sm font-black transition ${level === item ? "bg-cyan-400 text-slate-950 scale-105" : "bg-white/10 hover:bg-white/20"}`} aria-pressed={level === item}>
+              <button key={item} type="button" onClick={() => { setLevel(item); localStorage.setItem("genius-study-level", String(item)); void fetch("/api/auth/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ grade: item }) }); }} className={`w-10 h-10 rounded-xl text-sm font-black transition ${level === item ? "bg-cyan-400 text-slate-950 scale-105" : "bg-white/10 hover:bg-white/20"}`} aria-pressed={level === item}>
                 {item}
               </button>
             ))}

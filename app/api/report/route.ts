@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildDailyInsights, defaultInsightsStart } from "@/lib/sessionInsights";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 export async function GET() {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   try {
     const since = defaultInsightsStart();
     const sessions = await prisma.session.findMany({
-      where: { date: { gte: since } },
+      where: { date: { gte: since }, dailyPlan: { is: { kidId: kid.id } } },
       include: { phases: true, dailyPlan: true },
       orderBy: { date: "asc" },
     });

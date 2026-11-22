@@ -296,10 +296,10 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
             <div className="rounded-xl border-2 border-rose-200 bg-white p-4 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-rose-100 px-2 py-1 text-xs font-bold text-rose-700">
-                  REPORT-BASED BOOSTER
+                  {content.targeted_practice.report_level === "N" ? "PERSONAL PRACTICE BOOSTER" : "REPORT-BASED BOOSTER"}
                 </span>
                 <span className="text-xs font-semibold text-gray-500">
-                  {content.targeted_practice.subject} · currently {content.targeted_practice.report_level}
+                  {content.targeted_practice.report_level === "N" ? content.targeted_practice.subject : `${content.targeted_practice.subject} · currently ${content.targeted_practice.report_level}`}
                 </span>
               </div>
               <div>

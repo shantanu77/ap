@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOrCreatePlan, generatePlansUpTo, regeneratePlanForDate } from "@/lib/generate";
 import { todayString } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
 
 function isAuthorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -23,16 +24,17 @@ export async function POST(req: Request) {
   const date = url.searchParams.get("date") ?? todayString();
 
   try {
+    const learners = await prisma.kidProfile.findMany({ where: { emailVerifiedAt: { not: null } }, select: { id: true, name: true, grade: true } });
     if (until) {
-      const results = await generatePlansUpTo(until);
-      return NextResponse.json({ results });
+      const results = await Promise.all(learners.map((learner) => generatePlansUpTo(until, learner)));
+      return NextResponse.json({ results: results.flat() });
     }
 
-    const plan = force
-      ? await regeneratePlanForDate(date)
-      : await getOrCreatePlan(date);
+    const plans = await Promise.all(learners.map((learner) => force
+      ? regeneratePlanForDate(date, learner)
+      : getOrCreatePlan(date, learner)));
 
-    return NextResponse.json({ success: true, date, planId: plan.id, regenerated: force });
+    return NextResponse.json({ success: true, date, planIds: plans.map((plan) => plan.id), learnerCount: plans.length, regenerated: force });
   } catch (err) {
     console.error("Generation failed:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

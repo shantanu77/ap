@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendGmailSmtpEmail } from "@/lib/email";
-import { getParentNotificationConfig, hasEmailConfig } from "@/lib/parentConfig";
+import { getParentNotificationConfig } from "@/lib/parentConfig";
 import { buildDailyInsights, defaultInsightsStart } from "@/lib/sessionInsights";
 import { parseDate } from "@/lib/utils";
 import type { DailyContent } from "@/types";
 import { format } from "date-fns";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 function missedPlanContent(dateStr: string): DailyContent {
   return {
@@ -41,6 +42,8 @@ function missedPlanContent(dateStr: string): DailyContent {
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ date: string }> }) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   const { date: dateStr } = await params;
 
   try {
@@ -58,8 +61,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
     }
 
     const plan = await prisma.dailyPlan.upsert({
-      where: { date },
+      where: { kidId_date: { kidId: kid.id, date } },
       create: {
+        kidId: kid.id,
         date,
         content: missedPlanContent(dateStr) as object,
       },
@@ -100,33 +104,32 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
 
     if (body.notify !== false) {
       const config = getParentNotificationConfig();
-      if (hasEmailConfig(config)) {
+        if (config.senderEmail && config.senderPassword && kid.email) {
         const sessions = await prisma.session.findMany({
-          where: { date: { gte: defaultInsightsStart() } },
+          where: { date: { gte: defaultInsightsStart() }, dailyPlan: { is: { kidId: kid.id } } },
           include: { phases: true, dailyPlan: true },
           orderBy: { date: "asc" },
         });
         const insights = buildDailyInsights(sessions, defaultInsightsStart());
         const recentAbsences = insights.slice(-14).filter((day) => day.absent).length;
-        escalated =
-          recentAbsences >= config.escalateAfterAbsences && config.escalationEmails.length > 0;
+        escalated = kid.id === "legacy-aashvath" && recentAbsences >= config.escalateAfterAbsences && config.escalationEmails.length > 0;
 
         try {
           await sendGmailSmtpEmail({
             from: config.senderEmail,
             password: config.senderPassword,
-            to: config.parentEmails,
+            to: [kid.email],
             cc: escalated ? config.escalationEmails : undefined,
-            subject: `${config.studentName}: skipped class warning for ${dateStr}`,
+            subject: `${kid.name}: skipped study session for ${dateStr}`,
             text: [
-              `This is an attendance warning for ${config.studentName}.`,
+              `This is a study session reminder for ${kid.name}.`,
               "",
               `Date: ${dateStr}`,
               `Status: Skipped class / absent`,
               `Reason noted: ${body.reason || "No reason provided"}`,
               `Absences in the last 14 tracked days: ${recentAbsences}`,
               "",
-              `${config.studentName} needs to be told clearly that skipping the scheduled learning session is not acceptable. The missed work should be completed, and another skipped session will be escalated according to the parent configuration.`,
+              `${kid.name} should complete the missed work and protect the next planned study session.`,
             ].join("\n"),
             timeoutMs: 12_000,
           });

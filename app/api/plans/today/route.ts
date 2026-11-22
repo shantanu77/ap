@@ -3,10 +3,13 @@ import { getOrCreatePlan, normalizeDailyContent, regeneratePlanForDate } from "@
 import { todayString, toDateString, parseDate } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import type { DailyContent } from "@/types";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 export async function GET() {
   try {
-    const plan = await getOrCreatePlan(todayString());
+    const kid = await getAuthenticatedKid();
+    if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
+    const plan = await getOrCreatePlan(todayString(), kid);
     return NextResponse.json({
       ...plan,
       content: normalizeDailyContent(toDateString(plan.date), plan.content as unknown as DailyContent),
@@ -24,11 +27,13 @@ export async function GET() {
 }
 
 export async function POST() {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   const dateStr = todayString();
 
   try {
     const existing = await prisma.dailyPlan.findUnique({
-      where: { date: parseDate(dateStr) },
+      where: { kidId_date: { kidId: kid.id, date: parseDate(dateStr) } },
       include: { session: { include: { phases: true } } },
     });
 
@@ -39,7 +44,7 @@ export async function POST() {
       );
     }
 
-    const plan = await regeneratePlanForDate(dateStr);
+    const plan = await regeneratePlanForDate(dateStr, kid);
     return NextResponse.json({
       ...plan,
       content: normalizeDailyContent(toDateString(plan.date), plan.content as unknown as DailyContent),

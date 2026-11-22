@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseDate, todayString } from "@/lib/utils";
 import type { Phase } from "@prisma/client";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 export async function POST(req: Request, { params }: { params: Promise<{ date: string }> }) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   const { date: dateStr } = await params;
   try {
     const body = await req.json();
@@ -15,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
     };
 
     const date = parseDate(dateStr);
-    const session = await prisma.session.findFirst({ where: { date } });
+    const session = await prisma.session.findFirst({ where: { date, dailyPlan: { is: { kidId: kid.id } } } });
     if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
     const phaseRating = await prisma.phaseRating.upsert({

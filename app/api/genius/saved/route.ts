@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { contentFromJson, listSavedExplorations } from "@/lib/genius";
 import type { SavedTopicSummary } from "@/types/genius";
 import { toGeniusSubject } from "@/lib/geniusContent";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 export async function GET(request: Request) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   const search = new URL(request.url).searchParams.get("q")?.trim().slice(0, 100) ?? "";
-  const records = await listSavedExplorations(search);
+  const records = await listSavedExplorations(kid.id, search);
 
   const topics: SavedTopicSummary[] = records.flatMap((record) => {
     if (!record.savedSnapshot || !record.savedAt) return [];

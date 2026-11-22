@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseDate } from "@/lib/utils";
 import { getOrCreatePlan } from "@/lib/generate";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 export async function GET(req: Request, { params }: { params: Promise<{ date: string }> }) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   const { date: dateStr } = await params;
   try {
     const session = await prisma.session.findFirst({
-      where: { date: parseDate(dateStr) },
+      where: { date: parseDate(dateStr), dailyPlan: { is: { kidId: kid.id } } },
       include: { phases: true, dailyPlan: true },
     });
     return NextResponse.json(session);
@@ -18,12 +21,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ date: st
 
 // Start or get session for a date
 export async function POST(req: Request, { params }: { params: Promise<{ date: string }> }) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   const { date: dateStr } = await params;
   try {
     const date = parseDate(dateStr);
-    const plan = await getOrCreatePlan(dateStr);
+    const plan = await getOrCreatePlan(dateStr, kid);
 
-    const existing = await prisma.session.findFirst({ where: { date } });
+    const existing = await prisma.session.findFirst({ where: { date, dailyPlan: { is: { kidId: kid.id } } } });
     if (existing) return NextResponse.json(existing);
 
     const session = await prisma.session.create({

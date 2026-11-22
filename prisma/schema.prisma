@@ -8,15 +8,73 @@ datasource db {
 }
 
 model DailyPlan {
-  id            String   @id @default(cuid())
-  date          DateTime @unique @db.Date
-  generatedAt   DateTime @default(now())
+  id            String     @id @default(cuid())
+  kidId         String
+  kid           KidProfile @relation(fields: [kidId], references: [id])
+  date          DateTime   @db.Date
+  generatedAt   DateTime   @default(now())
   content       Json
-  edited        Boolean  @default(false)
+  edited        Boolean    @default(false)
   editedContent Json?
   session       Session?
 
+  @@unique([kidId, date])
+  @@index([kidId, date])
   @@map("daily_plans")
+}
+
+model KidProfile {
+  id                 String              @id @default(cuid())
+  email              String?             @unique
+  name               String
+  grade              Int                 @default(6)
+  emoji              String              @default("🦊")
+  timezone           String              @default("Asia/Kolkata")
+  emailVerifiedAt    DateTime?
+  guardianAttestedAt DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  plans              DailyPlan[]
+  boardSettings      BoardSettings?
+  explorations       GeniusExploration[]
+  authSessions       AuthSession[]
+  ratings            GeniusRating[]
+
+  @@map("kid_profiles")
+}
+
+model LoginCode {
+  id            String    @id @default(cuid())
+  email         String
+  codeHash      String
+  draftName     String
+  draftGrade    Int
+  draftEmoji    String
+  draftTimezone String    @default("Asia/Kolkata")
+  attested      Boolean   @default(false)
+  requestHash   String
+  attempts      Int       @default(0)
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([email, createdAt])
+  @@index([requestHash, createdAt])
+  @@map("login_codes")
+}
+
+model AuthSession {
+  id         String     @id @default(cuid())
+  kidId      String
+  kid        KidProfile @relation(fields: [kidId], references: [id], onDelete: Cascade)
+  tokenHash  String     @unique
+  expiresAt  DateTime
+  lastSeenAt DateTime   @default(now())
+  revokedAt  DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([kidId, expiresAt])
+  @@map("auth_sessions")
 }
 
 model Session {
@@ -67,22 +125,43 @@ enum Phase {
 }
 
 model GeniusExploration {
-  id             String    @id @default(cuid())
-  subject        String    @default("chemistry")
+  id             String         @id @default(cuid())
+  kidId          String
+  kid            KidProfile     @relation(fields: [kidId], references: [id])
+  subject        String         @default("chemistry")
   canonicalTopic String
   displayTitle   String
   defaultLevel   Int
   content        Json
   savedSnapshot  Json?
   savedAt        DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  lastOpenedAt   DateTime  @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  lastOpenedAt   DateTime       @default(now())
   deletedAt      DateTime?
+  ratings        GeniusRating[]
 
   @@index([savedAt])
   @@index([lastOpenedAt])
+  @@index([kidId, deletedAt, savedAt])
   @@map("genius_explorations")
+}
+
+model GeniusRating {
+  id            String            @id @default(cuid())
+  kidId         String
+  kid           KidProfile        @relation(fields: [kidId], references: [id], onDelete: Cascade)
+  explorationId String
+  exploration   GeniusExploration @relation(fields: [explorationId], references: [id], onDelete: Cascade)
+  nodeId        String
+  rating        Int
+  feedback      String?           @db.VarChar(500)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([kidId, explorationId, nodeId])
+  @@index([explorationId, nodeId])
+  @@map("genius_ratings")
 }
 
 model GeniusLessonCache {
@@ -114,13 +193,15 @@ model GeniusDeepDiveCache {
 }
 
 model BoardSettings {
-  id               String   @id @default("board")
+  id               String     @id @default(cuid())
+  kidId            String     @unique
+  kid              KidProfile @relation(fields: [kidId], references: [id], onDelete: Cascade)
   activeDays       Json
-  remindersEnabled Boolean  @default(false)
+  remindersEnabled Boolean    @default(false)
   reminderEmail    String?
-  reminderTime     String   @default("18:00")
+  reminderTime     String     @default("18:00")
   lastReminderDate String?
-  updatedAt        DateTime @updatedAt
+  updatedAt        DateTime   @updatedAt
 
   @@map("board_settings")
 }

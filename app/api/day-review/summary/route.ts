@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -24,7 +25,7 @@ function stringList(value: unknown): string[] {
     : [];
 }
 
-function parseSummary(raw: string | null, isSchoolDay: boolean): DaySummaryResult {
+function parseSummary(raw: string | null, isSchoolDay: boolean, learnerName: string): DaySummaryResult {
   if (!raw) {
     return {
       summary: "No day summary was returned.",
@@ -44,7 +45,7 @@ function parseSummary(raw: string | null, isSchoolDay: boolean): DaySummaryResul
       summary:
         typeof parsed.summary === "string" && parsed.summary.trim()
           ? parsed.summary.trim()
-          : "Aashvath shared a short summary of his day.",
+        : `${learnerName} shared a short summary of the day.`,
       rating: clampRating(parsed.rating),
       feedback:
         typeof parsed.feedback === "string" && parsed.feedback.trim()
@@ -74,6 +75,8 @@ function parseSummary(raw: string | null, isSchoolDay: boolean): DaySummaryResul
 }
 
 export async function POST(req: Request) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: "OpenAI API key is not configured" }, { status: 500 });
   }
@@ -95,8 +98,8 @@ export async function POST(req: Request) {
       language: "en",
       response_format: "json",
       prompt: isSchoolDay
-        ? "A Grade 6 student named Aashvath is describing his school day using five parts: the school day, one learning, a challenge, schoolwork status, and his next-school-day action."
-        : `A Grade 6 student named Aashvath is giving a ${dayType} reflection about his activities, one discovery, a challenge or choice, responsibility and rest, and one useful next step. Do not assume he attended school today.`,
+        ? `A Grade ${kid.grade} student named ${kid.name} is describing their school day using five parts: the school day, one learning, a challenge, schoolwork status, and their next-school-day action.`
+        : `A Grade ${kid.grade} student named ${kid.name} is giving a ${dayType} reflection about their activities, one discovery, a challenge or choice, responsibility and rest, and one useful next step. Do not assume they attended school today.`,
     });
     const transcript = transcription.text.trim();
 
@@ -120,13 +123,13 @@ export async function POST(req: Request) {
         {
           role: "system",
           content: isSchoolDay
-            ? "You coach a Grade 6 student on spoken school-day reviews. Return only JSON with keys summary:string, rating:number from 1 to 5 using up to one decimal place, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five anchors: what happened at school, one specific learning, one challenge and response, completed or unfinished schoolwork, and one concrete action for the next school day. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing anchor when applicable. Be kind, direct, and practical."
-            : "You coach a Grade 6 student on spoken weekend or holiday reflections. Return only JSON with keys summary:string, rating:number from 1 to 5 using up to one decimal place, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five day-off anchors: what he did, one thing learned/noticed/read/watched/practised, one challenge or important choice, a balance of responsibility and rest, and one useful next step. Never require or infer school attendance, classes, homework, or today's schoolwork. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing day-off anchor when applicable. Be kind, direct, and practical.",
+            ? `You coach a Grade ${kid.grade} student on spoken school-day reviews. Return only JSON with keys summary:string, rating:number from 1 to 5 using up to one decimal place, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five anchors: what happened at school, one specific learning, one challenge and response, completed or unfinished schoolwork, and one concrete action for the next school day. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing anchor when applicable. Be kind, direct, and practical.`
+            : `You coach a Grade ${kid.grade} student on spoken weekend or holiday reflections. Return only JSON with keys summary:string, rating:number from 1 to 5 using up to one decimal place, feedback:string, betterSummary:string, speakingTips:string[], fillerWords:string[]. Check five day-off anchors: what the learner did, one thing learned/noticed/read/watched/practised, one challenge or important choice, a balance of responsibility and rest, and one useful next step. Never require or infer school attendance, classes, homework, or today's schoolwork. Rate clarity, specificity, reflection, sentence structure, and filler words such as um, uh, like, you know. Name one missing day-off anchor when applicable. Be kind, direct, and practical.`,
         },
         {
           role: "user",
           content: JSON.stringify({
-            learner: "Aashvath",
+            learner: kid.name,
             context: contextLabel,
             task: "Review this spoken day summary and show how he can say it better.",
             transcript,
@@ -137,7 +140,7 @@ export async function POST(req: Request) {
       response_format: { type: "json_object" },
     });
 
-    const result = parseSummary(review.choices[0].message.content, isSchoolDay);
+    const result = parseSummary(review.choices[0].message.content, isSchoolDay, kid.name);
     return NextResponse.json({ transcript, ...result });
   } catch (err) {
     console.error("Day review summary failed:", err);

@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -14,6 +15,8 @@ function normalizeSpokenSentence(value: string): string[] {
 }
 
 export async function POST(request: Request) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   if (!process.env.OPENAI_API_KEY) return NextResponse.json({ error: "Speech checking is not configured." }, { status: 500 });
   try {
     const form = await request.formData();
@@ -26,7 +29,7 @@ export async function POST(request: Request) {
       file: audio,
       model: "whisper-1",
       ...(language === "hindi" || language === "sanskrit" ? { language: language === "sanskrit" ? "sa" : "hi" } : {}),
-      prompt: `The speaker is reading this ${languageName} sentence aloud. Transcribe only the sounds actually spoken, verbatim, using Devanagari script only. Never translate, normalize, autocorrect, or replace a spoken word with the expected word. Similar-sounding Hindi words can have different meanings: फूल (phūl, flower) and फल (phal, fruit) are different; write the one that was actually spoken. Expected sentence for pronunciation context only (do not copy it unless spoken): ${sentence}`,
+      prompt: `A Grade ${kid.grade} learner is reading this ${languageName} sentence aloud. Transcribe only the sounds actually spoken, verbatim, using Devanagari script only. Never translate, normalize, autocorrect, or replace a spoken word with the expected word. Similar-sounding Hindi words can have different meanings: फूल (phūl, flower) and फल (phal, fruit) are different; write the one that was actually spoken. Expected sentence for pronunciation context only (do not copy it unless spoken): ${sentence}`,
     });
     const transcript = transcription.text.trim();
     if (!transcript) return NextResponse.json({ transcript, correct: false, feedback: "I could not hear the sentence. Please try again." });

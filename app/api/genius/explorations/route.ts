@@ -9,8 +9,11 @@ import {
 import { cacheLesson, createExplorationRecord, findCachedLesson, generateIntroduction, toExplorationDTO } from "@/lib/genius";
 import { researchGeniusTopic, resolveGeniusTopic } from "@/lib/geniusResearch";
 import type { GeniusContent } from "@/types/genius";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 export async function POST(request: Request) {
+  const kid = await getAuthenticatedKid();
+  if (!kid) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   try {
     const body = (await request.json()) as { topic?: unknown; level?: unknown; subject?: unknown };
     const topic = cleanTopic(body.topic);
@@ -38,6 +41,7 @@ export async function POST(request: Request) {
       await cacheLesson({ subject, canonicalTopic: plan.canonicalTopic, displayTitle: plan.title, content });
     }
     const exploration = await createExplorationRecord({
+      kidId: kid.id,
       subject,
       canonicalTopic: plan.canonicalTopic,
       displayTitle: content.curriculumResearch?.resolvedTitle || cached?.displayTitle || displayTitleForTopic(topic, subject),

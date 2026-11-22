@@ -290,7 +290,7 @@ export default function SessionPage() {
         <div><h2 className="text-xl font-black text-indigo-800">🗓️ Aashvath&apos;s Study Calendar</h2><p className="text-sm text-slate-600">Choose the days this board appears. Default: Sunday, Tuesday, Thursday.</p></div>
         <div className="flex flex-wrap gap-2">{["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => <label key={day} className={`cursor-pointer rounded-full px-3 py-2 font-bold ${boardSettings.activeDays.includes(index) ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-600"}`}><input className="sr-only" type="checkbox" checked={boardSettings.activeDays.includes(index)} onChange={(event) => setBoardSettings((current) => ({ ...current, activeDays: event.target.checked ? [...current.activeDays, index].sort() : current.activeDays.filter((item) => item !== index) }))} />{day}</label>)}</div>
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={boardSettings.remindersEnabled} onChange={(event) => setBoardSettings((current) => ({ ...current, remindersEnabled: event.target.checked }))} className="h-5 w-5 accent-indigo-600" />Email a reminder</label>
-        {boardSettings.remindersEnabled && <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-semibold text-slate-700">Aashvath&apos;s email<input type="email" value={boardSettings.reminderEmail ?? ""} onChange={(event) => setBoardSettings((current) => ({ ...current, reminderEmail: event.target.value }))} className="mt-1 w-full rounded-xl border p-2" placeholder="aashvath@example.com" /></label><label className="text-sm font-semibold text-slate-700">Reminder time<input type="time" value={boardSettings.reminderTime} onChange={(event) => setBoardSettings((current) => ({ ...current, reminderTime: event.target.value }))} className="mt-1 w-full rounded-xl border p-2" /></label></div>}
+        {boardSettings.remindersEnabled && <div className="grid gap-3 sm:grid-cols-2"><p className="text-sm font-semibold text-slate-700">Reminder email <span className="mt-1 block rounded-xl border bg-slate-50 p-2 font-normal">{boardSettings.reminderEmail || "Your verified sign-in email"}</span></p><label className="text-sm font-semibold text-slate-700">Reminder time<input type="time" value={boardSettings.reminderTime} onChange={(event) => setBoardSettings((current) => ({ ...current, reminderTime: event.target.value }))} className="mt-1 w-full rounded-xl border p-2" /></label></div>}
         <div className="flex items-center gap-3"><button type="button" onClick={() => void saveBoardSettings()} className="rounded-full bg-indigo-600 px-5 py-2 font-bold text-white">Save calendar ⚙️</button>{settingsMessage && <span className="text-sm font-semibold text-indigo-700">{settingsMessage}</span>}</div>
       </div>}
 
@@ -329,13 +329,13 @@ export default function SessionPage() {
         <div className="rounded-2xl border-2 border-rose-300 bg-gradient-to-br from-rose-50 to-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-xs font-black tracking-wide text-rose-700">TERM 1 REPORT FOCUS</p>
+              <p className="text-xs font-black tracking-wide text-rose-700">{content.targeted_practice.report_level === "N" ? "PERSONAL PRACTICE FOCUS" : "TERM 1 REPORT FOCUS"}</p>
               <h2 className="mt-1 text-lg font-extrabold text-slate-800">
                 {content.targeted_practice.subject}: {content.targeted_practice.skill}
               </h2>
             </div>
             <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
-              Report level {content.targeted_practice.report_level} → Meeting
+              {content.targeted_practice.report_level === "N" ? "Practice goal" : `Report level ${content.targeted_practice.report_level} → Meeting`}
             </span>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">

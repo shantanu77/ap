@@ -16,6 +16,62 @@ interface SavedExploration {
   subject: GeniusSubject;
 }
 
+type LessonRatingValue = { rating: number; feedback: string };
+
+function LessonRating({ explorationId, nodeId, initial, onSaved }: {
+  explorationId: string;
+  nodeId: string;
+  initial?: LessonRatingValue;
+  onSaved: (nodeId: string, value: LessonRatingValue) => void;
+}) {
+  const [rating, setRating] = useState(initial?.rating ?? 0);
+  const [feedback, setFeedback] = useState(initial?.feedback ?? "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setRating(initial?.rating ?? 0);
+    setFeedback(initial?.feedback ?? "");
+  }, [initial?.rating, initial?.feedback]);
+
+  const save = async () => {
+    if (!rating || saving) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/genius/explorations/${explorationId}/rating`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodeId, rating, feedback }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save your rating.");
+      onSaved(nodeId, data);
+      setMessage("Thanks for helping us make lessons better! 🌟");
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "Could not save your rating.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4" aria-label="Rate this lesson card">
+      <p className="text-sm font-black text-amber-950">How helpful was this lesson card?</p>
+      <div className="mt-2 flex gap-1" role="group" aria-label="Choose a rating from one to five stars">
+        {[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" onClick={() => setRating(value)} aria-pressed={rating === value} aria-label={`${value} out of 5 stars`} className={`rounded-lg px-2 py-1 text-2xl ${value <= rating ? "text-amber-500" : "text-slate-300"}`}>★</button>)}
+      </div>
+      <label className="mt-2 block text-xs font-semibold text-amber-950">Anything we should explain better? (optional)
+        <textarea value={feedback} maxLength={500} onChange={(event) => setFeedback(event.target.value)} rows={2} className="mt-1 block w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-slate-900" placeholder="A short note helps us improve." />
+      </label>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <button type="button" onClick={() => void save()} disabled={!rating || saving} className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-amber-950 hover:bg-amber-400 disabled:opacity-50">{saving ? "Saving…" : initial ? "Update rating" : "Send rating"}</button>
+        {message && <span className="text-xs font-semibold text-amber-950" role="status">{message}</span>}
+      </div>
+    </section>
+  );
+}
+
 export default function GeniusExplorer({ id, saved = false }: { id: string; saved?: boolean }) {
   const [exploration, setExploration] = useState<GeniusExplorationDTO | SavedExploration | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,6 +80,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
   const [savedNotice, setSavedNotice] = useState("");
   const [question, setQuestion] = useState("");
   const [level, setLevel] = useState<StudyLevel>(6);
+  const [ratings, setRatings] = useState<Record<string, LessonRatingValue>>({});
   const newestNodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,6 +91,11 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
         if (!response.ok) throw new Error(data.error || "Could not load this topic.");
         setExploration(data);
         setLevel(data.defaultLevel);
+        const ratingResponse = await fetch(`/api/genius/explorations/${id}/rating`);
+        if (ratingResponse.ok) {
+          const ratingData = await ratingResponse.json();
+          setRatings(ratingData.ratings ?? {});
+        }
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Could not load this topic."))
       .finally(() => setLoading(false));
@@ -199,6 +261,12 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
                 const question = `Explain ${label} in ${node.title} in more depth. Use this lesson detail as context: ${detail}. Build from the Grade 6-7 foundation, add a clear Grade 8 extension, explain why it matters, give one concrete example, and correct one common misconception.`;
                 void expand(node, `Explore: ${label}`, question, question);
               }}
+            />
+            <LessonRating
+              explorationId={id}
+              nodeId={node.id}
+              initial={ratings[node.id]}
+              onSaved={(ratedNodeId, value) => setRatings((current) => ({ ...current, [ratedNodeId]: value }))}
             />
 
             {!saved && nodeIndex === nodes.length - 1 && (
