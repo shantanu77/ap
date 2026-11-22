@@ -51,7 +51,7 @@ The chapter key is unique with subject, for example `chemistry:chemical-bonding`
 Every new chapter includes:
 
 - A direct answer to the exact initiating focus near the top.
-- A chapter map or clear subtopic sequence broad enough to answer common related questions; the introduction should usually be 500–700 useful words across 8–12 concise cards.
+- A chapter map or clear subtopic sequence broad enough to answer common related questions; the introduction should usually be 500–700 useful words across 8–16 concise cards.
 - Grade 6 foundation, Grade 7 development, and a clearly titled Grade 8 extension.
 - Definitions on first use; worked examples or concrete applications; common misconception corrections.
 - A declarative interactive visual or an approved simulation that actually teaches the selected subject matter.

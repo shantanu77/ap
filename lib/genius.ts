@@ -94,7 +94,7 @@ Return:
 {"title":"...","estimated_read_minutes":3,"blocks":[...],"explore_choices":[
 {"id":"short-kebab-id","emoji":"...","label":"specific next question","intent":"precise generation intent","level":6}
 ]}
-For an INTRO chapter, create 8-12 concise, distinct blocks and aim for 500-700 useful words across the lesson. For an expansion, create 5-8 blocks and aim for 220-350 useful words. Do not count diagram label details as a substitute for the visible explanation. Include 2-4 specific explore choices. The level is the learner's requested depth (6-8 for the core band, or 9-12 for an optional advanced deep dive). Include at least one clearly optional advanced deep-dive choice when useful, set its level to 9-12, and keep that material out of the required Grade 6-8 lesson.`;
+For an INTRO chapter, create 8-16 concise, distinct blocks and aim for 500-700 useful words across the lesson. For an expansion, create 5-10 blocks and aim for 220-350 useful words. Do not count diagram label details as a substitute for the visible explanation. Include 2-4 specific explore choices. The level is the learner's requested depth (6-8 for the core band, or 9-12 for an optional advanced deep dive). Include at least one clearly optional advanced deep-dive choice when useful, set its level to 9-12, and keep that material out of the required Grade 6-8 lesson.`;
 }
 
 async function requestGeneratedNode(prompt: string, subject: GeniusSubject, maxTokens = 3000): Promise<unknown> {
@@ -196,7 +196,7 @@ export async function generateIntroduction(topic: string, level: StudyLevel, sub
     }
     let node = normalizeGeneratedNode(raw, fallback, null, "INTRO", level, `${topic} ${subject}`);
     let finalWords = generatedNodeWordCount(node);
-    if (research && finalWords < 500) {
+    for (let attempt = 0; research && finalWords < 500 && attempt < 3; attempt += 1) {
       const supplement = await requestSupplementalParagraphs({ subject, topic, focus, level, research, existingBlocks: node.blocks, minimumWords: 500 - finalWords });
       node = normalizeGeneratedNode({ title: node.title, blocks: [...node.blocks, ...supplement], explore_choices: node.exploreChoices }, fallback, null, "INTRO", level, `${topic} ${subject}`);
       finalWords = generatedNodeWordCount(node);
@@ -256,7 +256,7 @@ Create only the next learning node. Interpret the query carefully and answer the
       `${args.topic} ${args.parentNode.title} ${args.label} ${args.intent} ${args.subject}`
     );
     let finalWords = generatedNodeWordCount(node);
-    if (args.curriculumResearch && finalWords < 220) {
+    for (let attempt = 0; args.curriculumResearch && finalWords < 220 && attempt < 3; attempt += 1) {
       const supplement = await requestSupplementalParagraphs({ subject: args.subject, topic: args.topic, focus: `${args.label}. ${args.intent}`, level: args.level, research: args.curriculumResearch, existingBlocks: node.blocks, minimumWords: 220 - finalWords });
       node = normalizeGeneratedNode({ title: node.title, blocks: [...node.blocks, ...supplement], explore_choices: node.exploreChoices }, fallback, args.parentNode.id, args.nodeType ?? "READ_MORE", args.level,
         `${args.topic} ${args.parentNode.title} ${args.label} ${args.intent} ${args.subject}`);
