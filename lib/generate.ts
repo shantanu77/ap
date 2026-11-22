@@ -8,66 +8,6 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const READING_WORDS_MIN = 450;
 const READING_WORDS_MAX = 600;
 
-type AcademicFocus = {
-  subject: string;
-  skill: string;
-  reportLevel: "S" | "P";
-  meetingTarget: string;
-  taskGuidance: string;
-};
-
-const ACADEMIC_FOCUS_ROTATION: AcademicFocus[] = [
-  {
-    subject: "Mathematics",
-    skill: "fractions",
-    reportLevel: "S",
-    meetingTarget: "Represent equivalent fractions, place them on a number line, and solve one addition or subtraction problem with a clear model.",
-    taskGuidance: "Use a number line or area model before calculating. Include one equivalence item and one short word problem.",
-  },
-  {
-    subject: "English",
-    skill: "literal comprehension and summarising",
-    reportLevel: "S",
-    meetingTarget: "Identify the main idea and retrieve three accurate details from a Grade 6 text without guessing.",
-    taskGuidance: "Use a short fresh paragraph and require a main-idea sentence plus three details, each tied to exact words in the text.",
-  },
-  {
-    subject: "Expedition / Science",
-    skill: "cause-and-effect scientific explanation",
-    reportLevel: "P",
-    meetingTarget: "Explain a process in a complete cause → mechanism → effect chain using accurate subject vocabulary.",
-    taskGuidance: "Rotate among groundwater recharge, the rock cycle, plant reproduction and forest regeneration, environmental balance, and acids/bases/neutralisation.",
-  },
-  {
-    subject: "Mathematics",
-    skill: "factors, multiples and data handling",
-    reportLevel: "P",
-    meetingTarget: "Choose the correct operation or representation, show working, and check that the answer fits the question.",
-    taskGuidance: "Alternate a common-factor/common-multiple problem with a small table or graph interpretation task. Require one written reason.",
-  },
-  {
-    subject: "English",
-    skill: "narrative structure and writing conventions",
-    reportLevel: "P",
-    meetingTarget: "Plan and produce a short, ordered response with specific detail, complete sentences, capitals, punctuation, and checked spelling.",
-    taskGuidance: "Use oral rehearsal first, then a four-sentence plan or an editing task. Keep handwriting volume dysgraphia-aware.",
-  },
-  {
-    subject: "Digital Literacy",
-    skill: "spreadsheet functions and flowcharts",
-    reportLevel: "P",
-    meetingTarget: "Select an appropriate spreadsheet function or flowchart symbol and explain why it fits the step.",
-    taskGuidance: "Use a tiny data table or a familiar real-life algorithm. Require a prediction, the result, and one correction check.",
-  },
-  {
-    subject: "Weekly Review",
-    skill: "retrieval, organisation and independent follow-through",
-    reportLevel: "P",
-    meetingTarget: "Retrieve this week's key learning, identify unfinished work, and independently plan the first action for Monday.",
-    taskGuidance: "Use a mixed five-item retrieval check covering the week's subjects, then one concrete organise-check-pack action.",
-  },
-];
-
 const FOCUS_COACHING_THEMES = [
   "finishing homework fully and checking it before packing",
   "focusing in class: notice distraction, return attention to the teacher, and capture the next useful point",
@@ -179,12 +119,6 @@ function focusCoachingThemeForDate(dateStr: string): string {
   return FOCUS_COACHING_THEMES[days % FOCUS_COACHING_THEMES.length];
 }
 
-function academicFocusForDate(dateStr: string): AcademicFocus {
-  const dayOfWeek = parseDate(dateStr).getUTCDay();
-  const mondayFirstIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  return ACADEMIC_FOCUS_ROTATION[mondayFirstIndex];
-}
-
 function nextDateString(dateStr: string): string {
   const date = parseDate(dateStr);
   date.setUTCDate(date.getUTCDate() + 1);
@@ -222,7 +156,6 @@ function nextDayContext(dateStr: string) {
 
 function defaultNextDayPrep(dateStr: string, todaySkill: string) {
   const next = nextDayContext(dateStr);
-  const nextFocus = academicFocusForDate(next.date);
 
   if (!next.isSchoolDay) {
     return {
@@ -246,12 +179,12 @@ function defaultNextDayPrep(dateStr: string, todaySkill: string) {
     label: next.label,
     is_school_day: true,
     reason: next.reason,
-    focus: `Arrive ready, follow through independently, and use ${nextFocus.skill} as the focused practice target.`,
+    focus: `Arrive ready and follow through independently. Keep one useful idea from today's ${todaySkill} lesson fresh.`,
     checklist: [
       `Finish or correct today's ${todaySkill} task before packing it away.`,
       `Check the real diary and timetable for ${next.label}; list every required item.`,
       "Pack each listed book, notebook, worksheet, and special item, ticking the diary as you go.",
-      `Complete one 10-minute ${nextFocus.skill} review or worked example.`,
+      `Spend 10 minutes reviewing one useful idea from today's ${todaySkill} lesson.`,
       "Set out the home study space and choose the first task to begin before screens.",
     ],
   };
@@ -279,6 +212,7 @@ function buildRecentReadingNotes(
 }
 
 export function normalizeDailyContent(dateStr: string, content: DailyContent): DailyContent {
+  const { targeted_practice: _obsoletePractice, ...currentContent } = content as DailyContent & { targeted_practice?: unknown };
   const linesRequired = 10;
   const rawWritingPrompt = normalizeWhitespace(content.writing?.prompt ?? "");
   const writingTopic = (rawWritingPrompt.match(/[.!?](?:\s|$)/g)?.length ?? 0) > 3
@@ -289,39 +223,16 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
   while (uniqueQuestions.length < 5) {
     uniqueQuestions.push(`What is one important idea from the passage in question ${uniqueQuestions.length + 1}?`);
   }
-  const normalizedTargetedPractice = content.targeted_practice
-    ? {
-        ...content.targeted_practice,
-        subject: normalizeWhitespace(content.targeted_practice.subject),
-        skill: normalizeWhitespace(content.targeted_practice.skill),
-        meeting_target: normalizeWhitespace(content.targeted_practice.meeting_target),
-        task: normalizeWhitespace(content.targeted_practice.task),
-        success_criteria: (content.targeted_practice.success_criteria ?? [])
-          .map(normalizeWhitespace)
-          .filter(Boolean)
-          .slice(0, 4),
-        self_check: normalizeWhitespace(content.targeted_practice.self_check),
-      }
-    : undefined;
-  const todaySkill = normalizedTargetedPractice?.skill ?? academicFocusForDate(dateStr).skill;
+  // Daily work stays within its lesson; do not surface the old arbitrary
+  // weekday maths booster retained in previously cached plans.
+  const todaySkill = normalizeWhitespace(content.reading?.topic ?? "today's lesson");
   const fallbackNextDayPrep = defaultNextDayPrep(dateStr, todaySkill);
-  const normalizedNextDayPrep = content.next_day_prep
-    ? {
-        ...content.next_day_prep,
-        date: fallbackNextDayPrep.date,
-        label: fallbackNextDayPrep.label,
-        is_school_day: fallbackNextDayPrep.is_school_day,
-        reason: fallbackNextDayPrep.reason,
-        focus: normalizeWhitespace(content.next_day_prep.focus),
-        checklist: (content.next_day_prep.checklist ?? [])
-          .map(normalizeWhitespace)
-          .filter(Boolean)
-          .slice(0, 6),
-      }
-    : fallbackNextDayPrep;
+  // Replace stale generated prep too; older cached plans may contain the
+  // unrelated weekday maths booster we no longer assign.
+  const normalizedNextDayPrep = fallbackNextDayPrep;
 
   return {
-    ...content,
+    ...currentContent,
     date: dateStr,
     day_context: dayContext(dateStr),
     reading: {
@@ -390,7 +301,6 @@ export function normalizeDailyContent(dateStr: string, content: DailyContent): D
         "Check grammar and spelling",
       ],
     },
-    targeted_practice: normalizedTargetedPractice,
     next_day_prep: normalizedNextDayPrep,
     science_hook: normalizeWhitespace(content.science_hook),
     ethics_reflection: normalizeWhitespace(content.ethics_reflection),
@@ -407,12 +317,6 @@ async function buildPrompt(dateStr: string, learner: Pick<KidProfile, "id" | "na
   const next = nextDayContext(dateStr);
   const dayOfWeek = parseDate(dateStr).getUTCDay();
   const isAashvath = learner.id === "legacy-aashvath";
-  const academicFocus = isAashvath ? academicFocusForDate(dateStr) : {
-    ...ACADEMIC_FOCUS_ROTATION[dayOfWeek % ACADEMIC_FOCUS_ROTATION.length],
-    reportLevel: "N" as const,
-    taskGuidance: "Create an age-appropriate short practice task with one concrete accuracy check and one brief explanation or worked example.",
-  };
-  const nextAcademicFocus = isAashvath ? academicFocusForDate(next.date) : academicFocus;
   const learnerGuidance = isAashvath
     ? "Use the existing family-provided learning preferences: keep handwriting demands short, allow oral rehearsal, and use science, space, or technology examples when they fit. Do not mention diagnoses, school, age, or ability labels in the lesson."
     : "Do not assume a diagnosis, ability level, school, interests, or past performance. Offer varied examples and age-appropriate choices for this grade.";
@@ -462,25 +366,18 @@ TODAY'S FREE/PUBLIC-DOMAIN READING ANCHOR:
 RECENT READ-ALOUD TITLES TO AVOID REPEATING:
 ${recentReadingNotes}
 
-TODAY'S REPORT-BASED SUBJECT BOOSTER:
-- Subject: ${academicFocus.subject}
-- Skill: ${academicFocus.skill}
-- Current report level: ${academicFocus.reportLevel}
-- Definition of Meeting: ${academicFocus.meetingTarget}
-- Task design: ${academicFocus.taskGuidance}
-
 NEXT-DAY CONTEXT:
 - Date: ${next.label}
 - School day: ${next.isSchoolDay ? "yes" : "no"}
 - Reason: ${next.reason}
-- Carry forward today's ${academicFocus.skill} discipline target.
-- ${next.isSchoolDay ? `Use the real diary/timetable for preparation and include a short ${nextAcademicFocus.skill} review. Never invent a timetable, class, book, or special material.` : "Do not say school is tomorrow and do not ask him to pack for tomorrow. Focus on closing unfinished work, organisation, a short review, and checking the next actual school day."}
+- Carry forward a useful idea from today's reading or language lesson; do not assign a new unrelated subject problem.
+- ${next.isSchoolDay ? "Use the real diary/timetable for preparation. Never invent a timetable, class, book, or special material." : "Do not say school is tomorrow and do not ask the learner to pack for tomorrow. Focus on closing unfinished work, organisation, and checking the next actual school day."}
 
 Generate a school-term daily learning package. It should be engaging, rigorous, and achievable for a Grade ${learner.grade} student.
 Reading must be ${READING_WORDS_MIN}-${READING_WORDS_MAX} words, split into short paragraphs. Use the public-domain reading anchor above as the source/theme, but create a self-contained original passage or adapted public-domain-style chapter page suitable for this learner. Do not quote modern copyrighted books.
 After the main passage, include a separate 130-180 word read-aloud coaching paragraph about ${focusCoachingTheme}. It must show ${learner.name} a realistic school/home moment, explain why the habit matters, and give a tiny action sequence the learner can use immediately. Sound like a smart coach, not a lecture; avoid shame, labels, threats, and vague advice such as merely saying "focus more". Vary the scenario and wording from day to day.
 Make the five comprehension questions clearly different from one another. Never repeat a question or ask the same thing with changed wording. First question: literal retrieval; second: main idea; later ones: vocabulary, evidence and a fresh real-life connection.
-Include one 10-15 minute targeted-practice task that follows today's subject booster exactly. It must have a small, observable finish line and no more than five handwritten lines.
+Do not add an unrelated maths problem, subject booster, or extra practice task. Keep the session to the listed lesson activities.
 The science content should feel like a smart YouTube hook, but the work itself should require focus.
 Do not reuse a recent read-aloud title, central fact, or passage angle from the list above.
 The writing exercise must be EXACTLY 5 short lines, each on its own new line. Do not return one long sentence or a paragraph.
@@ -527,19 +424,6 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     "lines_required": 10,
     "success_criteria": ["Write one complete paragraph up to 100 words", "Use capitals and punctuation", "Check grammar and spelling", "Write legibly"]
   },
-  "targeted_practice": {
-    "subject": "${academicFocus.subject}",
-    "skill": "${academicFocus.skill}",
-    "report_level": "${academicFocus.reportLevel}",
-    "meeting_target": "${academicFocus.meetingTarget}",
-    "task": "A complete, ready-to-do 10-15 minute task following this direction: ${academicFocus.taskGuidance}",
-    "success_criteria": [
-      "One concrete accuracy check specific to this task",
-      "One check that requires working, evidence, or a complete explanation",
-      "One check ${learner.name} can perform independently before finishing"
-    ],
-    "self_check": "One short question ${learner.name} answers before marking the task complete."
-  },
   "next_day_prep": {
     "date": "${next.date}",
     "label": "${next.label}",
@@ -547,7 +431,7 @@ Return ONLY valid JSON with this exact structure (no markdown, no extra text):
     "reason": "${next.reason}",
     "focus": "One specific discipline focus connecting today's work to the next useful action.",
     "checklist": [
-      "Action 1: close or correct today's ${academicFocus.skill} work",
+      "Action 1: close or review one useful idea from today's reading or language lesson",
       "Action 2: one concrete organisation action",
       "Action 3: one unfinished-work or diary/timetable action appropriate to whether school is open",
       "Action 4: one short review action appropriate to ${next.label}",

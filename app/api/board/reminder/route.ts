@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       if (session) { outcomes.push({ kidId: settings.kidId, sent: false, reason: "already-completed" }); continue; }
       const recipient = settings.kid.email || settings.reminderEmail;
       if (!recipient) { outcomes.push({ kidId: settings.kidId, sent: false, reason: "no-email" }); continue; }
-      await sendGmailSmtpEmail({ from: email.senderEmail, password: email.senderPassword, to: [recipient], subject: `🌟 ${settings.kid.name}'s Study Quest is ready!`, text: `Hi ${settings.kid.name}!\n\nIt is time for your Study Quest. Pick one task, focus, and keep going step by step. You can do it! 📚✨\n` });
+      await sendGmailSmtpEmail({ from: email.senderFromEmail, authUser: email.senderEmail, password: email.senderPassword, to: [recipient], subject: `🌟 ${settings.kid.name}'s Study Quest is ready!`, text: `Hi ${settings.kid.name}!\n\nIt is time for your Study Quest. Pick one task, focus, and keep going step by step. You can do it! 📚✨\n` });
       await prisma.boardSettings.update({ where: { id: settings.id }, data: { lastReminderDate: date } });
       sent += 1;
       outcomes.push({ kidId: settings.kidId, sent: true, reason: "sent" });

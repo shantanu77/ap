@@ -88,7 +88,7 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
   return (
     <main className="mx-auto flex min-h-[75vh] w-full max-w-xl items-center justify-center py-5 sm:py-8">
       <section className="w-full min-w-0 rounded-3xl border border-violet-100 bg-white p-4 shadow-xl sm:rounded-[2rem] sm:p-9">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">AllShare Learning Companion</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">BrightKids.Space</p>
         {stage === "details" ? (
           <>
             <div className="mt-5 grid grid-cols-2 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Account options">
@@ -149,7 +149,7 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
             {notice && <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900" role="status">{notice}</p>}
             <form onSubmit={verifyCode} className="mt-5 space-y-3">
               <label className="block text-sm font-bold text-slate-700">Sign-in code
-                <input autoFocus inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-4 text-center text-3xl font-black tracking-[0.4em] text-slate-950 outline-none focus:ring-2 focus:ring-violet-500" placeholder="000000" />
+                <input id="one-time-code" name="one-time-code" autoFocus inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-4 text-center text-3xl font-black tracking-[0.4em] text-slate-950 outline-none focus:ring-2 focus:ring-violet-500" placeholder="000000" />
               </label>
               {error && <p className="rounded-xl bg-rose-50 p-3 text-sm font-semibold text-rose-800" role="alert">{error}</p>}
               <button disabled={busy || code.length !== 6} className="w-full rounded-xl bg-violet-600 px-5 py-3 font-black text-white hover:bg-violet-700 disabled:bg-slate-300">{busy ? "Opening your study space…" : "Sign in and start learning 🚀"}</button>

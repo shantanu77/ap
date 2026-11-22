@@ -15,6 +15,10 @@ export default function Timer({ durationMin, onComplete, autoStart = false, done
   const [running, setRunning] = useState(autoStart);
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedRef = useRef(0);
+  const callbackRef = useRef(onComplete);
+
+  useEffect(() => { callbackRef.current = onComplete; }, [onComplete]);
 
   const stop = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -24,25 +28,29 @@ export default function Timer({ durationMin, onComplete, autoStart = false, done
 
   const handleDone = useCallback(() => {
     stop();
-    onComplete(elapsed);
-  }, [stop, onComplete, elapsed]);
+    callbackRef.current(elapsedRef.current);
+  }, [stop]);
 
   useEffect(() => {
     if (running) {
+      let previousTickAt = Date.now();
       intervalRef.current = setInterval(() => {
-        setRemaining((r) => {
-          if (r <= 1) {
-            stop();
-            onComplete(totalSec - r + 1 + elapsed);
-            return 0;
-          }
-          setElapsed((e) => e + 1);
-          return r - 1;
-        });
+        const now = Date.now();
+        const elapsedSinceTick = Math.floor((now - previousTickAt) / 1000);
+        if (elapsedSinceTick < 1) return;
+        previousTickAt += elapsedSinceTick * 1000;
+        const nextElapsed = Math.min(totalSec, elapsedRef.current + elapsedSinceTick);
+        elapsedRef.current = nextElapsed;
+        setElapsed(nextElapsed);
+        setRemaining(Math.max(0, totalSec - nextElapsed));
+        if (nextElapsed >= totalSec) {
+          stop();
+          callbackRef.current(nextElapsed);
+        }
       }, 1000);
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running, stop, onComplete, totalSec, elapsed]);
+  }, [running, stop, totalSec]);
 
   const pct = Math.round(((totalSec - remaining) / totalSec) * 100);
   const isUrgent = remaining <= 60 && remaining > 0;

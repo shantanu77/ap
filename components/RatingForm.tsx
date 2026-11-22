@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { DayContextContent, DaySummaryRating, LanguageContent, NextDayPrepContent, PhaseId, ReadingContent, ReadAloudAnswerRating, TargetedPracticeContent } from "@/types";
+import type { DayContextContent, DaySummaryRating, LanguageContent, NextDayPrepContent, PhaseId, ReadingContent, ReadAloudAnswerRating } from "@/types";
 
 const StarRating = ({
   label,
@@ -29,37 +29,6 @@ const StarRating = ({
   </div>
 );
 
-const YesNo = ({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: boolean | null;
-  onChange: (v: boolean) => void;
-}) => (
-  <div className="space-y-1">
-    <label className="text-sm font-medium text-gray-600">{label}</label>
-    <div className="flex gap-2">
-      {[true, false].map((v) => (
-        <button
-          key={String(v)}
-          onClick={() => onChange(v)}
-          className={`px-4 py-1.5 rounded-lg text-sm font-semibold border-2 transition-all ${
-            value === v
-              ? v
-                ? "bg-green-500 border-green-500 text-white"
-                : "bg-red-400 border-red-400 text-white"
-              : "border-gray-300 text-gray-500 hover:border-gray-400"
-          }`}
-        >
-          {v ? "Yes" : "No"}
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
 function normalizeAiRating(value: unknown): number {
   const rating = Number(value);
   if (!Number.isFinite(rating)) return 1;
@@ -71,7 +40,6 @@ interface RatingFormProps {
   writingLinesRequired?: number;
   reading?: ReadingContent;
   language?: LanguageContent;
-  targetedPractice?: TargetedPracticeContent;
   nextDayPrep?: NextDayPrepContent;
   dayContext?: DayContextContent;
   onSave: (ratings: object, timeSpentSec?: number) => void;
@@ -82,7 +50,6 @@ export default function RatingForm({
   writingLinesRequired = 5,
   reading,
   language,
-  targetedPractice,
   nextDayPrep,
   dayContext,
   onSave,
@@ -118,12 +85,6 @@ export default function RatingForm({
   const [homeworkCompleteness, setHomeworkCompleteness] = useState(3);
   const [discipline, setDiscipline] = useState(3);
   const [shortcutUsage, setShortcutUsage] = useState<"none" | "minor" | "major">("none");
-  const [targetedPracticeCompleted, setTargetedPracticeCompleted] = useState<boolean | null>(null);
-  const [targetedPracticeOutcome, setTargetedPracticeOutcome] = useState<"not_yet" | "with_help" | "independent">("not_yet");
-  const [boosterPhoto, setBoosterPhoto] = useState<File | null>(null);
-  const [boosterReview, setBoosterReview] = useState<{ completed: boolean; rating: number; summary: string } | null>(null);
-  const [checkingBooster, setCheckingBooster] = useState(false);
-  const [boosterError, setBoosterError] = useState("");
   const [goal, setGoal] = useState("");
   const [focusClass, setFocusClass] = useState("");
   const [prepChecks, setPrepChecks] = useState<boolean[]>(
@@ -346,14 +307,14 @@ export default function RatingForm({
     switch (phase) {
       case "DAY_REVIEW":
         if (!daySummary) {
-          setDaySummaryError("Aashvath must record and review his day summary before continuing.");
+          setDaySummaryError("Please record and review your day summary before continuing.");
           return;
         }
         ratings = { mood, engagement, daySummary };
         break;
       case "READ_ALOUD":
         if (!reading || verifiedAnswerCount !== readAloudQuestions.length) {
-          setReadAloudError("Aashvath must record and verify every answer before continuing.");
+          setReadAloudError("Please record and verify every answer before continuing.");
           return;
         }
         ratings = {
@@ -376,28 +337,11 @@ export default function RatingForm({
         ratings = { linesWritten, legibility, effort };
         break;
       case "WORK_QUALITY":
-        if (targetedPractice && targetedPracticeCompleted && !boosterReview) {
-          setBoosterError("Add a photo of the finished booster page so it can be checked.");
-          return;
-        }
-        ratings = {
-          homeworkCompleteness,
-          discipline,
-          shortcutUsage,
-          ...(targetedPractice
-            ? {
-                targetedPracticeCompleted: targetedPracticeCompleted ?? false,
-                targetedPracticeOutcome: targetedPracticeCompleted
-                  ? targetedPracticeOutcome
-                  : "not_yet",
-                boosterReview,
-              }
-            : {}),
-        };
+        ratings = { homeworkCompleteness, discipline, shortcutUsage };
         break;
       case "NEXT_DAY_PREP":
         if (nextDayPrep && prepChecks.some((checked) => !checked)) {
-          setNextDayPrepError("Aashvath must personally tick every completed preparation action.");
+          setNextDayPrepError("Please tick each preparation action you completed.");
           return;
         }
         if (!focusClass.trim() || !goal.trim()) {
@@ -554,10 +498,10 @@ export default function RatingForm({
           <div className="space-y-3">
             <div>
               <label className="text-sm font-medium text-gray-600">
-                Aashvath&apos;s recorded answers
+                Your recorded answers
               </label>
               <p className="text-xs text-gray-500 mt-1">
-                No guesswork. Aashvath records each answer, and the system checks it against the passage.
+                Record each answer and the system will check it against the passage.
               </p>
             </div>
             {readAloudQuestions.map((question, index) => {
@@ -684,66 +628,6 @@ export default function RatingForm({
 
       {phase === "WORK_QUALITY" && (
         <>
-          {targetedPractice && (
-            <div className="rounded-xl border border-rose-100 bg-white p-3 space-y-3">
-              <div>
-                <p className="text-sm font-bold text-gray-700">Report-based booster</p>
-                <p className="text-xs text-gray-500">
-                  {targetedPractice.subject} · {targetedPractice.skill}
-                </p>
-              </div>
-              <YesNo
-                label="Completed the booster?"
-                value={targetedPracticeCompleted}
-                onChange={(value) => {
-                  setTargetedPracticeCompleted(value);
-                  if (!value) setTargetedPracticeOutcome("not_yet");
-                }}
-              />
-              <div className="rounded-xl bg-rose-50 p-3 space-y-2">
-                <p className="text-sm font-bold text-rose-800">📸 Quick booster check</p>
-                <p className="text-xs text-slate-600">Take a photo of the completed page to check that the task was done and get a simple score.</p>
-                <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { setBoosterPhoto(event.target.files?.[0] ?? null); setBoosterReview(null); }} className="block w-full text-sm" />
-                <button type="button" disabled={!boosterPhoto || checkingBooster} onClick={async () => {
-                  if (!boosterPhoto || !targetedPractice) return;
-                  setCheckingBooster(true);
-                  try {
-                    const form = new FormData(); form.append("photo", boosterPhoto); form.append("task", targetedPractice.task); form.append("criteria", targetedPractice.success_criteria.join("; "));
-                    const response = await fetch("/api/booster/analyse", { method: "POST", body: form }); const data = await response.json();
-                    if (!response.ok) throw new Error(data.error || "Could not check this page.");
-                    setBoosterReview(data); setTargetedPracticeCompleted(Boolean(data.completed));
-                  } catch (error) { setBoosterError(error instanceof Error ? error.message : "Could not check the booster page."); }
-                  finally { setCheckingBooster(false); }
-                }} className="rounded-lg bg-rose-500 px-3 py-2 font-bold text-white disabled:opacity-50">{checkingBooster ? "Checking the page…" : "Check my booster 📷"}</button>
-                {boosterReview && <p className="text-sm font-semibold text-rose-800">{boosterReview.completed ? "✅ Task found" : "🔎 Try again"} · {boosterReview.rating}/5 — {boosterReview.summary}</p>}
-                {boosterError && <p className="text-sm font-semibold text-red-600">{boosterError}</p>}
-              </div>
-              {targetedPracticeCompleted && (
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-600">How was it completed?</label>
-                  <div className="flex flex-wrap gap-2">
-                    {([
-                      ["with_help", "With help"],
-                      ["independent", "Independently"],
-                    ] as const).map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setTargetedPracticeOutcome(value)}
-                        className={`rounded-lg border-2 px-3 py-1.5 text-sm font-semibold ${
-                          targetedPracticeOutcome === value
-                            ? "border-rose-500 bg-rose-500 text-white"
-                            : "border-gray-300 text-gray-500"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
           <StarRating
             label="Homework completeness"
             value={homeworkCompleteness}

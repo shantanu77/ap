@@ -1,6 +1,6 @@
 export interface ParentNotificationConfig {
-  studentName: string;
   senderEmail: string;
+  senderFromEmail: string;
   senderPassword: string;
   parentEmails: string[];
   escalationEmails: string[];
@@ -22,13 +22,14 @@ function intFromEnv(value: string | undefined, fallback: number): number {
 
 export function getParentNotificationConfig(): ParentNotificationConfig {
   const senderEmail = process.env.EMAIL ?? process.env.SMTP_USER ?? "";
+  const senderFromEmail = process.env.BRIGHTKIDS_FROM_EMAIL || senderEmail;
   const senderPassword = process.env.PASSWORD ?? process.env.SMTP_PASSWORD ?? "";
   const parentEmails = splitEmails(process.env.PARENT_EMAILS);
   const escalationEmails = splitEmails(process.env.ESCALATION_EMAILS);
 
   return {
-    studentName: process.env.NEXT_PUBLIC_STUDENT_NAME || "Aashvath",
     senderEmail,
+    senderFromEmail,
     senderPassword,
     parentEmails: parentEmails.length > 0 ? parentEmails : senderEmail ? [senderEmail] : [],
     escalationEmails,

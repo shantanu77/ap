@@ -18,8 +18,8 @@ import type {
 } from "@/types/genius";
 import type { GeniusCurriculumResearch } from "@/lib/geniusResearch";
 
-const GENIUS_LESSON_CACHE_VERSION = 5;
-const GENIUS_DEEP_DIVE_CACHE_VERSION = 6;
+const GENIUS_LESSON_CACHE_VERSION = 6;
+const GENIUS_DEEP_DIVE_CACHE_VERSION = 7;
 
 function openAIClient(): OpenAI | null {
   if (!process.env.OPENAI_API_KEY) return null;
@@ -36,7 +36,7 @@ function contentRules(subject: GeniusSubject): string {
         ? "Teach NCERT-aligned mathematics for the selected grade. Explain why each method works, not only the rule. Use LaTeX notation for mathematical expressions, verify every calculation, and distinguish the reasoning step from the arithmetic step."
         : "Connect observations to particles, substances, energy, and reactions as appropriate.";
   return `Return one child-friendly ${subjectName} learning node as strict JSON.
-The learner is Aashvath. Teach a Grade 6-8 band: establish Grade 6 foundations, build them into Grade 7 understanding, and add a clearly labelled Grade 8 extension. A student's selected grade is a starting point, not a reason to omit the rest of the core chapter.
+Teach a Grade 6-8 band: establish Grade 6 foundations, build them into Grade 7 understanding, and add a clearly labelled Grade 8 extension. A student's selected grade is a starting point, not a reason to omit the rest of the core chapter. Never assume or hard-code the learner's name or personal details.
 Never return Markdown, HTML, URLs, or JavaScript. Keep paragraphs short and use relevant emoji.
 NOTATION RULES: Use LaTeX delimiters for every mathematical expression that benefits from typesetting: inline as \\( ... \\), displayed on its own line as \\[ ... \\]. Write fractions with \\frac{numerator}{denominator}, powers with ^{...}, roots with \\sqrt{...}, and equations with standard LaTeX. For chemical formulae and reactions use mhchem inside math delimiters, for example \\(\\ce{H2O}\\), \\[\\ce{2H2 + O2 -> 2H2O}\\]. Use this for formulas in Math, Chemistry, Physics, and Biology. In strict JSON, escape each LaTeX backslash as \\\\ in the serialized JSON string. Do not use Unicode approximations when a clear formula is appropriate.
 ${modelGuidance} Define new vocabulary. Do not encourage tasting, direct smelling,

@@ -104,7 +104,7 @@ function SavedRating({ phaseId, rating }: { phaseId: PhaseId; rating: Record<str
     : phaseId === "WRITING"
       ? [["Lines written", rating.linesWritten], ["Legibility", `${valueText(rating.legibility)}/5`], ["Effort", `${valueText(rating.effort)}/5`]]
     : phaseId === "WORK_QUALITY"
-      ? [["Homework completeness", `${valueText(rating.homeworkCompleteness)}/5`], ["Discipline", `${valueText(rating.discipline)}/5`], ["Shortcut use", rating.shortcutUsage], ["Report booster completed", rating.targetedPracticeCompleted], ["Booster outcome", rating.targetedPracticeOutcome], ["Booster photo score", rating.boosterReview && typeof rating.boosterReview === "object" ? `${valueText((rating.boosterReview as Record<string, unknown>).rating)}/5 · ${valueText((rating.boosterReview as Record<string, unknown>).summary)}` : null]]
+      ? [["Homework completeness", `${valueText(rating.homeworkCompleteness)}/5`], ["Discipline", `${valueText(rating.discipline)}/5`], ["Shortcut use", rating.shortcutUsage]]
       : [["Preparation completed", rating.allChecklistComplete], ["Focus answer", rating.focusClass], ["Goal answer", rating.goal]];
   const checklist = Array.isArray(rating.checklist) ? rating.checklist : [];
   const sentenceChecks = Array.isArray(rating.sentenceChecks) ? rating.sentenceChecks : [];
@@ -131,7 +131,7 @@ interface PhaseCardProps {
   isReadOnly?: boolean;
 }
 
-function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyContent }) {
+function PhaseContent({ phaseId, content, showComprehensionQuestions = false }: { phaseId: PhaseId; content: DailyContent; showComprehensionQuestions?: boolean }) {
   switch (phaseId) {
     case "DAY_REVIEW":
       return (
@@ -183,7 +183,7 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
           <p className="text-xs font-semibold text-blue-700">
             Read the passage normally. Voice recording is only for answering the questions below.
           </p>
-          <div className="space-y-2">
+          {showComprehensionQuestions && <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-500">COMPREHENSION QUESTIONS</p>
             {content.reading.comprehension_questions.map((q, i) => (
               <div key={i} className="flex gap-2 text-sm">
@@ -191,7 +191,7 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
                 <span className="text-gray-700">{q}</span>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       );
 
@@ -292,45 +292,13 @@ function PhaseContent({ phaseId, content }: { phaseId: PhaseId; content: DailyCo
     case "WORK_QUALITY":
       return (
         <div className="space-y-3">
-          {content.targeted_practice && (
-            <div className="rounded-xl border-2 border-rose-200 bg-white p-4 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-rose-100 px-2 py-1 text-xs font-bold text-rose-700">
-                  {content.targeted_practice.report_level === "N" ? "PERSONAL PRACTICE BOOSTER" : "REPORT-BASED BOOSTER"}
-                </span>
-                <span className="text-xs font-semibold text-gray-500">
-                  {content.targeted_practice.report_level === "N" ? content.targeted_practice.subject : `${content.targeted_practice.subject} · currently ${content.targeted_practice.report_level}`}
-                </span>
-              </div>
-              <div>
-                <p className="font-bold text-gray-800">{content.targeted_practice.skill}</p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Meeting target: {content.targeted_practice.meeting_target}
-                </p>
-              </div>
-              <p className="text-sm leading-relaxed text-gray-700">
-                {content.targeted_practice.task}
-              </p>
-              <div className="space-y-1">
-                {content.targeted_practice.success_criteria.map((criterion, index) => (
-                  <div key={index} className="flex gap-2 text-sm text-gray-600">
-                    <span className="text-rose-500">✓</span>
-                    <span>{criterion}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="rounded-lg bg-rose-50 p-2 text-sm font-medium text-rose-800">
-                Self-check: {content.targeted_practice.self_check}
-              </p>
-            </div>
-          )}
           <p className="text-sm text-gray-700 font-medium">
-            Check today&apos;s school homework and classwork. A helper can take a quick photo of the booster page for a simple accuracy check.
+            Check today&apos;s school homework and classwork. Note any question you want to ask your teacher or revisit in a lesson.
           </p>
           <div className="space-y-2 text-sm text-gray-600">
             {[
               "Is every question attempted?",
-              "Do written answers show the understanding he explained aloud?",
+              "Do your written answers show your understanding?",
               "Are capitals, punctuation and spellings checked?",
               "Are the diary, worksheets and subject notebooks organized?",
               "Is the handwriting readable?",
@@ -453,7 +421,7 @@ export default function PhaseCard({
       {/* Content — always visible for done phases (read-only) or active phases */}
       {(isActive || isDone || isReadOnly) && (
         <div className="mt-3">
-          <PhaseContent phaseId={phase.id} content={content} />
+          <PhaseContent phaseId={phase.id} content={content} showComprehensionQuestions={phase.id !== "READ_ALOUD" || showRating || Boolean(isDone)} />
         </div>
       )}
 
@@ -465,7 +433,6 @@ export default function PhaseCard({
             writingLinesRequired={content.writing.lines_required}
             reading={content.reading}
             language={content.language}
-            targetedPractice={content.targeted_practice}
             nextDayPrep={content.next_day_prep}
             dayContext={content.day_context}
             onSave={handleSave}

@@ -3,6 +3,8 @@ import tls from "node:tls";
 
 interface SendEmailInput {
   from: string;
+  fromName?: string;
+  authUser?: string;
   password: string;
   to: string[];
   cc?: string[];
@@ -90,7 +92,7 @@ export async function sendGmailSmtpEmail(input: SendEmailInput): Promise<void> {
 
     await command(socket, "EHLO localhost", [250]);
     await command(socket, "AUTH LOGIN", [334]);
-    await command(socket, Buffer.from(input.from).toString("base64"), [334]);
+    await command(socket, Buffer.from(input.authUser ?? input.from).toString("base64"), [334]);
     await command(socket, Buffer.from(input.password).toString("base64"), [235]);
     await command(socket, `MAIL FROM:<${input.from}>`, [250]);
     for (const recipient of recipients) {
@@ -99,7 +101,7 @@ export async function sendGmailSmtpEmail(input: SendEmailInput): Promise<void> {
     await command(socket, "DATA", [354]);
 
     const headers = [
-      `From: ${input.from}`,
+      `From: ${encodeHeader(input.fromName ?? "BrightKids.Space")} <${input.from}>`,
       `To: ${input.to.join(", ")}`,
       input.cc?.length ? `Cc: ${input.cc.join(", ")}` : "",
       `Subject: ${encodeHeader(input.subject)}`,

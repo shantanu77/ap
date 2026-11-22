@@ -38,8 +38,6 @@ interface PendingWorkItem {
   incompleteTasks: string[];
 }
 
-interface BoardSettings { activeDays: number[]; remindersEnabled: boolean; reminderEmail: string | null; reminderTime: string }
-
 export default function SessionPage() {
   const params = useParams();
   const dateStr = params.date as string;
@@ -50,17 +48,20 @@ export default function SessionPage() {
   const [phaseStatuses, setPhaseStatuses] = useState<PhaseStatus[]>([
     "ready", "locked", "locked", "locked", "locked", "locked",
   ]);
-  const [activePhaseIdx, setActivePhaseIdx] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
-  const [markingMissed, setMarkingMissed] = useState(false);
-  const [warningMessage, setWarningMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [kidName, setKidName] = useState("there");
   const [pendingWork, setPendingWork] = useState<PendingWorkItem[]>([]);
   const [streak, setStreak] = useState(0);
-  const [boardSettings, setBoardSettings] = useState<BoardSettings>({ activeDays: [0, 2, 4], remindersEnabled: false, reminderEmail: "", reminderTime: "18:00" });
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsMessage, setSettingsMessage] = useState("");
+  const [activeDays, setActiveDays] = useState([0, 2, 4]);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (data?.profile?.name) setKidName(data.profile.name); })
+      .catch(() => undefined);
+  }, []);
 
   // Load plan and existing session
   useEffect(() => {
@@ -124,19 +125,8 @@ export default function SessionPage() {
   }, [dateStr]);
 
   useEffect(() => {
-    fetch("/api/board/settings").then((res) => res.ok ? res.json() : null).then((data) => { if (data) setBoardSettings(data); }).catch(() => undefined);
+    fetch("/api/board/settings").then((res) => res.ok ? res.json() : null).then((data) => { if (Array.isArray(data?.activeDays)) setActiveDays(data.activeDays); }).catch(() => undefined);
   }, []);
-
-  const saveBoardSettings = async () => {
-    setSettingsMessage("");
-    try {
-      const response = await fetch("/api/board/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(boardSettings) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Settings could not be saved.");
-      setBoardSettings(data);
-      setSettingsMessage("Settings saved! ✅");
-    } catch (error) { setSettingsMessage(error instanceof Error ? error.message : "Settings could not be saved."); }
-  };
 
   const startSession = useCallback(async () => {
     if (sessionStarted) return;
@@ -158,7 +148,6 @@ export default function SessionPage() {
         next[idx] = "active";
         return next;
       });
-      setActivePhaseIdx(idx);
     },
     [sessionStarted, startSession]
   );
@@ -179,8 +168,11 @@ export default function SessionPage() {
         });
         if (!res.ok) throw new Error("Failed to save phase");
       } catch {
-        // non-fatal
+        setSaveError("This part could not be saved. Check your connection and try again before continuing.");
+        return;
       }
+
+      setSaveError(null);
 
       setSession((previous) => {
         if (!previous) return previous;
@@ -197,46 +189,20 @@ export default function SessionPage() {
       setPhaseStatuses((prev) => {
         const next = [...prev];
         next[idx] = "done";
-        // Unlock next phase
+        // Continue straight to the next lesson after this part is saved.
         const nextIdx = idx + 1;
         if (nextIdx < PHASES.length && next[nextIdx] === "locked") {
-          next[nextIdx] = "ready";
+          next[nextIdx] = "active";
         }
         return next;
       });
-      setActivePhaseIdx(null);
+      const nextIdx = idx + 1;
+      if (nextIdx < PHASES.length) {
+        window.setTimeout(() => document.getElementById(`phase-card-${nextIdx}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+      }
     },
     [dateStr]
   );
-
-  const handleMarkMissed = useCallback(async () => {
-    setMarkingMissed(true);
-    setWarningMessage(null);
-    try {
-      const res = await fetch(`/api/sessions/${dateStr}/missed`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reason: "Class skipped / session not attended.",
-          notify: true,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to mark missed");
-      setSession(data.session);
-      setSessionStarted(true);
-      setPhaseStatuses(PHASES.map(() => "locked"));
-      setWarningMessage(
-        data.emailSent
-          ? "Skipped class marked. Warning email sent to the configured parent account."
-          : `Skipped class marked. Warning email not sent: ${data.emailError || "email is not configured"}.`
-      );
-    } catch (err) {
-      setWarningMessage(err instanceof Error ? err.message : "Failed to mark skipped class.");
-    } finally {
-      setMarkingMissed(false);
-    }
-  }, [dateStr]);
 
   const completedCount = phaseStatuses.filter((s) => s === "done").length;
   const allDone = completedCount === PHASES.length;
@@ -244,7 +210,7 @@ export default function SessionPage() {
   const isEditable = isToday || isPastCatchUp;
   const isMissed = session?.status === "MISSED";
   const boardDayNumber = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
-  const isScheduledBoardDay = boardSettings.activeDays.includes(boardDayNumber);
+  const isScheduledBoardDay = activeDays.includes(boardDayNumber);
   const content = plan?.editedContent ?? plan?.content;
   const primaryPendingWork = pendingWork[0];
 
@@ -279,22 +245,13 @@ export default function SessionPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="relative text-center space-y-1 rounded-3xl bg-gradient-to-r from-sky-100 via-purple-100 to-pink-100 px-4 py-5">
-        <button type="button" aria-label="Board calendar settings" onClick={() => setSettingsOpen(!settingsOpen)} className="absolute right-3 top-3 rounded-full bg-white/80 p-2 text-xl shadow">⚙️</button>
         <h1 className="px-7 text-2xl font-black leading-tight text-slate-800 sm:text-3xl">
           {isToday ? "Tonight's Study Quest 🌙" : isPastCatchUp ? "Catch-up Quest" : "Session Review"}
         </h1>
-        <p className="text-sm text-slate-600 sm:text-base">{formatDisplayDate(dateStr)} · You&apos;ve got this, Aashvath! 🌟</p>
+        <p className="text-sm text-slate-600 sm:text-base">{formatDisplayDate(dateStr)} · You&apos;ve got this, {kidName}! 🌟</p>
       </div>
 
-      {settingsOpen && <div className="rounded-3xl border-2 border-indigo-200 bg-white p-5 shadow-sm space-y-4">
-        <div><h2 className="text-xl font-black text-indigo-800">🗓️ Aashvath&apos;s Study Calendar</h2><p className="text-sm text-slate-600">Choose the days this board appears. Default: Sunday, Tuesday, Thursday.</p></div>
-        <div className="flex flex-wrap gap-2">{["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => <label key={day} className={`cursor-pointer rounded-full px-3 py-2 font-bold ${boardSettings.activeDays.includes(index) ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-600"}`}><input className="sr-only" type="checkbox" checked={boardSettings.activeDays.includes(index)} onChange={(event) => setBoardSettings((current) => ({ ...current, activeDays: event.target.checked ? [...current.activeDays, index].sort() : current.activeDays.filter((item) => item !== index) }))} />{day}</label>)}</div>
-        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={boardSettings.remindersEnabled} onChange={(event) => setBoardSettings((current) => ({ ...current, remindersEnabled: event.target.checked }))} className="h-5 w-5 accent-indigo-600" />Email a reminder</label>
-        {boardSettings.remindersEnabled && <div className="grid gap-3 sm:grid-cols-2"><p className="text-sm font-semibold text-slate-700">Reminder email <span className="mt-1 block rounded-xl border bg-slate-50 p-2 font-normal">{boardSettings.reminderEmail || "Your verified sign-in email"}</span></p><label className="text-sm font-semibold text-slate-700">Reminder time<input type="time" value={boardSettings.reminderTime} onChange={(event) => setBoardSettings((current) => ({ ...current, reminderTime: event.target.value }))} className="mt-1 w-full rounded-xl border p-2" /></label></div>}
-        <div className="flex items-center gap-3"><button type="button" onClick={() => void saveBoardSettings()} className="rounded-full bg-indigo-600 px-5 py-2 font-bold text-white">Save calendar ⚙️</button>{settingsMessage && <span className="text-sm font-semibold text-indigo-700">{settingsMessage}</span>}</div>
-      </div>}
-
-      {isToday && !isScheduledBoardDay && <div className="rounded-3xl border-2 border-sky-200 bg-sky-50 p-5 text-center"><p className="text-3xl">🌈🌿</p><p className="mt-1 text-lg font-black text-sky-800">Today is a rest day!</p><p className="text-sky-700">Your next Study Quest is on {getNextBoardDay(boardSettings.activeDays, boardDayNumber)}. Enjoy your day and come back then! 😊</p></div>}
+      {isToday && !isScheduledBoardDay && <div className="rounded-3xl border-2 border-sky-200 bg-sky-50 p-5 text-center"><p className="text-3xl">🌈🌿</p><p className="mt-1 text-lg font-black text-sky-800">Today is a rest day!</p><p className="text-sky-700">Your next Study Quest is on {getNextBoardDay(activeDays, boardDayNumber)}. Enjoy your day and come back then! 😊</p></div>}
 
       {isToday && primaryPendingWork && (
         <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 shadow-sm">
@@ -322,46 +279,6 @@ export default function SessionPage() {
               {pendingWork.length - 1} more older day{pendingWork.length === 2 ? "" : "s"} also need review.
             </p>
           )}
-        </div>
-      )}
-
-      {content.targeted_practice && (
-        <div className="rounded-2xl border-2 border-rose-300 bg-gradient-to-br from-rose-50 to-white p-5 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-xs font-black tracking-wide text-rose-700">{content.targeted_practice.report_level === "N" ? "PERSONAL PRACTICE FOCUS" : "TERM 1 REPORT FOCUS"}</p>
-              <h2 className="mt-1 text-lg font-extrabold text-slate-800">
-                {content.targeted_practice.subject}: {content.targeted_practice.skill}
-              </h2>
-            </div>
-            <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
-              {content.targeted_practice.report_level === "N" ? "Practice goal" : `Report level ${content.targeted_practice.report_level} → Meeting`}
-            </span>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-rose-100 bg-white p-4">
-              <p className="text-xs font-bold text-gray-500">WHAT MEETING LOOKS LIKE</p>
-              <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                {content.targeted_practice.meeting_target}
-              </p>
-            </div>
-            <div className="rounded-xl border border-rose-100 bg-white p-4">
-              <p className="text-xs font-bold text-gray-500">TODAY&apos;S ACTION</p>
-              <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                {content.targeted_practice.task}
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {content.targeted_practice.success_criteria.map((criterion) => (
-              <span key={criterion} className="rounded-lg bg-white px-3 py-2 text-xs text-gray-600 shadow-sm ring-1 ring-rose-100">
-                ✓ {criterion}
-              </span>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-rose-700">
-            This action is completed and tracked in the Work Quality phase as independent, with help, or unfinished.
-          </p>
         </div>
       )}
 
@@ -396,9 +313,9 @@ export default function SessionPage() {
         </div>
       </div>
 
-      {warningMessage && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800">
-          {warningMessage}
+      {saveError && (
+        <div role="alert" className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-sm text-rose-800">
+          {saveError}
         </div>
       )}
 
@@ -424,7 +341,7 @@ export default function SessionPage() {
       {allDone && (
         <div className="bg-gradient-to-br from-yellow-100 via-green-50 to-sky-100 border-2 border-green-300 rounded-3xl p-6 text-center shadow-sm">
           <p className="text-5xl mb-2">🎉🏆🌈</p>
-          <p className="font-black text-green-800 text-2xl">You did it, Aashvath!</p>
+          <p className="font-black text-green-800 text-2xl">You did it, {kidName}!</p>
           <p className="text-green-700 text-base mt-1">Today&apos;s tasks are complete. You earned a ⭐ Focus Star, 📚 Learning Champ, and 💪 Follow Through badge!</p>
           {streak >= 3 && <p className="mt-3 text-xl font-black text-orange-700">🔥 {streak}-day streak! {streak >= 15 ? "🏅 15-day Super Streak!" : streak >= 5 ? "🥇 5-day Streak Star!" : "🎯 3-day Streak Starter!"}</p>}
           {streak < 3 && <p className="mt-2 text-sm font-bold text-orange-700">✨ {3 - streak} more completed day{3 - streak === 1 ? "" : "s"} to your first 3-day streak reward!</p>}
@@ -441,33 +358,13 @@ export default function SessionPage() {
         </div>
       )}
 
-      {!isToday && !allDone && !isMissed && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-red-100">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold text-gray-800 text-sm">Skipped class?</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Mark today absent and send the configured warning email.
-              </p>
-            </div>
-            <button
-              onClick={handleMarkMissed}
-              disabled={markingMissed}
-              className="shrink-0 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold disabled:opacity-60"
-            >
-              {markingMissed ? "Sending..." : "Mark Skipped"}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Phase cards */}
       {(!isToday || isScheduledBoardDay) && <div className="space-y-4">
         {PHASES.map((phase, idx) => {
           const existingRating = session?.phases.find((p) => p.phase === phase.id) ?? null;
           return (
+            <div id={`phase-card-${idx}`} key={phase.id} className="scroll-mt-16">
             <PhaseCard
-              key={phase.id}
               phaseIndex={idx}
               status={phaseStatuses[idx]}
               existingRating={existingRating?.ratings}
@@ -476,6 +373,7 @@ export default function SessionPage() {
               onSave={(ratings, time) => handleSave(idx, ratings, time)}
               isReadOnly={!isEditable}
             />
+            </div>
           );
         })}
       </div>}
@@ -530,9 +428,6 @@ function applyTodayDisciplineToPrep(content: DailyContent, session: SessionData 
   }
   if (ratings.shortcutUsage === "minor" || ratings.shortcutUsage === "major") {
     adjustments.push("Replace today's shortcut with one complete written answer that shows the reasoning explained aloud.");
-  }
-  if (ratings.targetedPracticeCompleted === false) {
-    adjustments.push(`Complete today's ${content.targeted_practice?.skill ?? "report-based"} booster before starting a new practice task.`);
   }
   if (adjustments.length === 0) return content;
 

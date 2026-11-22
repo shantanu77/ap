@@ -189,7 +189,7 @@ export default function GeniusExplorer({ id, saved = false }: { id: string; save
 
   return (
     <div className="pb-16">
-      <header className="sticky top-[6.25rem] z-30 -mx-3 mb-7 border-b border-slate-200 bg-slate-50/95 px-3 py-3 backdrop-blur sm:top-16 sm:-mx-4 sm:px-4">
+      <header className="sticky top-14 z-30 -mx-3 mb-7 border-b border-slate-200 bg-slate-50/95 px-3 py-3 backdrop-blur sm:top-16 sm:-mx-4 sm:px-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <Link href={saved ? "/genius-corner/saved" : "/genius-corner"} className="text-xs font-bold text-violet-700 hover:underline">← {saved ? "Saved Topics" : "Genius Corner"}</Link>

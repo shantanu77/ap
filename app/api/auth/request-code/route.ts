@@ -64,11 +64,13 @@ export async function POST(request: Request) {
 
     try {
       await sendGmailSmtpEmail({
-        from: sender.senderEmail,
+        from: sender.senderFromEmail,
+        authUser: sender.senderEmail,
         password: sender.senderPassword,
         to: [email],
-        subject: "Your AllShare learning sign-in code",
-        text: `Your sign-in code is ${code}. It expires in 10 minutes and can be used once.\n\nIf you did not request this code, you can ignore this email.`,
+        fromName: "BrightKids.Space",
+        subject: `BrightKids.Space code: ${code}`,
+        text: `${code}\n\nYour BrightKids.Space sign-in code. Enter it on BrightKids.Space within 10 minutes. It can be used once.\n\nIf you did not request this code, you can ignore this email.`,
       });
     } catch {
       await prisma.loginCode.update({ where: { id: challenge.id }, data: { consumedAt: new Date() } });

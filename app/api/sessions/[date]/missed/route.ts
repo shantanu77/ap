@@ -116,7 +116,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ date: s
 
         try {
           await sendGmailSmtpEmail({
-            from: config.senderEmail,
+            from: config.senderFromEmail,
+            authUser: config.senderEmail,
             password: config.senderPassword,
             to: [kid.email],
             cc: escalated ? config.escalationEmails : undefined,

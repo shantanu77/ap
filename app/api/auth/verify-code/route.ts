@@ -34,8 +34,27 @@ export async function POST(request: Request) {
     if (consumed.count !== 1) return NextResponse.json({ error: "That code was already used. Request a new one." }, { status: 400 });
 
     const kid = await prisma.$transaction(async (tx) => {
+      const name = cleanKidName(challenge.draftName);
       const existing = await tx.kidProfile.findUnique({ where: { email } });
       if (existing) {
+        // A legacy family email used to be attached to Aashvath's profile solely
+        // because it appeared in the parent email list. If the verified
+        // registration names a different learner, preserve the legacy profile
+        // and give this learner a separate account and data space.
+        if (existing.id === "legacy-aashvath" && challenge.attested && name && name.toLocaleLowerCase() !== existing.name.toLocaleLowerCase()) {
+          await tx.kidProfile.update({ where: { id: existing.id }, data: { email: null } });
+          return tx.kidProfile.create({
+            data: {
+              email,
+              name,
+              grade: [6, 7, 8].includes(challenge.draftGrade) ? challenge.draftGrade : 6,
+              emoji: challenge.draftEmoji,
+              timezone: challenge.draftTimezone,
+              emailVerifiedAt: new Date(),
+              guardianAttestedAt: new Date(),
+            },
+          });
+        }
         return tx.kidProfile.update({
           where: { id: existing.id },
           data: { emailVerifiedAt: existing.emailVerifiedAt ?? new Date() },
@@ -43,7 +62,7 @@ export async function POST(request: Request) {
       }
 
       const legacy = await tx.kidProfile.findUnique({ where: { id: "legacy-aashvath" } });
-      if (legacy && !legacy.email) {
+      if (legacy && !legacy.email && challenge.attested && name && name.toLocaleLowerCase() === legacy.name.toLocaleLowerCase()) {
         const board = await tx.boardSettings.findUnique({ where: { kidId: legacy.id } });
         const parent = (process.env.PARENT_EMAILS ?? "").split(",").map((item) => item.trim().toLowerCase());
         const configured = [board?.reminderEmail?.trim().toLowerCase(), process.env.EMAIL?.trim().toLowerCase(), process.env.SMTP_USER?.trim().toLowerCase(), ...parent].filter(Boolean);
@@ -52,7 +71,6 @@ export async function POST(request: Request) {
         }
       }
 
-      const name = cleanKidName(challenge.draftName);
       if (!name) return null;
       return tx.kidProfile.create({
         data: {

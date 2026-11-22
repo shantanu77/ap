@@ -3,10 +3,14 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { todayString } from "@/lib/utils";
+import { getAuthenticatedKid } from "@/lib/kidAuth";
 
 const loginForExplorer = "/login?next=%2Fgenius-corner";
 
 export default async function Home() {
+  const kid = await getAuthenticatedKid();
+  if (kid) redirect(`/session/${todayString()}`);
+
   const incomingHeaders = await headers();
   const host = (incomingHeaders.get("x-forwarded-host") ?? incomingHeaders.get("host") ?? "")
     .split(",")[0]
