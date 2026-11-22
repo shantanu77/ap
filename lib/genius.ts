@@ -9,6 +9,7 @@ import {
   normalizeGeneratedNode,
 } from "@/lib/geniusContent";
 import type {
+  GeniusBlock,
   GeniusContent,
   GeniusExplorationDTO,
   GeniusNode,
@@ -17,7 +18,7 @@ import type {
 } from "@/types/genius";
 import type { GeniusCurriculumResearch } from "@/lib/geniusResearch";
 
-const GENIUS_CACHE_VERSION = 3;
+const GENIUS_CACHE_VERSION = 4;
 
 function openAIClient(): OpenAI | null {
   if (!process.env.OPENAI_API_KEY) return null;
@@ -93,7 +94,7 @@ Return:
 {"title":"...","estimated_read_minutes":3,"blocks":[...],"explore_choices":[
 {"id":"short-kebab-id","emoji":"...","label":"specific next question","intent":"precise generation intent","level":6}
 ]}
-For an INTRO chapter, create 8-10 concise, distinct blocks and aim for 500-700 useful words across the lesson. For an expansion, create 5-8 blocks and aim for 220-350 useful words. Do not count diagram label details as a substitute for the visible explanation. Include 2-4 specific explore choices. The level is the learner's requested depth (6-8 for the core band, or 9-12 for an optional advanced deep dive). Include at least one clearly optional advanced deep-dive choice when useful, set its level to 9-12, and keep that material out of the required Grade 6-8 lesson.`;
+For an INTRO chapter, create 8-12 concise, distinct blocks and aim for 500-700 useful words across the lesson. For an expansion, create 5-8 blocks and aim for 220-350 useful words. Do not count diagram label details as a substitute for the visible explanation. Include 2-4 specific explore choices. The level is the learner's requested depth (6-8 for the core band, or 9-12 for an optional advanced deep dive). Include at least one clearly optional advanced deep-dive choice when useful, set its level to 9-12, and keep that material out of the required Grade 6-8 lesson.`;
 }
 
 async function requestGeneratedNode(prompt: string, subject: GeniusSubject, maxTokens = 3000): Promise<unknown> {
@@ -113,6 +114,49 @@ async function requestGeneratedNode(prompt: string, subject: GeniusSubject, maxT
 
   const value = response.choices[0]?.message?.content;
   return value ? JSON.parse(value) : null;
+}
+
+async function requestSupplementalParagraphs(args: {
+  subject: GeniusSubject;
+  topic: string;
+  focus: string;
+  level: StudyLevel;
+  research?: GeniusCurriculumResearch;
+  existingBlocks: GeniusBlock[];
+  minimumWords: number;
+}): Promise<GeniusBlock[]> {
+  const client = openAIClient();
+  if (!client) return [];
+  const response = await client.chat.completions.create({
+    model: process.env.GENIUS_MODEL || "gpt-4o",
+    temperature: 0.45,
+    max_tokens: 1800,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: `You expand a child-safe, research-grounded ${args.subject} lesson for Grades 6-8. Return strict JSON with a blocks array containing exactly two supported paragraph blocks {type:"paragraph",heading:"...",text:"..."}. Each paragraph should be 100-160 words, add a distinct missing lesson-plan section, and avoid repeating any existing section. Keep vocabulary defined, explanations scientifically correct, and any beyond-Grade-8 idea clearly labelled as an extension. No Markdown, HTML, URLs, experiments, or unsafe directions.`,
+      },
+      {
+        role: "user",
+        content: `Chapter: ${args.topic}\nQuestion focus: ${args.focus}\nTarget starting grade: ${args.level}\nCurriculum research: ${JSON.stringify(args.research ?? {})}\nAlready visible blocks: ${JSON.stringify(args.existingBlocks)}\nAdd at least ${args.minimumWords} NEW useful words as exactly two concise paragraphs. Cover the least-developed remaining lesson-plan sections, add a concrete comparison/example, and make the chapter more complete. Do not repeat definitions or facts already visible.`,
+      },
+    ],
+  });
+  const raw = response.choices[0]?.message?.content;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as { blocks?: unknown };
+    return Array.isArray(parsed.blocks)
+      ? parsed.blocks.filter((block): block is { type: "paragraph"; heading: string; text: string } =>
+          Boolean(block && typeof block === "object" && (block as Record<string, unknown>).type === "paragraph"
+            && typeof (block as Record<string, unknown>).text === "string"))
+        .map((block) => ({ type: "paragraph" as const, heading: String(block.heading ?? "A closer look").slice(0, 100), text: String(block.text).slice(0, 1200) }))
+        .slice(0, 2)
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function generatedNodeWordCount(value: unknown): number {
@@ -148,16 +192,16 @@ export async function generateIntroduction(topic: string, level: StudyLevel, sub
     let raw = await requestGeneratedNode(prompt, subject, 4200);
     const initialWords = generatedNodeWordCount(raw);
     if (research && initialWords < 500) {
-      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft contained only ${initialWords} visible lesson words. Expand the explanations, examples, and comparisons to at least 500 visible words. Do not count diagram labels/details, and do not add filler or repeat an idea.`, subject, 4600);
+      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft contained only ${initialWords} visible lesson words. Expand the explanations, examples, and comparisons to at least 500 visible words. Do not count diagram labels/details. Preserve and expand this draft instead of starting over: ${JSON.stringify(raw)}`, subject, 4600);
     }
     let node = normalizeGeneratedNode(raw, fallback, null, "INTRO", level, `${topic} ${subject}`);
     let finalWords = generatedNodeWordCount(node);
     if (research && finalWords < 500) {
-      raw = await requestGeneratedNode(`${prompt}\n\nFINAL QUALITY RETRY: The actual lesson after validation contains only ${finalWords} visible words. Its diagram labels/details do not count. Expand the body text with accurate explanations, a worked example, and a comparison. Return at least 500 useful visible words. Follow the provided lesson plan and curriculum boundaries.`, subject, 4600);
-      node = normalizeGeneratedNode(raw, fallback, null, "INTRO", level, `${topic} ${subject}`);
+      const supplement = await requestSupplementalParagraphs({ subject, topic, focus, level, research, existingBlocks: node.blocks, minimumWords: 500 - finalWords });
+      node = normalizeGeneratedNode({ title: node.title, blocks: [...node.blocks, ...supplement], explore_choices: node.exploreChoices }, fallback, null, "INTRO", level, `${topic} ${subject}`);
       finalWords = generatedNodeWordCount(node);
     }
-    if (research && finalWords < 400) throw new Error(`The researched chapter draft was too short (${finalWords} visible words); refusing to cache it.`);
+    if (research && finalWords < 500) throw new Error(`The researched chapter draft was too short (${finalWords} visible words); refusing to cache it.`);
     return node;
   } catch (error) {
     if (research) throw error;
@@ -201,7 +245,7 @@ Create only the next learning node. Interpret the query carefully and answer the
     let raw = await requestGeneratedNode(prompt, args.subject, 3000);
     const initialWords = generatedNodeWordCount(raw);
     if (args.curriculumResearch && initialWords < 220) {
-      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft had only ${initialWords} visible words. Expand the specific explanation and example to at least 220 useful words. Do not count diagram labels/details or pad with repetition.`, args.subject, 3400);
+      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft had only ${initialWords} visible words. Expand the specific explanation and example to at least 220 useful words. Do not count diagram labels/details or pad with repetition. Preserve and expand this draft: ${JSON.stringify(raw)}`, args.subject, 3400);
     }
     let node = normalizeGeneratedNode(
       raw,
@@ -213,12 +257,12 @@ Create only the next learning node. Interpret the query carefully and answer the
     );
     let finalWords = generatedNodeWordCount(node);
     if (args.curriculumResearch && finalWords < 220) {
-      raw = await requestGeneratedNode(`${prompt}\n\nFINAL QUALITY RETRY: The validated lesson contains only ${finalWords} visible words. Diagram labels/details do not count. Expand the actual explanation, example, and misconception correction to at least 220 useful words.`, args.subject, 3400);
-      node = normalizeGeneratedNode(raw, fallback, args.parentNode.id, args.nodeType ?? "READ_MORE", args.level,
+      const supplement = await requestSupplementalParagraphs({ subject: args.subject, topic: args.topic, focus: `${args.label}. ${args.intent}`, level: args.level, research: args.curriculumResearch, existingBlocks: node.blocks, minimumWords: 220 - finalWords });
+      node = normalizeGeneratedNode({ title: node.title, blocks: [...node.blocks, ...supplement], explore_choices: node.exploreChoices }, fallback, args.parentNode.id, args.nodeType ?? "READ_MORE", args.level,
         `${args.topic} ${args.parentNode.title} ${args.label} ${args.intent} ${args.subject}`);
       finalWords = generatedNodeWordCount(node);
     }
-    if (args.curriculumResearch && finalWords < 180) throw new Error(`The researched deep dive was too short (${finalWords} visible words).`);
+    if (args.curriculumResearch && finalWords < 220) throw new Error(`The researched deep dive was too short (${finalWords} visible words).`);
     return node;
   } catch (error) {
     if (args.curriculumResearch) throw error;

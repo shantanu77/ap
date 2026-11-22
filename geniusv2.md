@@ -51,7 +51,7 @@ The chapter key is unique with subject, for example `chemistry:chemical-bonding`
 Every new chapter includes:
 
 - A direct answer to the exact initiating focus near the top.
-- A chapter map or clear subtopic sequence broad enough to answer common related questions; the introduction should usually be 500–700 useful words across 8–10 concise cards.
+- A chapter map or clear subtopic sequence broad enough to answer common related questions; the introduction should usually be 500–700 useful words across 8–12 concise cards.
 - Grade 6 foundation, Grade 7 development, and a clearly titled Grade 8 extension.
 - Definitions on first use; worked examples or concrete applications; common misconception corrections.
 - A declarative interactive visual or an approved simulation that actually teaches the selected subject matter.
@@ -76,7 +76,7 @@ Embedding or cache outages must not prevent an otherwise safe lesson from being 
 
 ## Persistence and compatibility
 
-- `genius_lesson_cache` stores one researched Grade 6–8 introduction per subject and canonical chapter. Cache version 3 invalidates early short lesson drafts without changing user saved pages.
+- `genius_lesson_cache` stores one researched Grade 6–8 introduction per subject and canonical chapter. Cache version 4 invalidates early short lesson drafts without changing user saved pages.
 - `genius_deep_dive_cache` stores independent structured nodes and embeddings, scoped by subject, canonical chapter, target level, and cache version.
 - Each user exploration remains in `genius_explorations`; the shared cache is a source for new records, not the user's mutable trail.
 - `curriculumResearch` is optional on `GeniusContent` so old records continue to deserialize. Older saved snapshots need no migration.

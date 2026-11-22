@@ -632,7 +632,7 @@ export function normalizeGeneratedNode(
       APPROVED_SIMULATIONS.has(String(item.simulation))
       && isSimulationRelevant(String(item.simulation), relevanceText)
     ))
-    .slice(0, 10) as unknown as GeniusBlock[];
+    .slice(0, 12) as unknown as GeniusBlock[];
   if (parsedBlocks.length < 2) return fallback;
   const controlledBlocks = parsedBlocks.map((block): GeniusBlock => {
     if (block.type !== "diagram") return block;
