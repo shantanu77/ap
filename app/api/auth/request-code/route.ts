@@ -20,12 +20,13 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const email = normalizeEmail(body.email);
-    const name = cleanKidName(body.name);
+    const mode = body.mode === "register" ? "register" : "signin";
+    const name = mode === "register" ? cleanKidName(body.name) : "";
     const grade = [6, 7, 8].includes(Number(body.grade)) ? Number(body.grade) : 6;
     const emoji = KID_AVATARS.includes(body.emoji) ? body.emoji : KID_AVATARS[0];
     const timezone = validTimezone(body.timezone);
-    if (!validEmail(email) || name.length < 1 || body.guardianAttested !== true) {
-      return NextResponse.json({ error: "Enter a valid email and learner name, and ask a parent or guardian to confirm." }, { status: 400 });
+    if (!validEmail(email) || (mode === "register" && (name.length < 1 || body.guardianAttested !== true))) {
+      return NextResponse.json({ error: "Enter a valid email and learner name, and ask a parent or guardian to confirm when creating a profile." }, { status: 400 });
     }
 
     const sender = getParentNotificationConfig();
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
         draftGrade: grade,
         draftEmoji: emoji,
         draftTimezone: timezone,
-        attested: true,
+        attested: mode === "register" && body.guardianAttested === true,
         requestHash: ipHash,
         expiresAt: otpExpiry(),
       },

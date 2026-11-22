@@ -6,7 +6,7 @@ Extend the current single-learner study companion into a multi-learner service f
 
 ## Learner and family experience
 
-1. A visitor enters an email address they can access. For younger learners, the interface should clearly ask for a parent/guardian email and permission to create the profile. It sends a short-lived, one-time code; it never creates an account or reveals whether an email is already registered before the code is verified.
+1. The welcome screen separates “Sign in” from “Create a profile.” Returning learners enter only their email address and receive a short-lived one-time code. New learners choose profile creation, then provide the learner name, grade, avatar, and parent/guardian attestation before requesting a code. Code-request responses do not reveal whether an email is already registered; after a code is verified, an email with no profile is guided to profile creation.
 2. After verification, a new learner creates a lightweight profile: display name, grade (6, 7, or 8), and a friendly avatar selected from a curated set of animal, fruit, and flower emoji. Existing learners return directly to their profile.
 3. The verified browser receives a secure, persistent session so a child does not need to request a code on each visit. The initial target is 180 days, with server-side revocation and renewal. A visible “Log out” action ends the session.
 4. The app greets the learner by their profile name and uses their grade as the default across daily work and Genius Corner. Grade remains editable in profile settings.

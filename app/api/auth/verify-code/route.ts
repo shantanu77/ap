@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       if (existing) {
         return tx.kidProfile.update({
           where: { id: existing.id },
-          data: { emailVerifiedAt: existing.emailVerifiedAt ?? new Date(), guardianAttestedAt: existing.guardianAttestedAt ?? new Date() },
+          data: { emailVerifiedAt: existing.emailVerifiedAt ?? new Date() },
         });
       }
 
@@ -48,12 +48,12 @@ export async function POST(request: Request) {
         const parent = (process.env.PARENT_EMAILS ?? "").split(",").map((item) => item.trim().toLowerCase());
         const configured = [board?.reminderEmail?.trim().toLowerCase(), process.env.EMAIL?.trim().toLowerCase(), process.env.SMTP_USER?.trim().toLowerCase(), ...parent].filter(Boolean);
         if (configured.includes(email)) {
-          return tx.kidProfile.update({ where: { id: legacy.id }, data: { email, emailVerifiedAt: new Date(), guardianAttestedAt: new Date() } });
+          return tx.kidProfile.update({ where: { id: legacy.id }, data: { email, emailVerifiedAt: new Date(), guardianAttestedAt: challenge.attested ? new Date() : legacy.guardianAttestedAt } });
         }
       }
 
       const name = cleanKidName(challenge.draftName);
-      if (!name) throw new Error("The saved learner profile name is invalid.");
+      if (!name) return null;
       return tx.kidProfile.create({
         data: {
           email,
@@ -66,6 +66,10 @@ export async function POST(request: Request) {
         },
       });
     });
+
+    if (!kid) {
+      return NextResponse.json({ error: "No learner profile is registered with this email yet. Create a profile to get started." }, { status: 404 });
+    }
 
     await createKidSession(kid.id);
     return NextResponse.json({ profile: kidProfileDTO(kid) });
