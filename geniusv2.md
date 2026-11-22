@@ -68,7 +68,7 @@ For each deep-dive request:
 
 1. Embed the subject, canonical chapter, and requested meaning with `text-embedding-3-small` (configurable by environment).
 2. Compare only candidates from the same subject, canonical chapter, and target study level.
-3. Reuse a result only when cosine similarity meets the strict threshold `GENIUS_DEEP_DIVE_SIMILARITY` (default `0.90`).
+3. Reuse a result only when cosine similarity meets the strict threshold `GENIUS_DEEP_DIVE_SIMILARITY` (default `0.88`).
 4. Reattach a reused node to the active exploration with a fresh node ID, the current parent, the current label, and requested level.
 5. Otherwise generate a new explanation and persist its text, embedding, and structured node.
 

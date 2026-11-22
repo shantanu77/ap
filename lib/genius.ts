@@ -18,7 +18,8 @@ import type {
 } from "@/types/genius";
 import type { GeniusCurriculumResearch } from "@/lib/geniusResearch";
 
-const GENIUS_CACHE_VERSION = 4;
+const GENIUS_LESSON_CACHE_VERSION = 4;
+const GENIUS_DEEP_DIVE_CACHE_VERSION = 5;
 
 function openAIClient(): OpenAI | null {
   if (!process.env.OPENAI_API_KEY) return null;
@@ -341,7 +342,7 @@ export async function findCachedLesson(subject: GeniusSubject, canonicalTopic: s
   const rows = await prisma.$queryRaw<LessonCacheRecord[]>`
     SELECT canonicalTopic, displayTitle, content, createdAt
     FROM genius_lesson_cache
-    WHERE subject = ${subject} AND canonicalTopic = ${canonicalTopic} AND contentVersion = ${GENIUS_CACHE_VERSION}
+    WHERE subject = ${subject} AND canonicalTopic = ${canonicalTopic} AND contentVersion = ${GENIUS_LESSON_CACHE_VERSION}
     LIMIT 1
   `;
   return rows[0] ?? null;
@@ -356,7 +357,7 @@ export async function cacheLesson(args: {
   await prisma.$executeRaw`
     INSERT IGNORE INTO genius_lesson_cache
       (id, subject, canonicalTopic, displayTitle, content, contentVersion, createdAt)
-    VALUES (${crypto.randomUUID()}, ${args.subject}, ${args.canonicalTopic}, ${args.displayTitle}, ${JSON.stringify(args.content)}, ${GENIUS_CACHE_VERSION}, ${new Date()})
+    VALUES (${crypto.randomUUID()}, ${args.subject}, ${args.canonicalTopic}, ${args.displayTitle}, ${JSON.stringify(args.content)}, ${GENIUS_LESSON_CACHE_VERSION}, ${new Date()})
   `;
 }
 
@@ -393,11 +394,11 @@ export async function findSimilarDeepDive(args: {
   const rows = await prisma.$queryRaw<DeepDiveCacheRecord[]>`
     SELECT queryText, embedding, node
     FROM genius_deep_dive_cache
-    WHERE subject = ${args.subject} AND canonicalTopic = ${args.canonicalTopic} AND studyLevel = ${args.level} AND contentVersion = ${GENIUS_CACHE_VERSION}
+    WHERE subject = ${args.subject} AND canonicalTopic = ${args.canonicalTopic} AND studyLevel = ${args.level} AND contentVersion = ${GENIUS_DEEP_DIVE_CACHE_VERSION}
     ORDER BY createdAt DESC
     LIMIT 150
   `;
-  const threshold = args.threshold ?? Number(process.env.GENIUS_DEEP_DIVE_SIMILARITY || 0.9);
+  const threshold = args.threshold ?? Number(process.env.GENIUS_DEEP_DIVE_SIMILARITY || 0.88);
   let best: { record: DeepDiveCacheRecord; score: number } | null = null;
   for (const record of rows) {
     const candidate = Array.isArray(record.embedding) ? record.embedding.map(Number) : [];
@@ -419,7 +420,7 @@ export async function cacheDeepDive(args: {
     INSERT INTO genius_deep_dive_cache
       (id, subject, canonicalTopic, studyLevel, queryText, embedding, node, contentVersion, createdAt)
     VALUES (${crypto.randomUUID()}, ${args.subject}, ${args.canonicalTopic}, ${args.level}, ${args.queryText},
-      ${JSON.stringify(args.embedding)}, ${JSON.stringify(args.node)}, ${GENIUS_CACHE_VERSION}, ${new Date()})
+      ${JSON.stringify(args.embedding)}, ${JSON.stringify(args.node)}, ${GENIUS_DEEP_DIVE_CACHE_VERSION}, ${new Date()})
   `;
 }
 

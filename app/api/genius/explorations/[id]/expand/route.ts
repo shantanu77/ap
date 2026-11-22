@@ -43,7 +43,7 @@ export async function POST(request: Request, context: Context) {
       : cleanTopic(body.intent) || `Explain ${label}`;
     const baseLevel = toStudyLevel(body.level ?? exploration.defaultLevel);
     const level = toDeepDiveLevel(body.level ?? baseLevel, baseLevel);
-    const queryText = `${label}. ${question || intent}`.slice(0, 1000);
+    const queryText = (question || intent || label).slice(0, 1000);
     const embedding = await embedDeepDive(subject, exploration.canonicalTopic, queryText).catch((error) => {
       console.error("Genius deep-dive embedding failed; generating without cache:", error);
       return null;
