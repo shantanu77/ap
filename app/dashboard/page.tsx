@@ -162,7 +162,7 @@ export default function DashboardPage() {
       )}
 
       {metrics.daily.length > 0 && (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="min-w-0 overflow-hidden bg-white rounded-2xl p-3 shadow-sm border border-gray-100 sm:p-5">
           <h2 className="font-semibold text-gray-700 mb-4">Attendance & Incomplete Work</h2>
           <AttendanceChart data={metrics.daily} />
           <p className="text-xs text-gray-400 mt-2 text-center">
@@ -173,7 +173,7 @@ export default function DashboardPage() {
 
       {/* Writing chart */}
       {metrics.daily.some((d) => d.writingCompletionRate !== null || d.writingScore !== null || d.absent) && (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="min-w-0 overflow-hidden bg-white rounded-2xl p-3 shadow-sm border border-gray-100 sm:p-5">
           <h2 className="font-semibold text-gray-700 mb-4">✏️ Writing Progress</h2>
           <WritingChart data={metrics.daily} />
           <p className="text-xs text-gray-400 mt-2 text-center">
@@ -184,7 +184,7 @@ export default function DashboardPage() {
 
       {/* Language chart */}
       {metrics.daily.some((d) => d.languageConfidence !== null) && (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="min-w-0 overflow-hidden bg-white rounded-2xl p-3 shadow-sm border border-gray-100 sm:p-5">
           <h2 className="font-semibold text-gray-700 mb-4">🗣️ Language Confidence</h2>
           <LanguageChart data={metrics.daily} />
           <p className="text-xs text-gray-400 mt-2 text-center">
@@ -195,7 +195,7 @@ export default function DashboardPage() {
 
       {/* Discipline chart */}
       {metrics.daily.some((d) => d.discipline !== null) && (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="min-w-0 overflow-hidden bg-white rounded-2xl p-3 shadow-sm border border-gray-100 sm:p-5">
           <h2 className="font-semibold text-gray-700 mb-4">📋 Discipline & Homework</h2>
           <DisciplineChart data={metrics.daily} />
           <p className="text-xs text-gray-400 mt-2 text-center">

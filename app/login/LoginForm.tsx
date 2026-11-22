@@ -86,8 +86,8 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
   };
 
   return (
-    <main className="mx-auto flex min-h-[75vh] max-w-xl items-center justify-center py-8">
-      <section className="w-full rounded-[2rem] border border-violet-100 bg-white p-6 shadow-xl sm:p-9">
+    <main className="mx-auto flex min-h-[75vh] w-full max-w-xl items-center justify-center py-5 sm:py-8">
+      <section className="w-full min-w-0 rounded-3xl border border-violet-100 bg-white p-4 shadow-xl sm:rounded-[2rem] sm:p-9">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">AllShare Learning Companion</p>
         {stage === "details" ? (
           <>
@@ -98,7 +98,7 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
 
             {mode === "signin" ? (
               <>
-                <h1 className="mt-6 text-3xl font-black text-slate-950">Welcome back 👋</h1>
+                <h1 className="mt-6 text-2xl font-black text-slate-950 sm:text-3xl">Welcome back 👋</h1>
                 <p className="mt-2 text-sm leading-6 text-slate-600">Enter the email linked to your learner profile. We’ll send you a one-time sign-in code.</p>
                 <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); void requestCode(); }}>
                   <label className="block text-sm font-bold text-slate-700">Email address
@@ -112,7 +112,7 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
               </>
             ) : (
               <>
-                <h1 className="mt-6 text-3xl font-black text-slate-950">Let’s set up your learning profile 🌟</h1>
+                <h1 className="mt-6 text-2xl font-black text-slate-950 sm:text-3xl">Let’s set up your learning profile 🌟</h1>
                 <p className="mt-2 text-sm leading-6 text-slate-600">A parent or guardian can use an email they can open. We’ll send a code to verify it.</p>
                 <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); void requestCode(); }}>
                   <label className="block text-sm font-bold text-slate-700">Learner name
@@ -127,7 +127,7 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-700">Choose a friendly avatar</p>
-                    <div className="mt-2 grid grid-cols-8 gap-2">{KID_AVATARS.map((avatar) => <button key={avatar} type="button" onClick={() => setEmoji(avatar)} aria-label={`Choose ${avatar}`} aria-pressed={emoji === avatar} className={`grid aspect-square place-items-center rounded-xl text-2xl ${emoji === avatar ? "bg-violet-100 ring-2 ring-violet-500" : "bg-slate-50 hover:bg-violet-50"}`}>{avatar}</button>)}</div>
+                    <div className="mt-2 grid grid-cols-6 gap-2 sm:grid-cols-8">{KID_AVATARS.map((avatar) => <button key={avatar} type="button" onClick={() => setEmoji(avatar)} aria-label={`Choose ${avatar}`} aria-pressed={emoji === avatar} className={`grid aspect-square min-h-10 place-items-center rounded-xl text-2xl ${emoji === avatar ? "bg-violet-100 ring-2 ring-violet-500" : "bg-slate-50 hover:bg-violet-50"}`}>{avatar}</button>)}</div>
                   </div>
                   <label className="flex items-start gap-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-950">
                     <input type="checkbox" checked={guardianAttested} onChange={(event) => setGuardianAttested(event.target.checked)} className="mt-1 h-4 w-4 accent-violet-600" />
@@ -144,7 +144,7 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
         ) : (
           <>
             <div className="mt-5 text-5xl" aria-hidden="true">{mode === "register" ? emoji : "✉️"}</div>
-            <h1 className="mt-3 text-3xl font-black text-slate-950">Check your inbox{mode === "register" && name ? `, ${name}` : ""}!</h1>
+            <h1 className="mt-3 break-words text-2xl font-black text-slate-950 sm:text-3xl">Check your inbox{mode === "register" && name ? `, ${name}` : ""}!</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">Enter the six-digit code sent to <strong>{email}</strong>. It expires in 10 minutes.</p>
             {notice && <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900" role="status">{notice}</p>}
             <form onSubmit={verifyCode} className="mt-5 space-y-3">
@@ -154,7 +154,7 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
               {error && <p className="rounded-xl bg-rose-50 p-3 text-sm font-semibold text-rose-800" role="alert">{error}</p>}
               <button disabled={busy || code.length !== 6} className="w-full rounded-xl bg-violet-600 px-5 py-3 font-black text-white hover:bg-violet-700 disabled:bg-slate-300">{busy ? "Opening your study space…" : "Sign in and start learning 🚀"}</button>
             </form>
-            <div className="mt-4 flex items-center justify-between text-sm">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
               <button type="button" onClick={() => { setStage("details"); setCode(""); setError(""); setNotice(""); }} className="font-bold text-slate-600 hover:underline">← Change email or details</button>
               <button type="button" disabled={busy} onClick={() => void requestCode()} className="font-bold text-violet-700 hover:underline disabled:opacity-50">Send a new code</button>
             </div>

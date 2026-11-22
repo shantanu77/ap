@@ -280,10 +280,10 @@ export default function SessionPage() {
       {/* Header */}
       <div className="relative text-center space-y-1 rounded-3xl bg-gradient-to-r from-sky-100 via-purple-100 to-pink-100 px-4 py-5">
         <button type="button" aria-label="Board calendar settings" onClick={() => setSettingsOpen(!settingsOpen)} className="absolute right-3 top-3 rounded-full bg-white/80 p-2 text-xl shadow">⚙️</button>
-        <h1 className="text-3xl font-black text-slate-800">
+        <h1 className="px-7 text-2xl font-black leading-tight text-slate-800 sm:text-3xl">
           {isToday ? "Tonight's Study Quest 🌙" : isPastCatchUp ? "Catch-up Quest" : "Session Review"}
         </h1>
-        <p className="text-slate-600 text-base">{formatDisplayDate(dateStr)} · You&apos;ve got this, Aashvath! 🌟</p>
+        <p className="text-sm text-slate-600 sm:text-base">{formatDisplayDate(dateStr)} · You&apos;ve got this, Aashvath! 🌟</p>
       </div>
 
       {settingsOpen && <div className="rounded-3xl border-2 border-indigo-200 bg-white p-5 shadow-sm space-y-4">

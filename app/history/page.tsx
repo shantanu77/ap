@@ -58,7 +58,7 @@ export default function HistoryPage() {
       <h1 className="text-2xl font-bold text-slate-800">Session History</h1>
 
       {/* Calendar */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-5">
         {/* Month nav */}
         <div className="flex items-center justify-between mb-4">
           <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600">
@@ -96,7 +96,7 @@ export default function HistoryPage() {
             return (
               <Link key={dateStr} href={`/session/${dateStr}`}>
                 <div
-                  className={`relative flex flex-col items-center min-h-12 p-1.5 rounded-xl cursor-pointer transition-colors ${
+                  className={`relative flex min-h-11 flex-col items-center rounded-lg p-1 sm:min-h-12 sm:rounded-xl sm:p-1.5 cursor-pointer transition-colors ${
                     isToday ? "ring-2 ring-indigo-400" : ""
                   } ${untouched ? "bg-red-700 hover:bg-red-800 shadow-sm" : needsAttention ? "bg-red-100 border border-red-400 hover:bg-red-200" : session?.status === "COMPLETE" ? "bg-green-50 hover:bg-green-100" : "hover:bg-gray-50"} ${!isSameMonth(day, viewMonth) ? "opacity-30" : ""}`}
                 >
@@ -144,8 +144,8 @@ export default function HistoryPage() {
           const completedPhases = s.phases.filter((p) => p.completed).length;
           return (
             <Link key={s.id} href={`/session/${dateStr}`}>
-              <div className={`rounded-xl border p-4 flex items-center justify-between hover:shadow-sm transition-all cursor-pointer ${s.status === "NOT_ATTEMPTED" || s.status === "MISSED" ? "bg-red-50 border-red-400" : s.status === "PARTIAL" ? "bg-red-50 border-red-300" : "bg-white border-gray-100 hover:border-indigo-200"}`}>
-                <div>
+              <div className={`rounded-xl border p-3 sm:p-4 flex items-center justify-between gap-2 hover:shadow-sm transition-all cursor-pointer ${s.status === "NOT_ATTEMPTED" || s.status === "MISSED" ? "bg-red-50 border-red-400" : s.status === "PARTIAL" ? "bg-red-50 border-red-300" : "bg-white border-gray-100 hover:border-indigo-200"}`}>
+                <div className="min-w-0">
                   <p className="font-semibold text-gray-800 text-sm">
                     {format(parseISO(dateStr), "EEEE, MMM d, yyyy")}
                   </p>
@@ -154,7 +154,7 @@ export default function HistoryPage() {
                   </p>
                 </div>
                 <span
-                  className={`text-xs px-3 py-1 rounded-full font-semibold ${STATUS_COLOR[s.status]}`}
+                  className={`max-w-[42%] shrink-0 break-words text-center text-[10px] px-2 py-1 rounded-full font-semibold sm:max-w-none sm:px-3 sm:text-xs ${STATUS_COLOR[s.status]}`}
                 >
                   {s.status === "NOT_ATTEMPTED" ? "NOT ATTEMPTED" : s.status === "PARTIAL" ? "INCOMPLETE" : s.status}
                 </span>
