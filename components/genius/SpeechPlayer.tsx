@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type NarrationStatus = "idle" | "speaking" | "paused";
 
@@ -14,7 +14,7 @@ function preferredEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisV
     let value = language === "en-in" ? 1000 : 300;
     if (/neural|natural|premium|online/.test(name)) value += 100;
     if (/google|microsoft/.test(name)) value += 20;
-    if (!voice.localService) value += 10;
+    if (voice.localService) value += 10;
     if (voice.default) value += 1;
     return value;
   };
@@ -26,6 +26,7 @@ export default function SpeechPlayer({ text, label = "Listen to explanation" }: 
   const [status, setStatus] = useState<NarrationStatus>("idle");
   const [supported, setSupported] = useState(true);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const playbackId = useRef(0);
 
   useEffect(() => {
     const available = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
@@ -38,6 +39,7 @@ export default function SpeechPlayer({ text, label = "Listen to explanation" }: 
     synthesis.addEventListener("voiceschanged", updateVoices);
     return () => {
       synthesis.removeEventListener("voiceschanged", updateVoices);
+      playbackId.current += 1;
       synthesis.cancel();
     };
   }, [text]);
@@ -48,19 +50,47 @@ export default function SpeechPlayer({ text, label = "Listen to explanation" }: 
       return;
     }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const synthesis = window.speechSynthesis;
+    if (synthesis.paused) synthesis.resume();
     const availableVoices = window.speechSynthesis.getVoices();
     const selectedVoice = preferredEnglishVoice(availableVoices.length ? availableVoices : voices);
-    if (selectedVoice) utterance.voice = selectedVoice;
-    else {
-      // With no English voice installed, explicitly retain the browser's default.
-      utterance.voice = availableVoices.find((voice) => voice.default) ?? null;
-    }
-    utterance.rate = 0.92;
-    utterance.pitch = 1;
-    utterance.onend = () => setStatus("idle");
-    utterance.onerror = () => setStatus("idle");
-    window.speechSynthesis.speak(utterance);
+    const defaultVoice = availableVoices.find((voice) => voice.default) ?? voices.find((voice) => voice.default) ?? null;
+    const attemptId = ++playbackId.current;
+
+    const speakWithVoice = (voice: SpeechSynthesisVoice | null, canFallback: boolean) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
+      }
+      utterance.rate = 0.92;
+      utterance.pitch = 1;
+      let hasStarted = false;
+      let isCurrentUtterance = true;
+      const fallback = () => {
+        if (attemptId !== playbackId.current || !canFallback || voice === defaultVoice) return false;
+        isCurrentUtterance = false;
+        synthesis.cancel();
+        if (synthesis.paused) synthesis.resume();
+        speakWithVoice(defaultVoice, false);
+        return true;
+      };
+      utterance.onstart = () => { if (isCurrentUtterance) hasStarted = true; };
+      utterance.onend = () => { if (isCurrentUtterance && attemptId === playbackId.current) setStatus("idle"); };
+      utterance.onerror = (event) => {
+        if (!isCurrentUtterance || attemptId !== playbackId.current) return;
+        if (event.error !== "canceled" && event.error !== "interrupted" && fallback()) return;
+        setStatus("idle");
+      };
+      synthesis.speak(utterance);
+      if (canFallback && voice !== defaultVoice) {
+        window.setTimeout(() => {
+          if (attemptId === playbackId.current && !hasStarted) fallback();
+        }, 4000);
+      }
+    };
+
+    speakWithVoice(selectedVoice ?? defaultVoice, selectedVoice !== defaultVoice);
     setStatus("speaking");
   };
 
@@ -75,6 +105,7 @@ export default function SpeechPlayer({ text, label = "Listen to explanation" }: 
   };
 
   const stop = () => {
+    playbackId.current += 1;
     window.speechSynthesis.cancel();
     setStatus("idle");
   };

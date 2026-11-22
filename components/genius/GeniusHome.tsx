@@ -60,6 +60,50 @@ const MATH_COLLECTIONS: Record<6 | 7 | 8, typeof SUBJECTS.math.collections> = {
   ],
 };
 
+const BUILDING_MESSAGES: Record<GeniusSubject, string[]> = {
+  chemistry: ["Waking up the lab gnomes…", "Asking the atoms to line up…", "Mixing ideas (not chemicals!)…", "Drawing a tiny plan for a big discovery…"],
+  physics: ["Fueling the idea rocket…", "Asking gravity to hold the page down…", "Chasing the answer at a safe speed…", "Sketching the science behind it…"],
+  biology: ["Calling the curious little cells…", "Getting the nature detectives on the case…", "Following the clues through the living world…", "Packing a magnifying glass…"],
+  math: ["Warming up the number wizards…", "Giving the fractions a quick high-five…", "Checking that the sums are behaving…", "Drawing a map through the problem…"],
+};
+
+const SUBJECT_MASCOTS: Record<GeniusSubject, string> = {
+  chemistry: "🧪",
+  physics: "🚀",
+  biology: "🐛",
+  math: "🧮",
+};
+
+function TopicBuildingLoader({ subject }: { subject: GeniusSubject }) {
+  const [messageIndex, setMessageIndex] = useState(0);
+  const messages = BUILDING_MESSAGES[subject];
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setMessageIndex((index) => (index + 1) % messages.length), 2400);
+    return () => window.clearInterval(timer);
+  }, [messages.length]);
+
+  return (
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/70 backdrop-blur-sm p-4" role="status" aria-live="polite" aria-busy="true">
+      <div className="w-full max-w-md overflow-hidden rounded-[2rem] border-4 border-white bg-gradient-to-br from-cyan-50 via-white to-violet-100 p-7 text-center shadow-2xl sm:p-9">
+        <div className="relative mx-auto grid h-32 w-32 place-items-center rounded-full bg-white shadow-inner ring-8 ring-violet-100">
+          <span className="absolute inset-2 rounded-full border-2 border-dashed border-cyan-300 motion-safe:animate-[spin_12s_linear_infinite]" />
+          <span className="relative text-6xl motion-safe:animate-bounce" aria-hidden="true">{SUBJECT_MASCOTS[subject]}</span>
+          <span className="absolute -right-2 top-1 text-3xl motion-safe:animate-pulse" aria-hidden="true">✨</span>
+          <span className="absolute -bottom-1 -left-2 text-3xl motion-safe:animate-pulse" aria-hidden="true">💡</span>
+        </div>
+        <p className="mt-7 text-xs font-black uppercase tracking-[0.2em] text-violet-600">Genius Corner workshop</p>
+        <h2 className="mt-2 text-2xl font-black text-slate-950">Your lesson is getting its thinking cap on!</h2>
+        <p className="mt-4 min-h-7 text-lg font-bold text-indigo-800" key={messageIndex}>{messages[messageIndex]}</p>
+        <div className="mt-5 flex justify-center gap-2" aria-hidden="true">
+          {[0, 1, 2].map((dot) => <span key={dot} className="h-2.5 w-2.5 rounded-full bg-violet-500 motion-safe:animate-bounce" style={{ animationDelay: `${dot * 160}ms` }} />)}
+        </div>
+        <p className="mt-5 text-xs text-slate-500">Good discoveries take a little thinking time. 🧠</p>
+      </div>
+    </div>
+  );
+}
+
 export default function GeniusHome() {
   const router = useRouter();
   const [topic, setTopic] = useState("");
@@ -103,6 +147,7 @@ export default function GeniusHome() {
 
   return (
     <div className="space-y-10 pb-10">
+      {loading && <TopicBuildingLoader subject={subject} />}
       <section className="relative rounded-[2rem] bg-slate-950 text-white p-6 sm:p-10 overflow-hidden shadow-2xl">
         <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-violet-500/30 blur-3xl" />
         <div className="absolute left-1/3 -bottom-20 w-56 h-56 rounded-full bg-cyan-400/20 blur-3xl" />
