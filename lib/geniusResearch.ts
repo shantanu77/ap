@@ -122,9 +122,7 @@ export async function researchGeniusTopic(args: {
         relevance: "NCERT places formal chemical-bonding and molecular-structure study in the higher-secondary syllabus.",
       },
     ];
-    for (const official of officialSources) {
-      if (!sources.some((source) => source.url === official.url)) sources.unshift(official);
-    }
+    sources.splice(0, sources.length, ...officialSources);
     return {
       summary: "NCERT Grade 6–8 learning can establish ideas about matter, atoms, elements, compounds, and chemical change. Formal types of chemical bonds are not a dedicated Grade 8 NCERT chapter; ionic and covalent bonding should be taught here as a clearly labelled conceptual preview, with deeper models left for later study.",
       grade6to7: [

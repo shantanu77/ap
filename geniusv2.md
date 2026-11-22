@@ -76,7 +76,7 @@ Embedding or cache outages must not prevent an otherwise safe lesson from being 
 
 ## Persistence and compatibility
 
-- `genius_lesson_cache` stores one researched Grade 6–8 introduction per subject and canonical chapter. Cache version 2 invalidates early short lesson drafts without changing user saved pages.
+- `genius_lesson_cache` stores one researched Grade 6–8 introduction per subject and canonical chapter. Cache version 3 invalidates early short lesson drafts without changing user saved pages.
 - `genius_deep_dive_cache` stores independent structured nodes and embeddings, scoped by subject, canonical chapter, target level, and cache version.
 - Each user exploration remains in `genius_explorations`; the shared cache is a source for new records, not the user's mutable trail.
 - `curriculumResearch` is optional on `GeniusContent` so old records continue to deserialize. Older saved snapshots need no migration.

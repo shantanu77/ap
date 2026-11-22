@@ -17,7 +17,7 @@ import type {
 } from "@/types/genius";
 import type { GeniusCurriculumResearch } from "@/lib/geniusResearch";
 
-const GENIUS_CACHE_VERSION = 2;
+const GENIUS_CACHE_VERSION = 3;
 
 function openAIClient(): OpenAI | null {
   if (!process.env.OPENAI_API_KEY) return null;
@@ -120,9 +120,10 @@ function generatedNodeWordCount(value: unknown): number {
   const object = value as Record<string, unknown>;
   const blocks = Array.isArray(object.blocks) ? object.blocks : [];
   const visible: string[] = [];
+  const hiddenKeys = new Set(["type", "emoji", "simulation", "diagram", "id", "level", "labels", "details"]);
   const collect = (part: unknown, key = "") => {
     if (typeof part === "string") {
-      if (!new Set(["type", "emoji", "simulation", "diagram", "id", "level"]).has(key)) visible.push(part);
+      if (!hiddenKeys.has(key)) visible.push(part);
       return;
     }
     if (Array.isArray(part)) {
@@ -146,12 +147,18 @@ export async function generateIntroduction(topic: string, level: StudyLevel, sub
     const prompt = `STUDY_BAND=Grades 6-8 (learner selected Grade ${level} as a starting point)\nSUBJECT=${subject}\nCHAPTER=${topic}\nSTUDENT_FOCUS=${focus}\nRESEARCHED_LESSON_PLAN=${JSON.stringify(research ?? {})}\nCreate the opening to a comprehensive chapter lesson of at least 500 useful visible words. Use 8-10 concise, distinct cards so the lesson is detailed but scannable. Answer the exact student focus explicitly near the beginning, then cover related chapter foundations so common questions can be answered from this lesson. Follow the researched lesson plan. Establish Grade 6 foundations, build to Grade 7 reasoning, and include a clearly labelled Grade 8 extension. Cover key subtopics, vocabulary, examples, misconceptions, and a useful visual. If the requested concept exceeds NCERT Grade 8 scope, state that boundary gently and make further depth choice-based. Do not count labels or source metadata toward the minimum.`;
     let raw = await requestGeneratedNode(prompt, subject, 4200);
     const initialWords = generatedNodeWordCount(raw);
-    if (research && initialWords < 450) {
-      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft contained only ${initialWords} visible words and was too short. Expand the explanations, examples, and comparisons to at least 500 visible words. Do not add filler or repeat an idea.`, subject, 4600);
+    if (research && initialWords < 500) {
+      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft contained only ${initialWords} visible lesson words. Expand the explanations, examples, and comparisons to at least 500 visible words. Do not count diagram labels/details, and do not add filler or repeat an idea.`, subject, 4600);
     }
-    const finalWords = generatedNodeWordCount(raw);
-    if (research && finalWords < 400) throw new Error(`The researched chapter draft was too short (${finalWords} words); refusing to cache it.`);
-    return normalizeGeneratedNode(raw, fallback, null, "INTRO", level, `${topic} ${subject}`);
+    let node = normalizeGeneratedNode(raw, fallback, null, "INTRO", level, `${topic} ${subject}`);
+    let finalWords = generatedNodeWordCount(node);
+    if (research && finalWords < 500) {
+      raw = await requestGeneratedNode(`${prompt}\n\nFINAL QUALITY RETRY: The actual lesson after validation contains only ${finalWords} visible words. Its diagram labels/details do not count. Expand the body text with accurate explanations, a worked example, and a comparison. Return at least 500 useful visible words. Follow the provided lesson plan and curriculum boundaries.`, subject, 4600);
+      node = normalizeGeneratedNode(raw, fallback, null, "INTRO", level, `${topic} ${subject}`);
+      finalWords = generatedNodeWordCount(node);
+    }
+    if (research && finalWords < 400) throw new Error(`The researched chapter draft was too short (${finalWords} visible words); refusing to cache it.`);
+    return node;
   } catch (error) {
     if (research) throw error;
     console.error("Genius Corner introduction generation failed; using reviewed fallback:", error);
@@ -193,12 +200,10 @@ ALREADY VISITED=${JSON.stringify(args.ancestorTitles)}
 Create only the next learning node. Interpret the query carefully and answer the exact requested idea first. Build on earlier ideas without repeating them. Match the explicit target level, which may extend beyond Grade 8 when the learner chooses a deep dive, while supplying any essential Grade 6-7 foundation. Use the researched curriculum where relevant and say when the explanation goes beyond NCERT Grade 8. Make this a substantial focused mini-lesson of at least 220 words across 5-8 blocks. Include 2-3 explanatory paragraphs of roughly 50-85 words, a concrete example or analogy, a misconception correction, a useful visual and concise takeaways. Explain the mechanism and why it matters for this exact question. Avoid repeated facts, generic filler, or inappropriate oversimplification.`;
     let raw = await requestGeneratedNode(prompt, args.subject, 3000);
     const initialWords = generatedNodeWordCount(raw);
-    if (args.curriculumResearch && initialWords < 210) {
-      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft had only ${initialWords} visible words. Expand the specific explanation and example to at least 220 useful words; do not pad with repetition.`, args.subject, 3400);
+    if (args.curriculumResearch && initialWords < 220) {
+      raw = await requestGeneratedNode(`${prompt}\n\nQUALITY RETRY: The previous draft had only ${initialWords} visible words. Expand the specific explanation and example to at least 220 useful words. Do not count diagram labels/details or pad with repetition.`, args.subject, 3400);
     }
-    const finalWords = generatedNodeWordCount(raw);
-    if (args.curriculumResearch && finalWords < 180) throw new Error(`The researched deep dive was too short (${finalWords} words).`);
-    return normalizeGeneratedNode(
+    let node = normalizeGeneratedNode(
       raw,
       fallback,
       args.parentNode.id,
@@ -206,6 +211,15 @@ Create only the next learning node. Interpret the query carefully and answer the
       args.level,
       `${args.topic} ${args.parentNode.title} ${args.label} ${args.intent} ${args.subject}`
     );
+    let finalWords = generatedNodeWordCount(node);
+    if (args.curriculumResearch && finalWords < 220) {
+      raw = await requestGeneratedNode(`${prompt}\n\nFINAL QUALITY RETRY: The validated lesson contains only ${finalWords} visible words. Diagram labels/details do not count. Expand the actual explanation, example, and misconception correction to at least 220 useful words.`, args.subject, 3400);
+      node = normalizeGeneratedNode(raw, fallback, args.parentNode.id, args.nodeType ?? "READ_MORE", args.level,
+        `${args.topic} ${args.parentNode.title} ${args.label} ${args.intent} ${args.subject}`);
+      finalWords = generatedNodeWordCount(node);
+    }
+    if (args.curriculumResearch && finalWords < 180) throw new Error(`The researched deep dive was too short (${finalWords} visible words).`);
+    return node;
   } catch (error) {
     if (args.curriculumResearch) throw error;
     console.error("Genius Corner expansion generation failed; using reviewed fallback:", error);
