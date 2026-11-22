@@ -1,9 +1,23 @@
 import Image from "next/image";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { todayString } from "@/lib/utils";
 
 const loginForExplorer = "/login?next=%2Fgenius-corner";
 
-export default function Home() {
+export default async function Home() {
+  const incomingHeaders = await headers();
+  const host = (incomingHeaders.get("x-forwarded-host") ?? incomingHeaders.get("host") ?? "")
+    .split(",")[0]
+    .trim()
+    .split(":")[0]
+    .toLowerCase();
+
+  if (host !== "brightkids.space" && host !== "www.brightkids.space") {
+    redirect(`/session/${todayString()}`);
+  }
+
   return (
     <div className="bright-landing">
       <header className="bright-header">
