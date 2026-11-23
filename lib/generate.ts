@@ -471,13 +471,23 @@ export async function getOrCreatePlan(dateStr: string, learner: Pick<KidProfile,
 
   const content = await generateContentForDate(dateStr, learner);
 
-  return prisma.dailyPlan.create({
-    data: {
-      date,
-      kidId: learner.id,
-      content: content as object,
-    },
-  });
+  try {
+    return await prisma.dailyPlan.create({
+      data: {
+        date,
+        kidId: learner.id,
+        content: content as object,
+      },
+    });
+  } catch (error) {
+    // A cron generation or another tab may create this date after the initial
+    // lookup. Reuse that plan instead of failing the learner's session load.
+    const createdByConcurrentRequest = await prisma.dailyPlan.findUnique({
+      where: { kidId_date: { kidId: learner.id, date } },
+    });
+    if (createdByConcurrentRequest) return createdByConcurrentRequest;
+    throw error;
+  }
 }
 
 export async function regeneratePlanForDate(dateStr: string, learner: Pick<KidProfile, "id" | "name" | "grade">) {
